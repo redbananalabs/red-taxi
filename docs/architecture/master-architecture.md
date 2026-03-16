@@ -402,3 +402,61 @@ dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi
 
 ### Transition to Production
 When ready for production: Hetzner Docker deployment using the `docker-compose.yml` already in the repo. IIS staging continues as a dev/test environment.
+
+---
+
+## 14. CSS Framework Decision
+
+**Tailwind CSS** for all non-Syncfusion UI elements.
+
+- Tailwind config extends from `design-tokens.json` (colours, spacing, radius, typography)
+- Syncfusion components use Material Dark/Light theme with brand red overrides
+- Custom components (cards, pills, layout shells, nav) use Tailwind utility classes
+- No Bootstrap anywhere in the stack
+- Tailwind and Syncfusion coexist — Syncfusion handles grids/charts/scheduler, Tailwind handles everything else
+
+### Tailwind Config Extension
+```js
+// tailwind.config.js (generated from design-tokens.json)
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        'bg-base': 'var(--color-bg-base)',
+        'bg-surface': 'var(--color-bg-surface)',
+        'bg-card': 'var(--color-bg-card)',
+        'brand': { 300: '#FF6B6B', 500: '#FF2D2D', 600: '#E62626', 900: '#331010' },
+        // ... all tokens
+      }
+    }
+  }
+}
+```
+
+---
+
+## 15. Portal Technology Decisions
+
+| Project | Tech | Reason |
+|---------|------|--------|
+| RedTaxi.Blazor (dispatch console) | Blazor Server | Real-time SignalR built-in, no WASM download, stable office connections |
+| RedTaxi.WebPortal (customer portal) | Blazor WASM | Public-facing, works offline, shared C# code with dispatch |
+| RedTaxi.TenantAdmin (tenant admin portal) | Blazor WASM | Tenant self-service, code sharing, independent deployment |
+| RedTaxi.DriverApp | Flutter | iOS + Android, background GPS, push notifications |
+
+Blazor WASM projects share a `RedTaxi.Shared` class library with the Server project for DTOs, validation, and API client code. This eliminates duplication between dispatch console and portals.
+
+### Updated Solution Structure
+```
+src/
+├── RedTaxi.sln
+├── RedTaxi.API/                    (.NET 8 Web API)
+├── RedTaxi.Application/            (MediatR handlers)
+├── RedTaxi.Domain/                 (Entities, enums, events)
+├── RedTaxi.Infrastructure/         (EF Core, Redis, external APIs)
+├── RedTaxi.Shared/                 (DTOs, validation, API client — shared by all Blazor projects)
+├── RedTaxi.Blazor/                 (Dispatch console — Blazor Server + Syncfusion)
+├── RedTaxi.WebPortal/              (Customer portal — Blazor WASM)
+├── RedTaxi.TenantAdmin/            (Tenant admin — Blazor WASM)
+└── RedTaxi.DriverApp/              (Flutter — separate, not in .NET solution)
+```
