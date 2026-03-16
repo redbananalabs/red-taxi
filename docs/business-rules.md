@@ -801,15 +801,38 @@ Each event is independently configurable. This maps directly to the `MessagingNo
 
 ---
 
-## 29. Repeat Booking Recurrence
+## 29. Repeat Booking Recurrence (from screenshots)
 
-When the "Repeat Booking" toggle is enabled on the booking form, the operator selects:
+When the "Repeat Booking" toggle is enabled, a modal appears with:
 
-- **Frequency:** Daily, Weekly, or Fortnightly
-- **Days:** Select specific days within the frequency (e.g. Mon, Wed, Fri)
-- **Until Date:** End date for the recurrence
+### Frequency (dropdown)
+- **Daily** — no day selector shown
+- **Weekly** — day selector shown (M T W T F S S toggle buttons)
+- **Fortnightly** — day selector shown (same as weekly)
 
-The system generates individual booking records for each occurrence. Each is an independent booking that can be individually amended or cancelled. Bulk operations (Cancel Range) can target repeat-generated bookings by date range.
+### Days (toggle buttons, shown for Weekly and Fortnightly only)
+Seven circular toggle buttons: M T W T F S S. All selected (red) by default. Operator deselects days that don't apply. For example, school runs would select M T W T F only.
+
+### Repeat End (dropdown)
+- **Never** — bookings repeat indefinitely (operator must cancel range to stop)
+- **Until** — enables the Repeat End Date field
+
+### Repeat End Date
+- Date picker (dd/mm/yyyy format)
+- Only active when Repeat End = "Until"
+
+### Buttons
+- **Confirm** (red) — generates all booking instances
+- **Cancel** (dark grey) — closes modal without creating
+
+### Generation Logic
+On confirm, the system generates individual booking records for each matching date:
+- Daily: every day from booking date until end date (or indefinitely)
+- Weekly: every selected day each week
+- Fortnightly: every selected day every two weeks
+- Each generated booking is independent — can be individually amended, cancelled, or allocated
+- All share a `RecurrenceGroupId` linking them to the original repeat booking
+- Cancel Range can target all bookings in a recurrence group
 
 ---
 
