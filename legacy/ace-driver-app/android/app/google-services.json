@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "498604695616",
+    "project_id": "joyride-cba49",
+    "storage_bucket": "joyride-cba49.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:498604695616:android:fab54ae4348c8fc621bfa5",
+        "android_client_info": {
+          "package_name": "com.app.ace_taxi_v3"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "498604695616-m1pbfpo6otls2825jels80b1siurb8j1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCi0SYdZEyZ9Q3BnYCyHh27wB4kNke2ekY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "498604695616-m1pbfpo6otls2825jels80b1siurb8j1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:498604695616:android:91fea8bea8c5a50421bfa5",
+        "android_client_info": {
+          "package_name": "com.app.joyride"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "498604695616-m1pbfpo6otls2825jels80b1siurb8j1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCi0SYdZEyZ9Q3BnYCyHh27wB4kNke2ekY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "498604695616-m1pbfpo6otls2825jels80b1siurb8j1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

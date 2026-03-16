@@ -1,0 +1,66 @@
+name: ace_taxis
+description: A new Flutter project for Taxi Booking Driver app.
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  curved_navigation_bar: ^1.0.6
+  image_picker: ^1.2.0
+  intl: ^0.20.2
+  dotted_line: ^3.2.3
+  dotted_border: ^3.1.0
+  permission_handler: ^11.3.1
+  geolocator: ^13.0.2
+  flutter_foreground_task: ^6.1.2
+  disable_battery_optimization: ^1.1.1
+  provider: ^6.1.5+1
+  shared_preferences: ^2.1.1
+  url_launcher: ^6.1.10
+  app_settings: ^6.1.1
+  android_intent_plus: ^5.0.2
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  flutter_local_notifications: ^19.4.2
+  cloud_firestore: ^6.0.3
+  http: ^1.5.0
+  wakelock_plus: ^1.1.5
+  lottie: ^3.1.0
+  webview_flutter: ^4.7.0
+  webview_flutter_android: ^3.16.0
+  webview_flutter_wkwebview: ^3.9.0
+  dio: ^5.9.0
+  geocoding: ^4.0.0
+  flutter_tts: ^4.2.3
+  open_filex: ^4.7.0
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.jpg
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/logo.jpg
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#CD1A21"
+  image: assets/logo.jpg
+  android: true
+  ios: true
