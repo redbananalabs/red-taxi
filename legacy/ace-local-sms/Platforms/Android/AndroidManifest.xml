@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest android:extractNativeLibs="true" xmlns:android="http://schemas.android.com/apk/res/android" package="uk.co.acetaxisdorset.smssender" android:versionCode="1" android:versionName="1">
+	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:supportsRtl="true" android:label="sms sender"></application>
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.RECEIVE_SMS" />
+	<uses-permission android:name="android.permission.SEND_RESPOND_VIA_MESSAGE" />
+	<uses-permission android:name="android.permission.SEND_SMS" />
+	<uses-permission android:name="android.permission.TURN_SCREEN_ON" />
+	<uses-permission android:name="android.permission.BATTERY_STATS" />
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+	<uses-permission android:name="android.permission.WRITE_SMS" />
+	<uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.VIEW" />
+			<data android:scheme="smsto" />
+		</intent>
+	</queries>
+</manifest>
