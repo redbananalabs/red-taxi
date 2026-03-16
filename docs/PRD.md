@@ -355,7 +355,7 @@ For v1: WhatsApp remains one-way notifications only. Chatbot booking is Phase 2/
 - Customer directory with phone lookup
 - Blazor dispatch console: booking form, diary view, availability grid, driver status
 - Auth: JWT + Identity with role-based access
-- Database: EF Core migrations from legacy schema + TenantId column
+- Database: EF Core migrations, tenant database created on provisioning
 
 ### Phase 2 — Accounts, Messaging & Web Portal (Weeks 5-6)
 - Account management, invoicing, statements, credit notes
@@ -769,3 +769,212 @@ Based on all screenshots, the import wizard must migrate:
 | Company Settings | 1 config set | P0 |
 | Driver Availability templates | Recurring patterns | P1 |
 | Users (operator logins) | ~5-10 | P0 |
+
+---
+
+## 35. Technology Stack (Locked)
+
+| Layer | Choice | Rationale |
+|-------|--------|-----------|
+| Backend API | .NET 8, ASP.NET Core, MediatR | One handler per use case, clean vertical slices |
+| ORM | EF Core 8 | IDbContextFactory, per-tenant DB connection |
+| Database | SQL Server 2022 | Per-tenant database (see §36) |
+| Cache | Redis 7 | GPS location cache, SignalR backplane |
+| Background Jobs | Hangfire | SQL Server-backed, no extra infra |
+| Real-time | SignalR | Built into Blazor Server, Redis backplane |
+| Dispatch Console | Blazor Server + Syncfusion | SfSchedule, SfDataGrid, SfChart — real-time via SignalR |
+| Customer Portal | Blazor WASM | Public-facing, offline-capable, shares DTOs with Server |
+| Tenant Admin Portal | Blazor WASM | Self-service tenant management |
+| Driver App | Flutter | iOS + Android, background GPS, FCM push |
+| CSS | Tailwind CSS + Syncfusion Material Dark | Tailwind for custom UI, Syncfusion for components |
+| Icons | Lucide Icons | 24px grid, 1.5px stroke, open-source |
+| PDF Generation | QuestPDF | Invoices, statements, credit notes, receipts |
+| Billing | Stripe | Subscriptions, checkout, billing portal, webhooks |
+| Hosting (Production) | Hetzner CX32, Docker Compose | €7/mo, nginx + .NET + SQL Server + Redis |
+| Hosting (Staging) | IIS on Windows | Alongside existing Ace system during dev |
+| CI/CD | GitHub Actions | Build → test → Docker → ghcr.io → deploy |
+
+---
+
+## 36. Multi-Tenancy: Per-Tenant Database
+
+Each tenant gets their own SQL Server database. This provides:
+
+- **Complete data isolation** — no risk of cross-tenant data leaks
+- **Independent backup/restore** — can restore a single tenant without affecting others
+- **Per-tenant scaling** — heavy tenants can be moved to their own server
+- **Simpler queries** — no TenantId filters needed, no global query filters
+- **Regulatory compliance** — tenant data physically separated
+
+### How It Works
+
+1. **Master database** (`RedTaxi_Platform`): stores Tenant records, Stripe info, subscription status, platform admin data. Tiny — just the tenant registry.
+2. **Tenant databases** (`RedTaxi_{TenantSlug}`): each tenant gets their own database with the full schema — bookings, drivers, accounts, tariffs, everything.
+3. **Connection resolution**: on every request, middleware reads the tenant from the JWT/subdomain/custom domain, looks up the connection string in the master DB, and sets the DbContext to use that tenant's database.
+4. **Provisioning**: on signup, a Hangfire job creates the new database and runs EF migrations.
+5. **Deletion**: on data deletion (expiry flow), the database is dropped entirely.
+
+### Connection Resolution Flow
+
+```
+Request arrives
+  → Resolve tenant (subdomain / custom domain / JWT claim)
+  → Lookup tenant in master DB → get TenantId
+  → Lookup connection string: "Server=localhost;Database=RedTaxi_{slug};..."
+  → Set DbContext connection string for this request
+  → Continue to controller/handler
+```
+
+### EF Core Implementation
+
+```csharp
+// ITenantConnectionResolver resolves the connection string per-request
+public class TenantDbContextFactory : IDbContextFactory<RedTaxiDbContext>
+{
+    private readonly ITenantConnectionResolver _resolver;
+
+    public RedTaxiDbContext CreateDbContext()
+    {
+        var connectionString = _resolver.GetConnectionString();
+        var options = new DbContextOptionsBuilder<RedTaxiDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        return new RedTaxiDbContext(options);
+    }
+}
+```
+
+### Migration Strategy
+
+- All tenant databases share the same schema version
+- New migrations applied to ALL tenant databases via a Hangfire job
+- Migration status tracked per-tenant in the master DB
+- Failed migrations alert the platform admin, do not block other tenants
+
+---
+
+## 37. SaaS Signup & Onboarding
+
+### Self-Service Signup
+1. Landing page → "Start Free Trial" → registration form (company name, subdomain, owner name, email, password, phone)
+2. No card required. 14-day free trial with full access.
+3. Email verification (48h to verify, soft reminder banner until verified)
+4. Auto-provisioning: Stripe Customer created, tenant database created, default data seeded (tariffs, message templates, company settings)
+5. Redirect to dispatch console with onboarding wizard
+
+### Onboarding Wizard (6 Steps)
+1. Company profile (logo, name, address, phone)
+2. Tariff setup (review/edit 3 default tariffs)
+3. Add drivers (at least 1)
+4. Messaging setup (configure SMS/WhatsApp/None per event)
+5. Import data (optional — CSV or legacy system connection)
+6. Create first booking (guided walkthrough)
+
+Skippable, progress tracked, shows completion % on dashboard.
+
+---
+
+## 38. Subscription Billing (Stripe)
+
+- **Provider:** Stripe
+- **Trial:** 14 days, no card required
+- **Checkout:** Stripe Checkout Session when trial expires or user clicks "Subscribe"
+- **Management:** Stripe Billing Portal (update card, view invoices, change plan, cancel)
+- **Webhooks:** checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.updated, customer.subscription.deleted
+
+---
+
+## 39. Trial Expiry & Account Lifecycle
+
+```
+Day 0:  Signup → 14-day trial (full access)
+Day 10: Email: "4 days left"
+Day 12: In-app banner: "2 days left"
+Day 14: Trial expires → 3-day grace period
+Day 17: SOFT LOCK (read-only, exit survey, "data safe for 7 days" message)
+Day 24: HARD LOCK (no access, "reactivate within 30 days")
+Day 54: DATA DELETION (tenant DB dropped, Stripe Customer archived)
+```
+
+Payment at any point before deletion instantly restores full access.
+
+---
+
+## 40. Tenant Access Model
+
+- **Default:** Subdomain routing — `{slug}.{platform-domain}`
+- **Upgrade:** Custom domain — `dispatch.yourtaxicompany.co.uk` (Professional + Enterprise)
+- **Resolution order:** Custom domain → Subdomain → JWT claim
+- **Customer portal:** `book.{slug}.{platform-domain}` or custom domain
+- **SSL:** Auto-provisioned via Let's Encrypt for both subdomains and custom domains
+
+---
+
+## 41. Design Language
+
+Dark-first, card-based, status-colour-driven dispatch UI. Full spec in `docs/design/design-language.md`.
+
+- **Design reference:** CoinTax by Phenomenon Studio (Dribbble)
+- **Default theme:** Dark mode (operators work extended shifts in low-light)
+- **Brand colour:** `#FF2D2D` (Red Taxi red)
+- **Logo:** "red" bold red + "taxi" regular white — text wordmark, no icon
+- **Typography:** Inter (variable weight, tabular numerals for fares)
+- **Tokens:** `design-tokens.json` at repo root — generates CSS variables, Tailwind config, Syncfusion overrides
+- **Components:** Cards (no shadows, 0.5px borders), status pills (coloured dot + tinted bg), 8px radius buttons
+- **Map:** Google Maps dark style, vehicle status colour pins, brand red route overlay
+
+---
+
+## 42. Dispatch Console Layout
+
+- Sidebar: 240px collapsible to 64px, `bg-surface`
+- Top bar: 56px, contains messaging buttons, SMS heartbeat, CONF SA, notifications, avatar
+- Left panel (40%): Booking form + availability chart
+- Right panel (60%): Tabbed — MAP | SCHEDULER | LOGS | COA ENTRIES
+- Designed for 1920x1080 minimum (full-screen desktop monitors)
+- Responsive: sidebar collapses at 1400px, panels stack at 1200px
+
+---
+
+## 43. Scheduler Colour System
+
+| State | Visual |
+|-------|--------|
+| Unallocated | Tenant-configurable colour (default amber `#D97706`) |
+| Allocated | Driver's profile colour |
+| Soft Allocated | Driver's colour at 50% opacity |
+| Accepted | Driver's colour + crosshatch overlay |
+| COA | Strikethrough diagonal lines + red border + `[COA]` prefix |
+| ASAP | Booking colour + pulsing red border |
+| Completed | Info blue at 30% opacity |
+| Rejected | Driver's colour + `[R]` prefix, greyed |
+| Timeout | Driver's colour + `[RT]` prefix, greyed |
+
+---
+
+## 44. Solution Structure
+
+```
+src/
+├── RedTaxi.sln
+├── RedTaxi.API/                    (.NET 8 Web API)
+├── RedTaxi.Application/            (MediatR handlers by feature)
+├── RedTaxi.Domain/                 (Entities, enums, domain events, interfaces)
+├── RedTaxi.Infrastructure/         (EF Core, Redis, Stripe, external APIs)
+├── RedTaxi.Shared/                 (DTOs, validation, API client — shared by all Blazor projects)
+├── RedTaxi.Blazor/                 (Dispatch console — Blazor Server + Syncfusion + Tailwind)
+├── RedTaxi.WebPortal/              (Customer portal — Blazor WASM + Tailwind)
+├── RedTaxi.TenantAdmin/            (Tenant admin — Blazor WASM + Tailwind)
+└── RedTaxi.DriverApp/              (Flutter — separate, not in .NET solution)
+```
+
+---
+
+## 45. Build Timeline
+
+| Phase | Duration | Deliverable |
+|-------|----------|-------------|
+| 1A | ~5 days | Complete backend API (all endpoints, per-tenant DB, Stripe integration) |
+| 1B | ~7 days | 4 parallel agents: Blazor dispatch, Blazor admin, web portal, Flutter app |
+| 2 | ~5 days | Integration: SignalR, drag-drop, school run merge, payments, polish |
+| **Total** | **~3-4 weeks** | |

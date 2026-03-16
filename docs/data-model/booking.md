@@ -1,3 +1,5 @@
+> **⚠️ NOTE:** The `TenantId` column and related indexes shown in this document are from an earlier shared-database design. Red Taxi now uses **per-tenant databases** — the `TenantId` column is NOT present on the Booking entity. See `docs/PRD.md §36`.
+
 # Booking Entity
 
 ## Overview

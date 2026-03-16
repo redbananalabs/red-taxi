@@ -144,8 +144,8 @@ Dispatch operators need instant load time and real-time updates. Blazor Server g
 ### ADR-003: Flutter for driver app
 Background GPS and push notifications must be reliable on both iOS and Android. Flutter's `geolocator` and `firebase_messaging` packages are production-proven. .NET MAUI was considered (C# consistency) but background services on iOS are still unreliable. React Native background location is notoriously flaky. Dart is syntactically similar to C#.
 
-### ADR-004: Single database with TenantId for v1
-Per-tenant databases add operational complexity. For v1 with one tenant (Ace), a single database with `TenantId` on all tables is sufficient. The legacy already has `TenantId` scaffolding. Global query filters in EF Core enforce isolation automatically. Switch to per-tenant DB later if needed — the tenant resolver pattern already supports both modes.
+### ADR-004: Per-tenant database from day one
+Each tenant gets their own SQL Server database (`RedTaxi_{slug}`). A master database (`RedTaxi_Platform`) holds the tenant registry, Stripe subscription data, and platform config. Connection strings are resolved per-request via middleware. This eliminates cross-tenant data leak risk entirely — no query filters to forget, no TenantId columns to maintain. Tenant deletion is a simple `DROP DATABASE`. Migrations run across all tenant DBs via a Hangfire job.
 
 ### ADR-005: Redis for real-time state
 GPS positions, driver on-shift status, and dispatch notifications change frequently and must be fast. Redis stores ephemeral state; SQL Server stores durable records. SignalR uses Redis as backplane for horizontal scaling.
@@ -177,7 +177,8 @@ services:
   redtaxi-api:
     image: ghcr.io/redbananalabs/redtaxi:latest
     environment:
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=RedTaxi;...
+      - ConnectionStrings__PlatformConnection=Server=sqlserver;Database=RedTaxi_Platform;...
+      - ConnectionStrings__TenantTemplate=Server=sqlserver;Database=RedTaxi_{slug};...
       - Redis__ConnectionString=redis:6379
     depends_on: [sqlserver, redis]
 
@@ -380,21 +381,23 @@ dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Database=RedTaxi;Trusted_Connection=true;TrustServerCertificate=true"
+    "PlatformConnection": "Server=localhost;Database=RedTaxi_Platform;Trusted_Connection=true;TrustServerCertificate=true",
+    "TenantTemplate": "Server=localhost;Database=RedTaxi_{slug};Trusted_Connection=true;TrustServerCertificate=true"
   },
   "Redis": {
     "ConnectionString": "localhost:6379"
   },
   "Tenancy": {
-    "Mode": "SingleDatabase"
+    "Mode": "PerTenantDatabase"
   }
 }
 ```
 
 ### Database
-- Create `RedTaxi` database in SQL Server alongside existing `TaxiDispatch` database
-- EF Core migrations applied on first publish: `dotnet ef database update`
-- Both databases coexist — no interference
+- Create `RedTaxi_Platform` database (master — tenant registry, Stripe data, platform config)
+- Tenant databases created automatically on signup: `RedTaxi_{slug}` (e.g. `RedTaxi_ace-taxis`)
+- For dev/staging with Ace: manually create `RedTaxi_ace-taxis` and run migrations
+- Existing `TaxiDispatch` database untouched — no interference
 
 ### Redis
 - Option A: Install Redis for Windows (Memurai or MSOpenTech fork)

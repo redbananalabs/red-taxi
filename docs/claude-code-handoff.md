@@ -64,8 +64,8 @@ The backend API is built first as the single source of truth. Once the API is st
 Build in this order:
 
 1. **Solution scaffold** — RedTaxi.sln, project references, NuGet packages
-2. **Domain entities** — port from legacy `Data/Models/` adding `TenantId`, new entities (Customer, SavedAddress)
-3. **DbContext** — RedTaxiDbContext with global query filters for TenantId
+2. **Domain entities** — port from legacy `Data/Models/`, remove TenantId columns (per-tenant DB means no TenantId needed), add new entities (Customer, SavedAddress)
+3. **DbContext** — RedTaxiDbContext with per-tenant database connection resolution (master DB holds tenant registry, each tenant gets own database)
 4. **Auth** — ASP.NET Core Identity + JWT + roles (SuperAdmin, TenantAdmin, Dispatcher, Driver, AccountUser, WebBooker)
 5. **Booking CRUD** — CreateBooking, UpdateBooking, CancelBooking, CompleteBooking, GetBookingsToday, GetBookingById, FindBookings, DuplicateBooking
 6. **Pricing engine** — TariffService port: Google Distance Matrix, tariff selection by time/day, price calculation (InitialCharge + FirstMile + AdditionalMiles × Rate), account tariff overrides (dual pricing)
@@ -150,7 +150,7 @@ Or configure a simple PowerShell script that builds + publishes + restarts the I
 - **SignalR** for real-time dispatch updates (built into Blazor Server)
 - **EF Core** with `IDbContextFactory` (same pattern as legacy)
 - **Redis** for GPS cache and SignalR backplane
-- **Global query filters** for tenant isolation (`TenantId` on all entities)
+- **Per-tenant database** — master DB (`RedTaxi_Platform`) holds tenant registry, each tenant gets own DB (`RedTaxi_{slug}`). Connection resolved per-request via `ITenantConnectionResolver`. No TenantId columns, no global query filters — complete physical isolation.
 
 ---
 

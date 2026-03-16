@@ -19,18 +19,24 @@ Need to decide how to isolate tenant data in a SaaS platform.
 3. **Shared database with TenantId** - Simple ops, query filter isolation
 
 ### Decision
-Option 3: Shared database with TenantId column and EF Core global query filters.
+~~Option 3: Shared database with TenantId column and EF Core global query filters.~~
+
+**REVISED:** Option 1: Per-tenant database. Each tenant gets their own SQL Server database (`RedTaxi_{slug}`). Master database (`RedTaxi_Platform`) holds tenant registry and Stripe data only.
 
 ### Rationale
-- Simpler operations at our scale (< 1000 tenants)
-- Lower infrastructure cost
-- Easier querying for analytics
-- Can migrate large tenants to dedicated DB later if needed
+- **Complete data isolation** — no risk of cross-tenant data leaks from a missed query filter
+- **Independent backup/restore** — can restore one tenant without affecting others
+- **Per-tenant scaling** — heavy tenants can be moved to their own server
+- **Simpler queries** — no TenantId filters needed anywhere in the codebase
+- **Clean deletion** — drop database on tenant data expiry, no orphan rows
+- **Regulatory compliance** — physically separated data
 
 ### Consequences
-- Must ensure TenantId is set on all writes
-- Must test query filters thoroughly
-- Noisy neighbour risk (mitigated by caching/indexing)
+- Must manage multiple databases (provisioning, migrations, backups)
+- Migrations must be applied to ALL tenant databases (Hangfire job)
+- Cross-tenant analytics requires querying across databases (platform admin queries master DB, not tenant DBs)
+- Higher disk usage than shared DB (each tenant has full schema overhead)
+- These are acceptable tradeoffs for the data isolation guarantees
 
 ---
 

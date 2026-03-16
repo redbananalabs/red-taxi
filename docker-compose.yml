@@ -22,9 +22,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
-      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=RedTaxi;User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=true
+      - ConnectionStrings__PlatformConnection=Server=sqlserver;Database=RedTaxi_Platform;User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=true
+      - ConnectionStrings__TenantTemplate=Server=sqlserver;Database=RedTaxi_{slug};User Id=sa;Password=${SQL_PASSWORD};TrustServerCertificate=true
       - Redis__ConnectionString=redis:6379
-      - Tenancy__Mode=SingleDatabase
+      - Tenancy__Mode=PerTenantDatabase
     depends_on:
       sqlserver:
         condition: service_healthy

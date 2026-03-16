@@ -7,7 +7,16 @@
 
 ## 1. Overview
 
-The data model carries forward the proven legacy schema with the addition of `TenantId` on all tenant-scoped tables and normalisation of a few denormalised fields. The legacy `TaxiDispatchContext` has 36 entity types — all are retained and enhanced.
+The data model carries forward the proven legacy schema with normalisation of a few denormalised fields. The legacy `TaxiDispatchContext` has 36 entity types — all are retained and enhanced.
+
+### Per-Tenant Database Architecture
+
+> **IMPORTANT:** Red Taxi uses per-tenant databases. Entities do NOT have `TenantId` columns — isolation is at the database level. Any `TenantId` references in individual entity tables below are **LEGACY ARTEFACTS from an earlier design** and should be ignored. The only place tenant IDs appear is in the master database (`RedTaxi_Platform`) which holds the `Tenant` entity.
+>
+> Some older docs in this folder (e.g. `booking.md`, `README.md`) still reference TenantId columns and global query filters. These are superseded by the per-tenant DB architecture defined in `docs/PRD.md §36` and `docs/architecture/tenancy-modes.md`.
+
+**Master DB** (`RedTaxi_Platform`): `Tenant`, `TenantExitSurvey`, platform config only.  
+**Tenant DBs** (`RedTaxi_{slug}`): All business entities below — Booking, UserProfile, Account, Tariff, etc.
 
 ---
 
@@ -251,7 +260,16 @@ Booking.CustomerId (NEW nullable FK) links to this. Legacy bookings keep inline 
 
 ## 4. Supporting Entities (carried forward with TenantId)
 
-All existing entities get a `TenantId GUID` column with a global query filter.
+### Multi-Tenancy: Per-Tenant Database
+
+Each tenant gets their own SQL Server database (`RedTaxi_{slug}`). Entities do NOT have a `TenantId` column — isolation is at the database level, not the row level.
+
+A master database (`RedTaxi_Platform`) holds:
+- `Tenant` records (company info, Stripe subscription, status, connection string)
+- `TenantExitSurvey` records
+- Platform admin configuration
+
+All other entities (Booking, Driver, Account, Tariff, etc.) live in the tenant's own database with no TenantId needed.
 
 | Entity | Legacy Lines | Purpose |
 |--------|-------------|---------|
@@ -320,7 +338,7 @@ The import wizard enables existing Ace Taxis data to migrate into Red Taxi as th
 4. Import customers: AccountPassengers, UrlMappings
 5. Import transactional data: Bookings + BookingVias + BookingChangeAudits
 6. Import financial data: AccountInvoices, DriverInvoiceStatements, CreditNotes, DriverExpenses
-7. All imported records receive the Ace Taxis `TenantId`
+7. All imported records go into the Ace Taxis tenant database (`RedTaxi_ace-taxis`)
 8. ID mapping table tracks old ID → new ID for FK resolution
 
 ### Import Wizard UI
@@ -332,13 +350,23 @@ The import wizard enables existing Ace Taxis data to migrate into Red Taxi as th
 
 ---
 
-## 6. Global Query Filter Pattern
+## 6. Per-Tenant Database Pattern
 
 ```csharp
-// In RedTaxiDbContext.OnModelCreating
-modelBuilder.Entity<Booking>().HasQueryFilter(b => b.TenantId == _currentTenantId);
-modelBuilder.Entity<Account>().HasQueryFilter(a => a.TenantId == _currentTenantId);
-// ... all tenant-scoped entities
+// Connection resolved per-request by ITenantConnectionResolver
+public class TenantDbContextFactory : IDbContextFactory<RedTaxiDbContext>
+{
+    private readonly ITenantConnectionResolver _resolver;
+
+    public RedTaxiDbContext CreateDbContext()
+    {
+        var connectionString = _resolver.GetConnectionString();
+        var options = new DbContextOptionsBuilder<RedTaxiDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        return new RedTaxiDbContext(options);
+    }
+}
 ```
 
-This ensures every query is automatically scoped to the current tenant. No manual `WHERE TenantId = X` needed.
+No global query filters needed. Each tenant's data lives in its own database — queries are automatically scoped by the connection string.

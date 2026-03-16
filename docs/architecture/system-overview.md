@@ -1,3 +1,5 @@
+> **⚠️ NOTE:** Any references to TenantId columns or global query filters in this document are from an earlier design. Red Taxi now uses **per-tenant databases** — see `docs/PRD.md §36`.
+
 # System Overview
 
 ## Architecture Style

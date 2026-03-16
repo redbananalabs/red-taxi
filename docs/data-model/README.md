@@ -1,3 +1,5 @@
+> **⚠️ NOTE:** References to TenantId columns in this document are from an earlier design. Red Taxi now uses **per-tenant databases** — entities do NOT have TenantId columns. See `docs/data-model/master-data-model.md` for the authoritative data model.
+
 # Data Model
 
 Core domain entities for Red Taxi Platform.

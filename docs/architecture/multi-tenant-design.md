@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED:** This document describes an earlier shared-database-with-TenantId design. The current architecture uses **per-tenant databases**. See `docs/PRD.md §36` and `docs/architecture/tenancy-modes.md` for the authoritative spec. This file is retained for historical reference only.
+
 # Multi-tenant Design
 
 ## Overview

@@ -25,7 +25,7 @@ These documents were produced from legacy code analysis, 40+ UI screenshots, and
 
 | Document | Description |
 |----------|-------------|
-| [data-model/master-data-model.md](data-model/master-data-model.md) | All entities with TenantId, new entities |
+| [data-model/master-data-model.md](data-model/master-data-model.md) | All entities, per-tenant DB architecture |
 | [data-model/booking.md](data-model/booking.md) | Booking entity detail |
 | [api/api-contract.md](api/api-contract.md) | 232 endpoints mapped to v2 REST routes |
 | [api/auth-endpoint-matrix.md](api/auth-endpoint-matrix.md) | Legacy endpoint auth matrix |
