@@ -298,14 +298,8 @@ COA bookings need to be immediately distinguishable from normal bookings on the 
 
 ---
 
-## Driver App Design Direction
+## Driver App Design
 
-The driver app follows the same design language but adapted for mobile, outdoor use:
+**See `docs/design/driver-app.md` for the full driver app specification.**
 
-- **Dark-first** (same as dispatch console) — matches brand, works well in-vehicle at night
-- **Light mode toggle available** — for outdoor daytime use
-- Same brand red, same status colours, same Inter typeface
-- **Large touch targets:** minimum 48px tap targets for all interactive elements (Accept/Reject buttons: 56px height, full width)
-- **High contrast mode:** status colours are already WCAG AA — maintain this on mobile
-- **Simplified layout:** single-column, card-based, no multi-panel splits
-- **Key screen priorities:** job offer (accept/reject must be reachable with one thumb), active job (navigation + status updates), earnings summary
+Summary: Dark-first Flutter app with 5-tab bottom navigation (Schedule, Offers, Active Job, Availability, Earnings). Job offers appear as full-screen takeovers like an incoming phone call. Navigation to pickup via external maps app (Google/Apple/Waze). Same design tokens as dispatch console. 48px minimum touch targets, 56px primary action buttons.
