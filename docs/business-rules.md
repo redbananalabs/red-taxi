@@ -798,3 +798,241 @@ Each messaging event has three channel options: **None**, **WhatsApp**, **Text M
 | CUSTOMER - ON CANCEL BOOKING | (visible, likely None or Text) |
 
 Each event is independently configurable. This maps directly to the `MessagingNotifyConfig` entity.
+
+---
+
+## 29. Repeat Booking Recurrence
+
+When the "Repeat Booking" toggle is enabled on the booking form, the operator selects:
+
+- **Frequency:** Daily, Weekly, or Fortnightly
+- **Days:** Select specific days within the frequency (e.g. Mon, Wed, Fri)
+- **Until Date:** End date for the recurrence
+
+The system generates individual booking records for each occurrence. Each is an independent booking that can be individually amended or cancelled. Bulk operations (Cancel Range) can target repeat-generated bookings by date range.
+
+---
+
+## 30. Soft Allocate vs Hard Allocate
+
+| Aspect | Soft Allocate | Hard Allocate |
+|--------|--------------|---------------|
+| Driver notified? | No | Yes (via configured channel) |
+| Diary appearance | Shows on diary in driver's colour | Same |
+| Customer notified? | No | Yes (via configured channel) |
+| Can be reassigned? | Yes, freely | Yes, but triggers un-allocate notification |
+| Confirmation | Requires explicit "Confirm SA" action (batch or individual) | Immediate |
+
+**Workflow:**
+1. Operator drags/assigns bookings to drivers throughout the day (soft allocate)
+2. Bookings appear on the diary in the driver's colour but no notifications sent
+3. When ready, operator clicks "CONF. SA" button in top bar
+4. All soft-allocated bookings for that day are confirmed → drivers and customers notified
+5. Individual bookings can also be confirmed one at a time
+
+This is essential for school runs where operators plan the entire day's routes before notifying drivers.
+
+---
+
+## 31. Commission Model
+
+- Commission rate is **per-driver** (stored on driver profile as a percentage)
+- Applied to **cash** and **rank** jobs at settlement
+- **Account jobs** may or may not be subject to commission — configurable per account or per booking
+- Commission is deducted from the driver's weekly settlement balance
+- Dashboard shows separate columns: Cash Comms, Rank Comms, Total Comms
+
+### Calculation
+```
+Commission = JobPrice × (DriverCommissionRate / 100)
+```
+
+For account jobs where commission does not apply, the driver receives the Driver Price from the account tariff directly (no commission deduction).
+
+---
+
+## 32. Driver Settlement
+
+- **Period:** Weekly
+- **Statement Processing** page lets the operator generate statements for a date range
+- Statement includes: all completed jobs, earnings breakdown (cash/account/rank), commission deductions, card fee deductions, expenses, net payout
+- **Statement History** stores all generated statements
+- PDF generated via QuestPDF and optionally emailed to driver
+
+---
+
+## 33. Card Payment Flow (Revolut)
+
+1. Operator creates booking and selects "Card" payment type (or sends payment link post-booking)
+2. System calls Revolut API → receives `orderId` + `paymentUrl`
+3. Payment link sent to customer via TextLocal branded SMS (branded as tenant company name, e.g. "Ace Taxis")
+4. Customer clicks link → pays via Revolut checkout
+5. Revolut sends webhook to Red Taxi API on payment completion
+6. System automatically:
+   - Updates booking payment status to Paid
+   - Generates payment receipt PDF (QuestPDF)
+   - Sends receipt to customer via SMS
+7. Card processing fees tracked and deducted from driver balance at settlement
+
+---
+
+## 34. Fixed Price Journeys (New Implementation)
+
+The legacy system had a partial zone-to-zone implementation. Red Taxi will implement a proper fixed pricing system:
+
+### Route-Based Fixed Prices
+- Operator defines fixed-price routes: specific pickup area → specific destination area
+- Areas defined by postcode prefix (e.g. SP8 → BRS for Gillingham to Bristol Airport)
+- When a booking matches a fixed-price route, the fixed price overrides tariff calculation
+- Operator can still manually override the fixed price
+
+### Zone-to-Zone Grid (Future Enhancement)
+- Define zones by postcode prefix groups
+- Price matrix: Zone A → Zone B = £X
+- Useful for airport runs, station transfers, regular school routes
+
+### Priority Order for Price Calculation
+1. Manual override (`ManuallyPriced = true`) — always wins
+2. Fixed-price route match — if one exists for this pickup→destination
+3. Account tariff — if booking is for an account with a custom tariff
+4. Standard tariff (T1/T2/T3) — default fallback
+
+---
+
+## 35. ASAP Booking
+
+When the ASAP toggle is enabled on the booking form:
+
+- Booking date/time is set to NOW
+- Booking appears on the diary at the current time slot, flagged as urgent
+- Visual indicator on diary (e.g. flashing border, urgent icon, or distinct colour)
+- Operator still manually allocates — ASAP does NOT trigger auto-dispatch in v1
+- Auto-dispatch for ASAP bookings is a Phase 5+ AI feature
+
+---
+
+## 36. Waiting Time & Parking Charges
+
+- **Entered by:** Driver, at job completion via the driver app
+- **Waiting time:** Driver enters minutes waited. Charged at a per-minute rate (configurable per tenant)
+- **Parking:** Driver enters parking cost as a fixed amount
+- **Both added to the booking total** and appear on the invoice
+- **Operator can override** waiting time and parking during invoice processing
+- Invoice Processor shows: Waiting (minutes), Waiting Charge (£), Parking (£) columns
+
+---
+
+## 37. Arrive By vs Pickup Time
+
+The web booker (and booking form) has a toggle between two modes:
+
+- **Pickup Time:** "Collect me at 14:00" — driver arrives at 14:00
+- **Arrive By:** "I need to be there by 14:00" — system back-calculates pickup time using Google Distance Matrix journey duration. If journey is 30 minutes, pickup time = 13:30
+
+The calculated pickup time is what appears on the diary and is sent to the driver. The "Arrive By" time is stored on the booking for reference.
+
+---
+
+## 38. Booking Status State Machine
+
+```
+Created → Allocated → Accepted → OnRoute → Arrived → PassengerOnboard → Completed
+                                                                      → COA (Cancel on Arrival)
+Created → Cancelled
+Allocated → Unallocated → (back to Created)
+Allocated → Rejected → (back to Created, driver gets [R] prefix)
+Allocated → Timeout → (back to Created, driver gets [RT] prefix)
+```
+
+A completed booking CANNOT be reopened. If there's an error, a credit note is issued against the invoice.
+
+---
+
+## 39. Account Invoice Grouping Rules (Shared Tab)
+
+The Invoice Processor (Grp) "Shared" tab groups bookings by route for batch pricing. Matching rules:
+
+- **Exact match** on normalised pickup address AND normalised destination address
+- Addresses are normalised (uppercase, trimmed, postcode extracted)
+- Same account number required
+- Date range filter applied
+- Each route group shows "Price All" (apply account tariff to all) and "Post All Priced" (batch post)
+- Via stops do NOT affect grouping — only the primary pickup and destination matter
+
+---
+
+## 40. Driver Colour Assignment
+
+- Each driver has a unique colour stored on their profile (`Colour` field)
+- Colour is set by the operator when creating/editing the driver
+- Used for: diary booking blocks, availability grid rows, driver message list, dispatch board
+- No auto-assignment from a palette — operator picks the colour
+- Colour must be unique per tenant to avoid confusion on the diary
+
+---
+
+## 41. Notification Sounds
+
+The dispatch console plays audio alerts for different event types:
+
+| Sound File | Trigger |
+|-----------|---------|
+| `new_web_booking.mp3` | New web booking submitted by account customer |
+| `driver_audio.mp3` | Driver-related event (job offer response, status change) |
+| `system_audio.mp3` | System alert (SMS heartbeat failure, error) |
+| `notification_ping.mp3` | General notification (booking amendment, message received) |
+
+Sounds play via browser audio API. Controlled by the Notifications and Mute Notifications toggles in user settings.
+
+---
+
+## 42. Message Templates (Default Content)
+
+Each messaging event sends a templated message. Variables are injected at send time. These are the defaults — configurable per tenant in Message Settings.
+
+### Driver Messages
+
+**DRIVER - ON ALLOCATE:**
+```
+Job #{BookingId}: {PickupTime} from {PickupAddress} to {DestinationAddress}. Pax: {Passengers}. {PassengerName} {PassengerPhone}. {BookingDetails}
+```
+
+**DRIVER - UN-ALLOCATE:**
+```
+Job #{BookingId} at {PickupTime} has been unallocated from you.
+```
+
+**DRIVER - ON AMEND BOOKING:**
+```
+Job #{BookingId} amended: {PickupTime} from {PickupAddress} to {DestinationAddress}. Pax: {Passengers}.
+```
+
+**DRIVER - ON CANCEL BOOKING:**
+```
+Job #{BookingId} at {PickupTime} from {PickupAddress} has been cancelled.
+```
+
+### Customer Messages
+
+**CUSTOMER - ON ALLOCATE:**
+```
+Your taxi is confirmed for {PickupTime}. Driver: {DriverName}, Vehicle: {VehicleReg} ({VehicleType}). Tracking: {TrackingUrl}
+```
+
+**CUSTOMER - UN-ALLOCATE:**
+```
+Update on your {PickupTime} booking from {PickupAddress}: we are reassigning your driver. We'll confirm shortly.
+```
+
+**CUSTOMER - ON AMEND BOOKING:**
+```
+Your booking has been updated: {PickupTime} from {PickupAddress} to {DestinationAddress}.
+```
+
+**CUSTOMER - ON CANCEL BOOKING:**
+```
+Your booking for {PickupTime} from {PickupAddress} has been cancelled.
+```
+
+### Template Variables Available
+`{BookingId}`, `{PickupTime}`, `{PickupAddress}`, `{DestinationAddress}`, `{PassengerName}`, `{PassengerPhone}`, `{Passengers}`, `{BookingDetails}`, `{DriverName}`, `{DriverPhone}`, `{VehicleReg}`, `{VehicleType}`, `{VehicleColour}`, `{Price}`, `{CompanyName}`, `{TrackingUrl}`, `{PaymentUrl}`
