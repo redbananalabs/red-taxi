@@ -59,7 +59,7 @@ Claude Code should reference `legacy/` when extracting business logic but NEVER 
 
 The backend API is built first as the single source of truth. Once the API is stable, parallel agents build each frontend project against it.
 
-#### Phase 1A: Backend API (Weeks 1-4)
+#### Phase 1A: Backend API (Days 1-5)
 
 Build in this order:
 
@@ -81,7 +81,7 @@ Build in this order:
 
 Deploy to IIS after each sprint for immediate testing.
 
-#### Phase 1B: Parallel Frontend Agents (Weeks 5-8)
+#### Phase 1B: Parallel Frontend Agents (Days 6-12)
 
 Once the API is stable, spin up parallel agents:
 
@@ -93,7 +93,7 @@ Once the API is stable, spin up parallel agents:
 
 All agents consume the same API. No blocking dependencies between them.
 
-#### Phase 2: Integration & Polish (Weeks 9-12)
+#### Phase 2: Integration & Polish (Days 13-18)
 - SignalR real-time updates (diary, dispatch, GPS)
 - Drag-and-drop booking reallocation
 - School run merge
@@ -223,11 +223,11 @@ The dispatch console is complete when an operator can:
 | PC 2 | Windows | Customer web portal + admin features |
 | Mac | macOS | Flutter driver app (iOS build requires Xcode on Mac) |
 
-### Phase 1A: API Build (Weeks 1-4) — PC 1 Only
+### Phase 1A: API Build (Days 1-5) — PC 1 Only
 
 Single agent on PC 1 builds the entire API. Deploy to IIS on same machine for immediate testing. This is sequential — the API contract must be solid before frontends start.
 
-### Phase 1B: Parallel Frontend Build (Weeks 5-8) — All 3 Machines
+### Phase 1B: Parallel Frontend Build (Days 6-12) — All 3 Machines
 
 | Machine | Agent | Project | Key deliverable |
 |---------|-------|---------|----------------|
@@ -256,11 +256,11 @@ Each agent works on its own branch:
 
 ```
 main
-├── feature/api-phase1          ← PC 1 (weeks 1-4)
-├── feature/blazor-dispatch     ← PC 1 / Agent 1A (weeks 5-8)
-├── feature/blazor-admin        ← PC 1 VM / Agent 1B (weeks 5-8)
-├── feature/web-portal          ← PC 2 / Agent 2 (weeks 5-8)
-└── feature/driver-app          ← Mac / Agent 3 (weeks 5-8)
+├── feature/api-phase1          ← PC 1 (days 1-5)
+├── feature/blazor-dispatch     ← PC 1 / Agent 1A (days 6-12)
+├── feature/blazor-admin        ← PC 1 VM / Agent 1B (days 6-12)
+├── feature/web-portal          ← PC 2 / Agent 2 (days 6-12)
+└── feature/driver-app          ← Mac / Agent 3 (days 6-12)
 ```
 
 Merge to main via PR when each feature set is testable. API merges first, then frontends merge against it.
