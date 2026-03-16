@@ -23,3 +23,32 @@ appsettings.*.json
 # Logs
 *.log
 logs/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.vs/
+*.idea/
+*.DotSettings.user
+publish/
+out/
+packages/
+*.nupkg
+
+# Environment
+.env
+
+# Docker volumes
+sqldata/
+redisdata/
+
+# Certificates
+nginx/certs/*.pem
+nginx/certs/*.key
+
+# OS
+.DS_Store
+Thumbs.db
