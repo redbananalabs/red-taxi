@@ -927,12 +927,18 @@ Dark-first, card-based, status-colour-driven dispatch UI. Full spec in `docs/des
 
 ## 42. Dispatch Console Layout
 
-- Sidebar: 240px collapsible to 64px, `bg-surface`
-- Top bar: 56px, contains messaging buttons, SMS heartbeat, CONF SA, notifications, avatar
-- Left panel (40%): Booking form + availability chart
-- Right panel (60%): Tabbed — MAP | SCHEDULER | LOGS | COA ENTRIES
-- Designed for 1920x1080 minimum (full-screen desktop monitors)
-- Responsive: sidebar collapses at 1400px, panels stack at 1200px
+**Map-centric with floating panels.** The map is the primary view — everything else floats on top or docks to edges. Full spec in `docs/design/dispatch-layout.md`.
+
+- **Map:** Full-width live map as the base layer. Driver pins (status-coloured), active routes, unallocated booking pulses.
+- **Timeline:** Horizontal Gantt bar docked to bottom (~200px). Driver rows, booking blocks, drag to reallocate. Expandable to full diary mode.
+- **Booking Form:** Floating panel (480px), slides in from left on `Cmd+N`. Not permanently visible — invoked on demand.
+- **Context Panel:** Slides in from right (400px) when clicking any entity (booking, driver, customer). Shows detail + actions.
+- **Command Palette:** `Cmd+K` spotlight search — bookings, drivers, customers, quick actions, navigation.
+- **Sidebar:** 64px icon-only (expands to 240px on hover). Dashboard, Dispatch, Accounts, Drivers, Billing, Reports, Settings.
+- **Top Bar:** 48px. Search trigger, unallocated badge, SMS heartbeat, notifications, CONF SA, user menu.
+- **View Modes:** Map Mode (default), Diary Mode (full scheduler), Split Mode (50/50 map+diary).
+- **Multi-Monitor:** Map, timeline, and forms can pop out to separate browser windows with live SignalR.
+- **Keyboard-first:** Every primary action has a shortcut. Cmd+N (new), Cmd+K (search), Escape (close), Cmd+S (confirm SA).
 
 ---
 

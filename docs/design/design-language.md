@@ -237,54 +237,29 @@ Icon colour inherits text colour by default. Status icons use the corresponding 
 
 ## Dispatch Console Layout
 
-### Structure
+**See `docs/design/dispatch-layout.md` for the full layout specification.**
 
-```
-┌──────────┬──────────────────────────────────────────────────┐
-│          │  Top Bar (56px)  [Direct Msg] [Global Msg]  [SMS│HB] [Avatar] │
-│  Sidebar │──────────────────────────────────────────────────│
-│  (240px) │  Left Panel (40%)       │  Right Panel (60%)     │
-│          │                         │  ┌─────────────────┐   │
-│  bg-     │  Booking Form           │  │ MAP │ SCHED │ LOG│  │
-│  surface │                         │  │                  │   │
-│  #12151B │  bg-base                │  │  bg-card         │   │
-│          │  #0B0D11               │  │  #1A1E27         │   │
-│          │                         │  │                  │   │
-│          │  ┌─ Availability ─┐     │  │                  │   │
-│          │  │ Chart (inline) │     │  │                  │   │
-│          │  └────────────────┘     │  └─────────────────┘   │
-└──────────┴──────────────────────────────────────────────────┘
-```
+Summary: Map-centric with floating panels. The map fills the entire content area as the base layer. All other UI (booking form, detail panels, timeline) floats on top or docks to edges.
 
-### Sidebar
-- Width: 240px, collapsible to 64px (icon-only mode)
-- Background: `bg-surface` (`#12151B`)
-- Logo: top-left, "redtaxi" wordmark at 20px
-- Nav items: 16px text, 20px Lucide icons, `text-secondary` default, `text-primary` + `brand-500` left border on active
-- Collapsible sub-menus with smooth expand/collapse (only animation allowed)
+### Key Surfaces
 
-### Top Bar
-- Height: 56px
-- Background: `bg-surface` (`#12151B`)
-- Contains: Direct Message button, Global Message button, SMS Heartbeat indicator, Notifications bell, CONF SA button, User avatar dropdown
-- SMS Heartbeat: green pill when healthy (`success`), red pill when stale (`danger`)
+| Surface | Background | Position |
+|---------|-----------|----------|
+| Map (base layer) | Google Maps dark style | Full content area |
+| Sidebar | `bg-surface` (`#12151B`) | Left, 64px (expands to 240px on hover) |
+| Top bar | `bg-surface` (`#12151B`) | Top, 48px |
+| Booking form panel | `bg-card` (`#1A1E27`) | Floating left, 480px, slides in on demand |
+| Context panel | `bg-card` (`#1A1E27`) | Floating right, 400px, slides in on click |
+| Timeline dock | `bg-card` (`#1A1E27`) | Bottom dock, ~200px, expandable to full diary |
+| Command palette | `bg-card` (`#1A1E27`) | Centre modal overlay |
+| Toast notifications | `bg-elevated` (`#242934`) | Bottom right stack |
 
-### Left Panel (Booking Form)
-- Width: 40% of remaining space (after sidebar)
-- Background: `bg-base` (`#0B0D11`)
-- Booking form floats in a card (`bg-card`)
-- Availability chart sits below the form (inline, same panel)
-
-### Right Panel (Diary/Map/Logs)
-- Width: 60% of remaining space
-- Tabbed interface: MAP | SCHEDULER | LOGS | COA ENTRIES
-- Each tab content sits in `bg-card`
-- Active tab indicator: 2px bottom border in `brand-500`
-
-### Responsive Behaviour
-- Below 1400px: sidebar collapses to icon-only (64px)
-- Below 1200px: left/right panels stack vertically
-- The dispatch console is designed for 1920x1080 minimum — operators use full-screen desktop monitors
+### Panel Animations (the ONLY animations in the app)
+- Booking form: slide in from left, 200ms ease-out
+- Context panel: slide in from right, 200ms ease-out
+- Timeline expand: slide up from bottom, 200ms ease-out
+- Command palette: fade in + scale from 95%, 150ms ease-out
+- Toast: slide in from right, 200ms ease-out, auto-dismiss after 5s
 
 ---
 

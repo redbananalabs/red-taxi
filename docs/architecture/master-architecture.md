@@ -314,36 +314,66 @@ Bold Reports (Community License) can be added in Phase 4+ if tenants want a cust
 
 ## 12. Custom Dispatch UI Components (Blazor)
 
-These require custom Blazor component development beyond standard Syncfusion controls:
+Full layout spec in `docs/design/dispatch-layout.md`. These require custom Blazor component development:
 
-### Drag-and-Drop Booking Reallocation
-- Operator drags a booking block from one driver column to another on the Scheduler/Diary
-- Drop triggers `AllocateBooking` command (MediatR) with new driver ID
-- Previous driver receives unallocation notification
-- New driver receives allocation notification
-- Syncfusion `SfSchedule` supports drag-and-drop events natively — hook into `OnActionCompleted`
+### Map Base Layer
+- Google Maps JavaScript API with custom dark styling from design tokens
+- Driver pins with status colours (5 vehicle statuses), white border for legibility
+- Active booking routes drawn as overlays (brand red, 3px, 40% opacity fill)
+- Unallocated bookings pulse at pickup location
+- Click pin → driver context panel slides in from right
+- Click booking route → booking context panel slides in from right
+- Selected vehicle: 1.3x scale with pulsing brand red ring
+
+### Timeline / Gantt Bar (Bottom Dock)
+- Syncfusion `SfSchedule` in TimelineDay view, docked to bottom (~200px)
+- Each row = one driver, each block = one booking (coloured by scheduler colour system)
+- Drag bookings between driver rows → triggers `AllocateBooking` MediatR command
+- Drag to resize → updates booking pickup time
+- Double-click bottom edge to expand to full diary mode
+- Current time = vertical red line
+- Expandable to full-height "Diary Mode" (traditional scheduler)
+
+### Booking Form (Floating Panel)
+- Slides in from left (480px) on `Cmd+N` or "New Booking" action
+- Absolutely positioned over the map, not a CSS grid split
+- Entering pickup + destination triggers: Google Distance Matrix → price calculation → route preview drawn on map behind the form
+- Price displayed inline on form (Journey Cost, Miles, Tariff applied)
+- Semi-transparent backdrop — map remains visible
+- `Cmd+Enter` to confirm, `Escape` to dismiss
+
+### Context Panel (Right Slide-In)
+- 400px panel slides in from right when clicking any entity
+- Booking detail: full info + actions (allocate, cancel, complete, duplicate, amend, send payment link)
+- Driver detail: current job, next jobs, today's earnings, availability, message
+- Customer detail: phone, address, booking history, repeat bookings
+- Only one context panel open at a time, `Escape` to dismiss
+
+### Command Palette (Cmd+K)
+- Custom Blazor component — centre modal overlay with fuzzy search
+- Searches: bookings (by ID, address, passenger), drivers (by name, number), customers (by phone, name)
+- Quick actions: "new booking", "global message", "confirm soft allocates"
+- Navigation: "go to reports", "go to accounts"
 
 ### School Run Merge (Drag to Combine)
-- When Merge Mode is enabled (toggle in top bar), dragging booking A onto booking B triggers merge logic
-- Preconditions validated: both school-run tagged, same destination, same account
-- Booking A's pickup becomes a via on booking B
-- Booking A marked as merged
-- Price recalculates on booking B
-- This is CUSTOM logic on top of `SfSchedule` — needs a custom drag handler that detects overlap and shows a merge confirmation dialog
+- In Diary Mode, when Merge Mode is enabled (toggle), dragging booking A onto booking B triggers merge
+- Preconditions: both school-run tagged, same destination, same account
+- Booking A's pickup becomes a via on booking B, price recalculates
+- Custom drag handler detects overlap → shows merge confirmation dialog
 
 ### Real-Time SignalR Updates
 - All dispatch console users see live updates without page refresh
-- Events pushed via SignalR hub: BookingCreated, BookingAllocated, BookingCancelled, BookingCompleted, DriverStatusChanged, DriverGPSUpdated
-- Blazor Server has built-in SignalR — no extra wiring needed
-- `SfSchedule` data source is refreshed on each SignalR event
+- Events: BookingCreated, BookingAllocated, BookingCancelled, BookingCompleted, DriverStatusChanged, DriverGPSUpdated
+- Blazor Server has built-in SignalR — no extra wiring
+- Map pins move in real-time (driver GPS every 5-10 seconds)
+- Timeline blocks update on booking status changes
 - Dashboard KPI cards update in real-time
-- Tracking map updates driver positions every 5-10 seconds
+- Toast notifications for actionable events (bottom right)
 
-### Booking Form ↔ Map/Price Panel Interaction
-- Right-hand panel (Map tab) updates live as operator types in the booking form
-- Entering pickup + destination triggers: Google Distance Matrix call → price calculation → route display on map
-- Price panel shows: Journey Cost, Charge From Base, Journey Time, Journey Mileage (dead + trip), Tariff applied
-- This is a reactive Blazor component pattern — booking form state drives the price panel via shared service/state
+### Multi-Monitor Pop-Out
+- Map, timeline, and booking form can each pop out to separate browser windows via `window.open()`
+- State sync via BroadcastChannel API — all windows share the same SignalR connection
+- Enables: map on monitor 1, diary on monitor 2, both live-updating
 
 ---
 
