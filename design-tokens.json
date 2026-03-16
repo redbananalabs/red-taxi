@@ -1,0 +1,70 @@
+{
+  "color": {
+    "bg": {
+      "base":     { "dark": "#0B0D11", "light": "#FFFFFF" },
+      "surface":  { "dark": "#12151B", "light": "#F8F9FA" },
+      "card":     { "dark": "#1A1E27", "light": "#F1F3F5" },
+      "elevated": { "dark": "#242934", "light": "#E9ECEF" },
+      "hover":    { "dark": "#2E3440", "light": "#DEE2E6" }
+    },
+    "brand": {
+      "300": "#FF6B6B",
+      "500": "#FF2D2D",
+      "600": "#E62626",
+      "900": "#331010"
+    },
+    "status": {
+      "available":  { "fg": "#34D399", "bg": "#0D2E1A" },
+      "onJob":      { "fg": "#FBBF24", "bg": "#2D2206" },
+      "dispatched": { "fg": "#A78BFA", "bg": "#1A1333" },
+      "offline":    { "fg": "#FF6B6B", "bg": "#331010" },
+      "onBreak":    { "fg": "#38BDF8", "bg": "#0C2333" }
+    },
+    "semantic": {
+      "success": "#34D399",
+      "warning": "#FBBF24",
+      "danger":  "#FF6B6B",
+      "info":    "#38BDF8"
+    },
+    "text": {
+      "primary":   { "dark": "#F9FAFB", "light": "#111827" },
+      "secondary": { "dark": "#9CA3AF", "light": "#6B7280" },
+      "tertiary":  { "dark": "#6B7280", "light": "#9CA3AF" }
+    },
+    "border": {
+      "subtle":  { "dark": "#ffffff0f", "light": "#00000010" },
+      "default": { "dark": "#2E3440",   "light": "#DEE2E6"  },
+      "focus":   "#FF2D2D"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans": "Inter, system-ui, -apple-system, sans-serif",
+      "mono": "JetBrains Mono, Consolas, monospace"
+    },
+    "fontSize": {
+      "xs":  "12px",
+      "sm":  "13px",
+      "base": "14px",
+      "lg":  "18px",
+      "xl":  "24px",
+      "2xl": "28px",
+      "3xl": "32px"
+    }
+  },
+  "spacing": {
+    "xs":   "4px",
+    "sm":   "8px",
+    "md":   "12px",
+    "base": "16px",
+    "lg":   "24px",
+    "xl":   "32px",
+    "2xl":  "48px"
+  },
+  "radius": {
+    "sm":   "4px",
+    "md":   "8px",
+    "lg":   "12px",
+    "pill": "20px"
+  }
+}
