@@ -1,0 +1,50 @@
+/**
+ * Tailwind core
+ *
+ * @format
+ */
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Demos */
+@import 'demos/demo1';
+
+/* Shadcn UI */
+@import 'shadcn.ui';
+
+/* Light Mode Scrollbar */
+:root {
+	--scrollbar-track: #f1f1f1;
+	--scrollbar-thumb: #c1c1c1;
+}
+
+/* Dark Mode Scrollbar */
+@media (prefers-color-scheme: dark) {
+	:root {
+		--scrollbar-track: #ffffff;
+		--scrollbar-thumb: #f1f1f4;
+	}
+}
+
+.dark {
+	--scrollbar-track: #1a1a1a;
+	--scrollbar-thumb: #26272f;
+}
+
+/* Apply Scrollbar Styles */
+::-webkit-scrollbar {
+	width: 0.35rem;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--scrollbar-track);
+	border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: 10px;
+	transition: background 0.3s ease;
+}
