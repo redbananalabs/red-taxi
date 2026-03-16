@@ -210,3 +210,57 @@ The dispatch console is complete when an operator can:
 10. View all admin pages: accounts, drivers, tariffs, billing, reports
 11. Receive real-time SignalR updates on diary changes
 12. Toggle dark mode
+
+---
+
+## 7. Machine Allocation & Parallel Agent Plan
+
+### Hardware
+
+| Machine | OS | Assigned Work |
+|---------|-----|--------------|
+| PC 1 | Windows + IIS | Backend API (Phase 1A) → then Blazor dispatch console (Phase 1B) |
+| PC 2 | Windows | Customer web portal + admin features |
+| Mac | macOS | Flutter driver app (iOS build requires Xcode on Mac) |
+
+### Phase 1A: API Build (Weeks 1-4) — PC 1 Only
+
+Single agent on PC 1 builds the entire API. Deploy to IIS on same machine for immediate testing. This is sequential — the API contract must be solid before frontends start.
+
+### Phase 1B: Parallel Frontend Build (Weeks 5-8) — All 3 Machines
+
+| Machine | Agent | Project | Key deliverable |
+|---------|-------|---------|----------------|
+| PC 1 | Agent 1 | `src/RedTaxi.Blazor/` | Dispatch console (Syncfusion SfSchedule, booking form, all admin pages) |
+| PC 2 | Agent 2 | `src/RedTaxi.WebPortal/` | Account web booker portal (login, booking, passengers, history) |
+| Mac | Agent 3 | `src/RedTaxi.DriverApp/` (Flutter) | Driver app for iOS + Android (login, jobs, GPS, documents) |
+
+All three agents point at the same API running on PC 1 (IIS). Set API base URL as an environment variable so each frontend can reach it.
+
+### Optional: Extra Parallelism with VMs
+
+If you want to push harder, split the Blazor work across two agents:
+
+| Machine | Agent | Focus |
+|---------|-------|-------|
+| PC 1 | Agent 1A | Blazor dispatch: booking form, diary, availability, driver status, map |
+| PC 1 VM | Agent 1B | Blazor admin: dashboard, accounts, billing, reports, drivers, settings |
+| PC 2 | Agent 2 | Customer web portal |
+| Mac | Agent 3 | Flutter driver app |
+
+This gets you 4 parallel agents. The Blazor split works cleanly because dispatch pages and admin pages share the API but have no UI dependencies on each other.
+
+### Git Workflow for Parallel Agents
+
+Each agent works on its own branch:
+
+```
+main
+├── feature/api-phase1          ← PC 1 (weeks 1-4)
+├── feature/blazor-dispatch     ← PC 1 / Agent 1A (weeks 5-8)
+├── feature/blazor-admin        ← PC 1 VM / Agent 1B (weeks 5-8)
+├── feature/web-portal          ← PC 2 / Agent 2 (weeks 5-8)
+└── feature/driver-app          ← Mac / Agent 3 (weeks 5-8)
+```
+
+Merge to main via PR when each feature set is testable. API merges first, then frontends merge against it.
