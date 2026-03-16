@@ -232,3 +232,105 @@ Icon colour inherits text colour by default. Status icons use the corresponding 
 4. Status pills must always use the foreground/background pairs from the status table. Never use status colours for non-status purposes
 5. All number displays (fares, distances, counts) must use `font-variant-numeric: tabular-nums`
 6. Dispatch console layout: sidebar is `bg-surface` (`#12151B`), main content area is `bg-base` (`#0B0D11`), cards float on `bg-card` (`#1A1E27`)
+
+---
+
+## Dispatch Console Layout
+
+### Structure
+
+```
+┌──────────┬──────────────────────────────────────────────────┐
+│          │  Top Bar (56px)  [Direct Msg] [Global Msg]  [SMS│HB] [Avatar] │
+│  Sidebar │──────────────────────────────────────────────────│
+│  (240px) │  Left Panel (40%)       │  Right Panel (60%)     │
+│          │                         │  ┌─────────────────┐   │
+│  bg-     │  Booking Form           │  │ MAP │ SCHED │ LOG│  │
+│  surface │                         │  │                  │   │
+│  #12151B │  bg-base                │  │  bg-card         │   │
+│          │  #0B0D11               │  │  #1A1E27         │   │
+│          │                         │  │                  │   │
+│          │  ┌─ Availability ─┐     │  │                  │   │
+│          │  │ Chart (inline) │     │  │                  │   │
+│          │  └────────────────┘     │  └─────────────────┘   │
+└──────────┴──────────────────────────────────────────────────┘
+```
+
+### Sidebar
+- Width: 240px, collapsible to 64px (icon-only mode)
+- Background: `bg-surface` (`#12151B`)
+- Logo: top-left, "redtaxi" wordmark at 20px
+- Nav items: 16px text, 20px Lucide icons, `text-secondary` default, `text-primary` + `brand-500` left border on active
+- Collapsible sub-menus with smooth expand/collapse (only animation allowed)
+
+### Top Bar
+- Height: 56px
+- Background: `bg-surface` (`#12151B`)
+- Contains: Direct Message button, Global Message button, SMS Heartbeat indicator, Notifications bell, CONF SA button, User avatar dropdown
+- SMS Heartbeat: green pill when healthy (`success`), red pill when stale (`danger`)
+
+### Left Panel (Booking Form)
+- Width: 40% of remaining space (after sidebar)
+- Background: `bg-base` (`#0B0D11`)
+- Booking form floats in a card (`bg-card`)
+- Availability chart sits below the form (inline, same panel)
+
+### Right Panel (Diary/Map/Logs)
+- Width: 60% of remaining space
+- Tabbed interface: MAP | SCHEDULER | LOGS | COA ENTRIES
+- Each tab content sits in `bg-card`
+- Active tab indicator: 2px bottom border in `brand-500`
+
+### Responsive Behaviour
+- Below 1400px: sidebar collapses to icon-only (64px)
+- Below 1200px: left/right panels stack vertically
+- The dispatch console is designed for 1920x1080 minimum — operators use full-screen desktop monitors
+
+---
+
+## Scheduler / Diary Colours
+
+### Driver Colour (Allocated Bookings)
+Each driver has an operator-assigned colour stored on their profile. When a booking is allocated to a driver, the booking block on the scheduler uses that driver's colour as the background.
+
+### Operator-Configurable Unallocated Colour
+The colour for **unallocated bookings** on the scheduler is configurable per tenant in Company Settings. Default: `#D97706` (amber/orange — visible against both dark and light backgrounds). This allows each operator to pick the unallocated colour that works best for their workflow.
+
+### COA (Cancel on Arrival) Visual Treatment
+COA bookings need to be immediately distinguishable from normal bookings on the scheduler and in lists:
+
+| Element | Treatment |
+|---------|-----------|
+| Scheduler block | Strikethrough pattern overlay (diagonal lines at 45°) + `danger` border (`#FF6B6B`) |
+| Scheduler text | Prefixed with `[COA]` |
+| Status pill | `danger` colours (`#FF6B6B` fg / `#331010` bg) with text "COA" |
+| Booking list row | Left border 3px `danger` + muted text (`text-tertiary`) |
+| COA Entries tab | Dedicated tab on right panel showing all COA records |
+
+### Full Scheduler Colour Key
+
+| State | Colour Source | Example |
+|-------|--------------|---------|
+| Unallocated | Tenant config (default `#D97706`) | Amber/orange block |
+| Allocated | Driver's profile colour | Driver-specific colour |
+| Accepted | Driver's colour + crosshatch overlay | Driver colour with pattern |
+| Rejected | Driver's colour + `[R]` prefix | Greyed with prefix |
+| Timeout | Driver's colour + `[RT]` prefix | Greyed with prefix |
+| COA | Strikethrough + `#FF6B6B` border | Red-bordered with diagonal lines |
+| ASAP | Booking colour + pulsing `brand-500` border | Urgent animation |
+| Soft Allocated | Driver's colour at 50% opacity | Faded version of driver colour |
+| Completed | `#38BDF8` (info) at 30% opacity | Faded blue |
+
+---
+
+## Driver App Design Direction
+
+The driver app follows the same design language but adapted for mobile, outdoor use:
+
+- **Dark-first** (same as dispatch console) — matches brand, works well in-vehicle at night
+- **Light mode toggle available** — for outdoor daytime use
+- Same brand red, same status colours, same Inter typeface
+- **Large touch targets:** minimum 48px tap targets for all interactive elements (Accept/Reject buttons: 56px height, full width)
+- **High contrast mode:** status colours are already WCAG AA — maintain this on mobile
+- **Simplified layout:** single-column, card-based, no multi-panel splits
+- **Key screen priorities:** job offer (accept/reject must be reachable with one thumb), active job (navigation + status updates), earnings summary

@@ -20,6 +20,21 @@
       "offline":    { "fg": "#FF6B6B", "bg": "#331010" },
       "onBreak":    { "fg": "#38BDF8", "bg": "#0C2333" }
     },
+    "booking": {
+      "unallocated": { "fg": "#FBBF24", "bg": "#2D2206" },
+      "allocated":   { "fg": "#A78BFA", "bg": "#1A1333" },
+      "accepted":    { "fg": "#34D399", "bg": "#0D2E1A" },
+      "completed":   { "fg": "#38BDF8", "bg": "#0C2333" },
+      "cancelled":   { "fg": "#FF6B6B", "bg": "#331010" },
+      "coa":         { "fg": "#FF6B6B", "bg": "#331010" }
+    },
+    "scheduler": {
+      "unallocatedDefault": "#D97706",
+      "softAllocateOpacity": 0.5,
+      "completedOpacity": 0.3,
+      "coaBorder": "#FF6B6B",
+      "asapPulse": "#FF2D2D"
+    },
     "semantic": {
       "success": "#34D399",
       "warning": "#FBBF24",
