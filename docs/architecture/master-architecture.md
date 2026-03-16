@@ -343,3 +343,62 @@ These require custom Blazor component development beyond standard Syncfusion con
 - Entering pickup + destination triggers: Google Distance Matrix call → price calculation → route display on map
 - Price panel shows: Journey Cost, Charge From Base, Journey Time, Journey Mileage (dead + trip), Tariff applied
 - This is a reactive Blazor component pattern — booking form state drives the price panel via shared service/state
+
+---
+
+## 13. IIS Staging Deployment (Development)
+
+During development, Red Taxi runs on IIS alongside the existing Ace system on the same Windows server.
+
+### Setup
+
+```
+C:\inetpub\
+├── acetaxisdorset\          ← existing Ace React apps (Vercel, but API here)
+└── redtaxi\                 ← new Red Taxi API + Blazor Server
+```
+
+### IIS Configuration
+- **Site name:** RedTaxi
+- **Port:** 5100 (or subdomain: `redtaxi.yourdomain.com`)
+- **Application Pool:** No Managed Code (.NET 8 runs out-of-process via ASP.NET Core Module)
+- **Install:** ASP.NET Core Hosting Bundle (.NET 8) on the server
+
+### Publish & Deploy
+
+```powershell
+# Build and publish
+dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi
+
+# Or with a deploy script:
+# scripts/deploy-iis.ps1
+```
+
+### Configuration Files
+
+`appsettings.Production.json` (on server, not in repo):
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=RedTaxi;Trusted_Connection=true;TrustServerCertificate=true"
+  },
+  "Redis": {
+    "ConnectionString": "localhost:6379"
+  },
+  "Tenancy": {
+    "Mode": "SingleDatabase"
+  }
+}
+```
+
+### Database
+- Create `RedTaxi` database in SQL Server alongside existing `TaxiDispatch` database
+- EF Core migrations applied on first publish: `dotnet ef database update`
+- Both databases coexist — no interference
+
+### Redis
+- Option A: Install Redis for Windows (Memurai or MSOpenTech fork)
+- Option B: Docker Desktop running just Redis: `docker run -d -p 6379:6379 redis:7-alpine`
+
+### Transition to Production
+When ready for production: Hetzner Docker deployment using the `docker-compose.yml` already in the repo. IIS staging continues as a dev/test environment.

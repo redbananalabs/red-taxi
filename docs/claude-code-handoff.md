@@ -55,18 +55,73 @@ redtaxi/
 
 Claude Code should reference `legacy/` when extracting business logic but NEVER modify files in that folder.
 
-### Step 3: Build Phase 1 Features
-In this order:
+### Step 3: Build Strategy — API First, Then Parallel Frontends
 
-1. **Domain entities** — port from legacy `Data/Models/` adding `TenantId`, new entities (Customer, SavedAddress)
-2. **DbContext** — RedTaxiDbContext with global query filters for TenantId
-3. **Auth** — ASP.NET Core Identity + JWT + roles (SuperAdmin, TenantAdmin, Dispatcher, Driver, AccountUser, WebBooker)
-4. **Booking CRUD** — CreateBooking, UpdateBooking, GetBookingsToday, GetBookingById, FindBookings
-5. **Pricing engine** — TariffService port: Google Distance Matrix, tariff selection by time/day, price calculation (InitialCharge + FirstMile + AdditionalMiles × Rate)
-6. **Customer directory** — CreateCustomer, LookupByPhone, GetCustomer
-7. **Driver availability** — SetAvailability, GetAvailability (with presets: Custom, SR AM Only, SR PM Only, SR Only, UNAVAILABLE ALL DAY)
-8. **Dispatch** — AllocateBooking, SoftAllocate, ConfirmSoftAllocates, RecordTurnDown
-9. **Blazor dispatch console** — booking form, diary (SfSchedule), availability grid, driver status, map tab
+The backend API is built first as the single source of truth. Once the API is stable, parallel agents build each frontend project against it.
+
+#### Phase 1A: Backend API (Weeks 1-4)
+
+Build in this order:
+
+1. **Solution scaffold** — RedTaxi.sln, project references, NuGet packages
+2. **Domain entities** — port from legacy `Data/Models/` adding `TenantId`, new entities (Customer, SavedAddress)
+3. **DbContext** — RedTaxiDbContext with global query filters for TenantId
+4. **Auth** — ASP.NET Core Identity + JWT + roles (SuperAdmin, TenantAdmin, Dispatcher, Driver, AccountUser, WebBooker)
+5. **Booking CRUD** — CreateBooking, UpdateBooking, CancelBooking, CompleteBooking, GetBookingsToday, GetBookingById, FindBookings, DuplicateBooking
+6. **Pricing engine** — TariffService port: Google Distance Matrix, tariff selection by time/day, price calculation (InitialCharge + FirstMile + AdditionalMiles × Rate), account tariff overrides (dual pricing)
+7. **Customer directory** — CreateCustomer, LookupByPhone, GetCustomer
+8. **Driver availability** — SetAvailability, GetAvailability (with presets: Custom, SR AM Only, SR PM Only, SR Only, UNAVAILABLE ALL DAY), availability logs
+9. **Dispatch** — AllocateBooking, SoftAllocate, ConfirmSoftAllocates, RecordTurnDown, COA
+10. **Driver fleet** — DriverList, DriverAdd, DriverUpdate, GPS ingestion, shift tracking
+11. **Messaging** — SendSMS, SendWhatsApp, SendPush (event-driven via domain events)
+12. **Accounts** — AccountCRUD, InvoiceProcessor, StatementProcessing, CreditNotes
+13. **Reporting** — all 18 report endpoints (driver earnings, booking stats, financials)
+14. **Web booking** — CreateWebBooking, Accept, Reject, AmendRequest
+15. **Admin/Config** — CompanySettings, MessageSettings, TariffConfig, AccountTariffs, LocalPOIs
+
+Deploy to IIS after each sprint for immediate testing.
+
+#### Phase 1B: Parallel Frontend Agents (Weeks 5-8)
+
+Once the API is stable, spin up parallel agents:
+
+| Agent | Project | Key screens |
+|-------|---------|-------------|
+| Agent 1 | RedTaxi.Blazor (dispatch console) | Booking form, diary/scheduler, availability grid, driver status, map, dashboard, all admin pages |
+| Agent 2 | RedTaxi.WebPortal (customer portal) | Account login, booking form, active bookings, passenger management, booking history |
+| Agent 3 | Flutter driver app (Phase 3) | Login, jobs, accept/reject, navigation, GPS, documents, earnings |
+
+All agents consume the same API. No blocking dependencies between them.
+
+#### Phase 2: Integration & Polish (Weeks 9-12)
+- SignalR real-time updates (diary, dispatch, GPS)
+- Drag-and-drop booking reallocation
+- School run merge
+- Payment links (Revolut)
+- Phone lookup / caller ID
+- Dark mode
+- Keyboard shortcuts
+
+### Staging: IIS on Windows
+
+During development, deploy to IIS on your Windows machine alongside the existing Ace system.
+
+**IIS Setup:**
+- Create a new IIS site: `RedTaxi` on a different port (e.g. 5100) or subdomain
+- Application Pool: .NET CLR version = No Managed Code (runs via ASP.NET Core module)
+- Install ASP.NET Core Hosting Bundle on the server
+- Publish command: `dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi`
+- SQL Server: create `RedTaxi` database alongside existing `TaxiDispatch` database
+- Redis: install Redis for Windows or use Docker Desktop for Redis only
+- Connection strings in `appsettings.Production.json`
+
+**Deployment during dev:**
+```
+dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi
+```
+Or configure a simple PowerShell script that builds + publishes + restarts the IIS app pool.
+
+**Later:** Hetzner Docker deployment for production (docker-compose.yml already in repo).
 
 ---
 
@@ -120,19 +175,38 @@ In this order:
 
 ---
 
-## 5. Phase 1 Definition of Done
+## 5. Phase 1A Definition of Done (API)
 
-Phase 1 is complete when an operator can:
+The API is complete when all these endpoints work via Swagger/Postman:
 
-1. Log in to the Blazor dispatch console
-2. Create a booking (pickup, destination, vias, passenger, date/time, scope)
-3. See the price auto-calculate using tariff rules
-4. See the booking on the diary/scheduler
-5. Allocate a driver to the booking
-6. See the booking change colour to the driver's colour
-7. Look up a customer by phone number
-8. Set driver availability (using presets)
-9. See driver availability on the availability grid
-10. Complete or cancel a booking
+1. Auth: login, register, refresh token, role-based access
+2. Create a booking with all fields (pickup, destination, vias, passenger, date/time, scope)
+3. Price auto-calculates using tariff rules (T1/T2/T3 + account tariffs)
+4. Get bookings today, by date range, by ID, by search term
+5. Allocate a driver to a booking (+ soft allocate + confirm)
+6. Complete and cancel bookings (+ COA)
+7. Look up customer by phone number, create customer
+8. Set and get driver availability (with presets)
+9. Driver list with profiles, GPS position update
+10. Account CRUD, invoice processor, statement processing
+11. All 18 report endpoints returning correct data
+12. Web booking submit, accept, reject
+13. Send SMS/WhatsApp/Push via domain events on allocation/completion
+14. Company settings, message settings, tariff config, POIs
 
-This matches the core Ace operator workflow.
+## 6. Phase 1B Definition of Done (Blazor Dispatch Console)
+
+The dispatch console is complete when an operator can:
+
+1. Log in and see the dashboard with KPI cards and driver earnings
+2. Create a booking and see the price auto-calculate with map route
+3. See bookings on the diary/scheduler with driver columns
+4. Allocate a driver (booking changes to driver's colour)
+5. Soft allocate and bulk confirm
+6. Drag bookings between drivers on the diary
+7. Search bookings by multiple fields
+8. Look up customer by phone (caller ID popup with history)
+9. Set driver availability using presets
+10. View all admin pages: accounts, drivers, tariffs, billing, reports
+11. Receive real-time SignalR updates on diary changes
+12. Toggle dark mode
