@@ -2067,3 +2067,50 @@ Net Payout = Gross Account Earnings - Total Commission - Card Fees + Balance For
 ```
 
 If Net Payout is negative: no payment made, balance carried to next week.
+
+---
+
+## 90. Card Processing Fee
+
+Configurable per tenant in Company Settings → Pricing:
+- **Flat %** (e.g. 2.9%)
+- **Flat % + fixed amount** (e.g. 2.9% + £0.20)
+- **Fixed amount only** (e.g. £0.50 per transaction)
+
+Card fee is calculated on each card payment and deducted from the driver's settlement. Shown as a line item on the driver's weekly statement.
+
+---
+
+## 91. Auto-Complete for Forgotten Jobs
+
+Hangfire background job runs hourly, checks for bookings where:
+- Status = Allocated (or Accepted/OnRoute/Arrived/PassengerOnboard)
+- Pickup time has passed by more than the configurable threshold
+
+**Auto-complete threshold:** configurable per tenant (default 2 hours after pickup time).
+
+When auto-completed:
+- Status set to Completed
+- `AutoCompleted = true` flag set on booking
+- Actual miles NOT recorded (no GPS data if driver didn't use the app)
+- Price remains as originally calculated
+- Audit log entry: "Auto-completed by system — driver did not mark complete"
+- Operator can see auto-completed bookings flagged in reports
+
+---
+
+## 92. Booking Transfer (Reallocate Without Cancel)
+
+Operator can transfer an allocated booking to a different driver without cancelling:
+
+1. Right-click booking on scheduler → "Reallocate" (or drag to different driver row)
+2. System unallocates from current driver:
+   - Current driver receives un-allocation notification
+   - Booking block changes from driver's colour to unallocated colour
+3. Operator selects new driver (driver list with number entry)
+4. System allocates to new driver:
+   - New driver receives allocation notification
+   - Booking block changes to new driver's colour
+5. Booking ID stays the same — no new booking created
+6. Both the unallocation and new allocation logged in audit trail
+7. Customer notified of driver change (if customer notification enabled)
