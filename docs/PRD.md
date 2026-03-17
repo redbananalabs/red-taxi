@@ -2349,3 +2349,161 @@ Issues observed in the current system that Red Taxi must resolve:
 | 15-second polling | Scheduler polls API every 15s for updates | Replace with SignalR push — instant updates |
 | Scheduler click override | Clicking scheduler can overwrite form data | Guard: only pre-fill if form is empty/uncommitted |
 | COA per-stop | COA is per-booking, not per-stop | Support per-stop COA (each via has its own COA button) |
+
+---
+
+## 101. Logic Extracted from Legacy Dispatch UI Code
+
+Source: `legacy/ace-dispatcher/src/` — Booking.jsx (1,413 lines), CustomDialog.jsx (976 lines), bookingSlice.js (314 lines), CallerTable.jsx (356 lines), RepeatBooking.jsx (321 lines), Scheduler.jsx (718 lines).
+
+### Booking Form Data Model (Complete Field List)
+From `bookingSlice.js` `filterData()` — the canonical booking object:
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| bookingId | int | null | Auto-incremented, set on create |
+| pickupDateTime | datetime | now | ISO 8601, auto-updates every second when form is idle |
+| pickupAddress | string | '' | Google Places or Ideal Postcodes |
+| pickupPostCode | string | '' | |
+| destinationAddress | string | '' | |
+| destinationPostCode | string | '' | |
+| vias | array | [] | Each via: `{ address, postCode }` |
+| passengerName | string | '' | Comma-separated if multiple passengers |
+| passengers | int | 1 | Dropdown: 1-9 |
+| phoneNumber | string | '' | Max 12 digits, numeric only |
+| email | string | '' | |
+| details | string | '' | Free text (driver notes) |
+| price | decimal | 0 | Driver price. Set by quote or manual entry. |
+| priceAccount | decimal | 0 | Account price. Only visible when scope = Account. |
+| scope | int | 0 | 0=Cash, 1=Account, 2=Rank, 3=All, 4=Card |
+| accountNumber | int | 9999 | 9999 = no account. Dropdown of account list. |
+| paymentStatus | int | 0 | 0=None, 2=Paid, 3=Awaiting Payment |
+| durationMinutes | int | 0 | Total journey duration in minutes |
+| hours | int | 0 | Display: hours portion of duration |
+| minutes | int | 20 | Display: minutes portion of duration. Default 20 mins. |
+| chargeFromBase | bool | true | Always true in current system |
+| userId | int | null | Allocated driver ID |
+| isASAP | bool | false | When toggled on, adds 5 minutes to current time |
+| isAllDay | bool | false | Pins to all-day row on scheduler |
+| manuallyPriced | bool | false | Auto-set to true when operator edits price field |
+| arriveBy | datetime | null | Target arrival time at destination |
+| returnBooking | bool | false | Toggle for return journey |
+| returnDateTime | datetime | null | Default: pickup + 1 hour when return enabled |
+| repeatBooking | bool | false | Part of a recurrence group |
+| recurrenceRule | string | '' | iCal RRULE format (e.g. `FREQ=WEEKLY;BYDAY=MO,WE,FR;`) |
+| frequency | string | 'none' | none / daily / weekly / fortnightly |
+| repeatEnd | string | 'never' | never / until |
+| repeatEndValue | date | '' | End date for recurrence |
+| formBusy | bool | false | Prevents auto-time-update when form has data |
+| bookingType | string | 'New' | 'New', 'Current' (editing), 'Previous' (from caller history) |
+| bookedByName | string | '' | Auto-set to logged-in operator's name |
+| isDuplicate | bool | false | Flags duplicated bookings |
+
+### Auto-Quote Trigger Logic
+From `Booking.jsx` `useEffect`:
+```
+Auto-quote fires when ALL conditions met:
+  - pickupPostCode exists AND length >= 7
+  - destinationPostCode exists AND length >= 7 (or vias exist)
+  - scope === 0 (Cash only for auto-quote on standard tariff)
+  - formBusy === true (form has data)
+  - manuallyPriced === false (not manually overridden)
+
+For Account bookings (scope === 1):
+  - Uses separate HVS driver quote endpoint
+  - Returns BOTH priceDriver and priceAccount
+  - Account price only shown to Admin role (roleId === 1)
+```
+
+### ASAP Toggle Logic
+When ASAP is toggled ON:
+- Pickup time set to current time + 5 minutes
+- Green "ASAP" badge shown in booking detail modal
+- ASAP label shown on scheduler tile
+
+When ASAP is toggled OFF:
+- Pickup time unchanged (stays at whatever ASAP set it to)
+
+### Return Booking Default
+When Return toggle is enabled:
+- Return datetime defaults to pickup time + 1 hour
+- Return time picker appears
+- Validation: return time must be after pickup time
+
+### Arrive By / Calculate Pickup Logic
+1. Operator enters "Arrive By" time (target arrival at destination)
+2. System calls Google Distance Matrix API with destination postcode
+3. API returns journey duration in minutes
+4. System calculates: `pickupTime = arriveByTime - journeyDuration`
+5. Pickup datetime field auto-updates with calculated time
+6. No buffer time added (legacy had a +5 min buffer, removed)
+
+### Form Time Auto-Update
+When the booking form is NOT busy (no data entered):
+- Pickup datetime auto-updates to current time every 1 second
+- Uses the scheduler's date control (synced with the date the scheduler is showing)
+- As soon as operator starts entering data (`formBusy = true`), auto-update stops
+
+### Keyboard Shortcuts (from code)
+| Key | Action |
+|-----|--------|
+| `End` | Submit the booking form |
+| `Enter` on phone field | Trigger phone number lookup |
+| `Enter` on pickup field | Move focus to destination field |
+| `Enter` on destination field | Move focus to name field |
+| `Escape` on caller popup | Close popup without selecting |
+| `Arrow Up/Down` in caller popup | Navigate rows |
+| `Arrow Left/Right` in caller popup | Switch between Current/Previous tabs |
+| `Enter` in caller popup | Confirm selected row |
+
+### Scope-Dependent Field Visibility
+| Scope | Account Number | Price Account | Get Quote | COA Button | Send Payment Link |
+|-------|---------------|--------------|-----------|-----------|-------------------|
+| Cash (0) | Hidden | Hidden | Visible | Hidden | Visible |
+| Account (1) | Visible | Visible (Admin only) | Hidden (auto-quotes) | Visible | Hidden (should be) |
+| Rank (2) | Hidden | Hidden | Visible | Hidden | Visible |
+| Card (4) | Hidden | Hidden | Visible | Hidden | Visible |
+
+### Role-Based UI Restrictions
+Three roles observed in code (`currentUser.roleId`):
+| roleId | Role | Restrictions |
+|--------|------|-------------|
+| 1 | Admin | Full access. Can see Account Price. Can see payment status controls. |
+| 3 | Restricted (Driver/Booker?) | Cannot see: payment status dropdown, scope=Account option, scope=Card option, Send Quote, COA button, booking detail buttons (soft allocate, allocate, edit, duplicate, cancel). Cannot edit price when editing existing bookings. |
+| (other) | Standard Operator | All features except Account Price visibility |
+
+### COA Entry Creation (Per-Stop)
+From `CustomDialog.jsx` `handleCOAEntry`:
+- COA can be created per pickup AND per via stop independently
+- Each COA entry records: account number, journey date, passenger name, pickup address
+- For pickup COA: uses first passenger name (before comma)
+- For via COA: uses passenger name at position (index + 1) in the comma-separated list
+- This maps passenger names to stop positions: "Passenger1" = pickup, "Passenger2" = via 1, etc.
+
+### Payment Link Flow (from code)
+1. Operator clicks "Send Payment Link" on booking detail modal
+2. Modal asks: Send via Text Message / Email / Both
+3. System sends payment link with: bookingId, passenger name, price, pickup address
+4. Phone and/or email included based on selection
+5. Payment link sent timestamp and sender recorded on booking
+6. "Resend" button available for Admin role
+7. "Refund" button available once payment status = Paid (sends refund request)
+
+### Caller Popup Queue
+From `CallerTable.jsx`:
+- Multiple callers can queue simultaneously
+- If form is busy when a new caller arrives, a "X Callers Waiting" red banner appears
+- Callers are a stack — operator processes one at a time
+- "New Booking" button shown when caller has no booking history (empty tabs)
+- Current bookings tab shows a "Cancel" action column — operator can cancel a booking directly from the caller popup
+- Previous bookings tab has NO cancel column
+
+### Recurrence Rule Format
+From `RepeatBooking.jsx`:
+- Uses iCal RRULE standard format
+- Frequencies: None, Daily, Weekly, Fortnightly (weekly with INTERVAL=2)
+- Day toggles: M T W T F S S (shown for Weekly and Fortnightly only, hidden for Daily)
+- Daily frequency clears day selection (runs every day)
+- Repeat End: Never (no UNTIL clause) or Until (date picker)
+- Generated as: `FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20260630;`
+- Stored on booking as `recurrenceRule` string
