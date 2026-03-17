@@ -2731,3 +2731,165 @@ On completion:
 - Each return booking is independent (separate booking ID, no link to original in legacy)
 
 **Red Taxi fix:** return bookings should be linked via `ReturnBookingId` as specced in §84.
+
+---
+
+## 103. Complete Domain Enums & Constants (from Legacy Code)
+
+Source: `TaxiDispatch.Lib/Domain/` — all enum definitions and business constants.
+
+### Roles
+| Value | Name | Access Level |
+|-------|------|-------------|
+| 1 | Admin | Full access, can see account prices, payment controls |
+| 2 | User | Standard operator (dispatcher) |
+| 3 | Driver | Restricted: no account/card scope, no payment controls, no price editing on existing bookings |
+| 4 | Account | Account booker portal user |
+
+### Booking Scope (Work Type)
+| Value | Name | Badge Colour |
+|-------|------|-------------|
+| 0 | Cash | Red |
+| 1 | Account | Red |
+| 2 | Rank | Red |
+| 3 | All | Red |
+| 4 | Card | Blue |
+
+### Booking Status
+| Value | Name | Scheduler Visual |
+|-------|------|-----------------|
+| None | Not accepted/rejected | Solid driver colour |
+| AcceptedJob | Driver accepted | Diagonal stripes |
+| RejectedJob | Driver rejected | `[R]` prefix |
+| Complete | Job done | Muted/30% opacity |
+| RejectedJobTimeout | Offer timed out | `[RT]` prefix |
+
+### App Job Status (Driver App)
+| Value | Name |
+|-------|------|
+| 3003 | On Route |
+| 3004 | At Pickup |
+| 3005 | Passenger On Board |
+| 3006 | Soon To Clear |
+| 3007 | Clear |
+| 3008 | No Job |
+
+### App Driver Shift
+| Value | Name |
+|-------|------|
+| 1000 | Start Shift |
+| 1001 | Finish Shift |
+| 1002 | On Break |
+| 1003 | Finish Break |
+
+Note: Driver app has **On Break** and **Finish Break** states — not captured in our PRD. Red Taxi should support break tracking.
+
+### Payment Status
+| Value | Name |
+|-------|------|
+| 0 | Select (none) |
+| 2 | Paid |
+| 3 | Awaiting Payment |
+
+Note: Value 1 is skipped — legacy gap.
+
+### Confirmation Status
+| Value | Name |
+|-------|------|
+| 0 | Not set |
+| 1 | Confirmed |
+| 2 | Pending (not confirmed) |
+
+### Document Types
+Insurance, MOT, DBS, VehicleBadge, DriverLicence, SafeGuarding, FirstAidCert, DriverPhoto
+
+Note: **SafeGuarding** and **FirstAidCert** are additional document types beyond what we specced. **DriverPhoto** is also tracked. Red Taxi should include these as defaults.
+
+### Expense Categories
+Fuel, Parts, Insurance, MOT, DBS, VehicleBadge, Maintenance, Certification, Other
+
+### Vehicle Types
+Unknown, Saloon, Estate, MPV, MPVPlus, SUV
+
+Note: **MPVPlus** exists as a separate type (larger MPV). No **WAV** (Wheelchair Accessible Vehicle) in legacy — this is a Red Taxi addition.
+
+### Message Events (11 types)
+| Event | Description |
+|-------|-------------|
+| DriverOnAllocate | SMS/WhatsApp to driver when allocated |
+| DriverOnUnAllocate | SMS/WhatsApp to driver when unallocated |
+| DriverOnAmend | SMS/WhatsApp to driver when booking amended |
+| DriverOnCancel | SMS/WhatsApp to driver when booking cancelled |
+| CustomerOnAllocate | SMS/WhatsApp to customer when driver allocated |
+| CustomerOnUnAllocate | SMS/WhatsApp to customer when driver unallocated |
+| CustomerOnAmend | SMS/WhatsApp to customer when booking amended |
+| CustomerOnCancel | SMS/WhatsApp to customer when booking cancelled |
+| CustomerOnComplete | SMS to customer when job completed |
+| DriverDirectMessage | Direct message from operator to one driver |
+| DriverGlobalMessage | Broadcast message from operator to all drivers |
+
+Note: **11 events**, not 8 as previously specced. We were missing CustomerOnComplete, DriverDirectMessage, and DriverGlobalMessage.
+
+### Message Channels
+| Value | Name |
+|-------|------|
+| 0 | None (disabled) |
+| 1 | WhatsApp |
+| 2 | SMS |
+| 3 | Push (FCM) |
+
+### Push Notification Navigation IDs
+| Value | Name |
+|-------|------|
+| 0 | None |
+| 1 | Allocate (opens booking in driver app) |
+| 2 | Unallocate |
+| 3 | Amended |
+| 4 | Cancelled |
+| 5 | Direct Message |
+| 6 | Global Message |
+
+### Local POI Categories
+Not_Set, Train_Station, Supermarket, House, Pub, Restaurant, Doctors, Airport, Ferry_Port, Hotel, School, Hospital, Wedding_Venue, Miscellaneous, Shopping_Centre
+
+Note: **15 categories** — more than the 6 we listed. Red Taxi should include all as defaults with tenant ability to add custom categories.
+
+### Airport Detection (Constants)
+Hardcoded list of 26 airport address strings used for airport run reporting. Includes all Heathrow terminals (1-5), Gatwick North/South, Bristol, Southampton, Luton, Stansted, Bournemouth, London City, plus specific hotel addresses at airports.
+
+**Red Taxi:** replace with configurable airport POI matching or address keyword detection.
+
+### Other Constants
+- `UnAllocatedColor = "#795548"` (brown — the default unallocated colour)
+- `MinimumJourneyMinutes = 15` (minimum journey duration)
+- `BasePostcode = "SP8 4PZ"` (Ace Taxis office — used for dead mileage calculation)
+- Address lookup centre: `lat 51.0478, lng -2.2769` (Gillingham, Dorset)
+- Block booking "Never" end date defaults to **pickup + 12 months** (old logic) or **pickup + 6 months** (new logic)
+
+---
+
+## 104. Hardcoded Ace-Specific Logic to Make Configurable
+
+These items are hardcoded for Ace Taxis in the legacy code and MUST be configurable per tenant in Red Taxi:
+
+| Hardcoded Item | Legacy Value | Red Taxi Config Location |
+|---------------|-------------|------------------------|
+| Base postcode (dead mileage) | SP8 4PZ | Company Settings → Company Profile |
+| Address lookup centre lat/lng | 51.0478, -2.2769 | Company Settings → Company Profile (auto from postcode) |
+| Unallocated colour | #795548 (brown) | Company Settings → Dispatch |
+| Bank holidays | Hardcoded 2025-2027 | Company Settings → Pricing → Bank Holidays (CRUD list) |
+| Airport address strings | 26 hardcoded strings | POI category = Airport (auto-detect from POIs) |
+| HVS account numbers | 9014, 10026 | Account Tariff system (per-account) |
+| HVS per-mile rates | £2.40 driver, £2.60 account | Account Tariff: driver rate + account rate per mile |
+| HVS via surcharge | +£7 driver, +£15 account | Account Tariff: via surcharge fields |
+| HVS discount | 15% off driver price | Account Tariff: discount % field |
+| HVS school postcode | DT9 4DN (no via charge) | Account Tariff: exempt postcode list |
+| Revolut API key | Hardcoded token | Company Settings → Payments → Revolut API Key |
+| Revolut webhook URL | Hardcoded Ace domain | Auto-configured per tenant subdomain |
+| SendGrid template IDs | 14 hardcoded templates | Message template builder (drag-drop) |
+| WhatsApp SIDs | 4 hardcoded Twilio SIDs | Company Settings → Messaging → WhatsApp config |
+| Minimum journey minutes | 15 | Company Settings → Pricing (or leave as system default) |
+| Block booking "Never" duration | 6 months | Company Settings → Dispatch → Default block booking duration |
+| Special phone numbers | 07825350912, 07738825598 | Remove — these are debug/test numbers |
+| Special test number | 0000011111 | Remove — test artefact |
+| Cutoff date | 2025-09-09 | Remove — migration artefact |
