@@ -1905,3 +1905,32 @@ One page with collapsible sections. Tenant Admin only.
 - Platform update notifications (on/off)
 - Low rating alert threshold (e.g. below 3.5 stars)
 - Document expiry email notifications (on/off)
+
+---
+
+## 84. Booking Edge Cases & Special Behaviour
+
+### Return Journeys
+- Booking form has a "Return" toggle
+- When enabled: a return time picker appears
+- On confirm: system creates TWO linked bookings:
+  1. Original: Pickup A → Destination B at original time
+  2. Return: Pickup B → Destination A at return time
+- Both bookings linked via `ReturnBookingId` (each references the other)
+- Return booking is independent — can be allocated to a different driver, amended, or cancelled separately
+- If original is cancelled, operator is prompted: "Cancel return journey too?"
+
+### All Day Bookings
+- "All Day" checkbox on booking form
+- Pins the booking to the **top** of the driver's diary column (not in a time slot)
+- Does NOT block the driver's schedule — driver can still take normal timed jobs
+- Used for long/flexible bookings like "available for school runs" or "VIP client all day"
+- Visually distinct on the scheduler: pinned bar at top of column, not a time-positioned block
+
+### Quoting (Operator-Driven)
+- Operator creates a booking (or enters addresses without saving) and sees the calculated price
+- "Send Quote" button sends the price to the customer via SMS or email (operator chooses)
+- Quote is informational — customer calls back to confirm, operator then creates the booking
+- Quote message uses a template (customisable in Message Settings): "Hi {PassengerName}, your quote from {PickupAddress} to {DestinationAddress} is £{Price}. Call us on {CompanyPhone} to book. {CompanyName}"
+- Quote is NOT a booking — no diary entry, no allocation, no record beyond the sent message
+- Operator can also generate a quote without sending (just show price on screen for phone conversation)
