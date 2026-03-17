@@ -2507,3 +2507,227 @@ From `RepeatBooking.jsx`:
 - Repeat End: Never (no UNTIL clause) or Until (date picker)
 - Generated as: `FREQ=WEEKLY;BYDAY=MO,WE,FR;UNTIL=20260630;`
 - Stored on booking as `recurrenceRule` string
+
+---
+
+## 102. Backend Logic Extracted from Legacy Services
+
+Source: `legacy/TaxiDispatch.Lib/Services/` — BookingService.cs (2,142 lines), TariffService.cs (709 lines), DispatchService.cs (1,002 lines), RevoluttService.cs (280 lines).
+
+### Complete API Endpoint Map (Dispatch UI → Backend)
+
+| Frontend Action | API Endpoint | Backend Service | Method |
+|----------------|-------------|----------------|--------|
+| Load scheduler | POST `Bookings/DateRange` | BookingService | GetBookings |
+| Create booking | POST `Bookings/Create` | BookingService | CreateBooking |
+| Update booking | POST `Bookings/Update` | BookingService | UpdateBooking |
+| Cancel booking | POST `Bookings/Cancel` | BookingService | CancelBooking |
+| Get price (cash) | POST `Bookings/GetPrice` | TariffService | Get9999CashPrice |
+| Get price (account) | POST `Bookings/GetPrice` | TariffService | GetPriceHVS |
+| Get duration | GET `Bookings/GetDuration` | TariffService | GetDrivingDistance |
+| Allocate driver | POST `Bookings/Allocate` | DispatchService | AllocateBooking |
+| Soft allocate | POST `Bookings/SoftAllocate` | BookingService | SoftAllocate |
+| Confirm all SA | POST `Bookings/ConfirmAllSoftAllocates` | BookingService | SoftAllocateConfirmAll |
+| Complete booking | POST `Bookings/Complete` | DispatchService | Complete |
+| Phone lookup | GET `Bookings/CallerEvent` | CallEventsService | fireCallerEvent |
+| Merge bookings | GET `Bookings/MergeBookings` | BookingService | MergeBookings |
+| Create COA entry | POST `Bookings/CreateCOAEntry` | BookingService | RecordCOAEntry |
+| Get COA entries | GET `Bookings/GetCOAEntrys` | BookingService | GetCOAEntrys |
+| Search bookings | GET `Bookings/FindByTerm` | BookingService | KeywordSearch |
+| Advanced search | POST `Bookings/FindBookings` | BookingService | FindBookings |
+| Send payment link | GET `Bookings/PaymentLink` | BookingService + Revolut | SendPaymentLink |
+| Send refund | GET `Bookings/RefundPayment` | RevoluttService | RefundOrder |
+| Payment receipt | GET `Bookings/SendPaymentReceipt` | BookingService | CreateAndSendPaymentReceipt |
+| Send confirmation SMS | GET `Bookings/SendConfirmationText` | AceMessagingService | SendConfirmationText |
+| Payment reminder | GET `Bookings/ReminderPaymentLink` | AceMessagingService | ReminderPaymentLink |
+| Record turn-down | GET `Bookings/RecordTurndown` | BookingService | RecordTurnDown |
+| Send quote | POST `Bookings/SendQuote` | BookingService + AceMessagingService | sendQuotes |
+| Driver arrived | GET `DriverApp/Arrived` | DispatchService | DriverArrived |
+| Drivers on shift | GET `AdminUI/DriversOnShift` | AdminUIService | DriversOnShift |
+| Send message to driver | POST `AdminUI/SendMessageToDriver` | AdminUIService | SendMessageToDriver |
+| Send message to all | POST `AdminUI/SendMessageToAllDrivers` | AdminUIService | SendMessageToAllDrivers |
+| Get GPS positions | GET `UserProfile/GetAllGPS` | UserProfileService | GetAllGPS |
+| Get action logs | GET `Bookings/GetActionLogs` | BookingService | GetAuditLog |
+| Get notifications | GET `AdminUI/GetNotifications` | UINotificationService | GetNotifications |
+| Clear notification | GET `AdminUI/ClearNotification` | UINotificationService | ClearNotification |
+| Submit ticket | POST `AdminUI/SubmitTicket` | AdminUIService | SubmitTicket |
+| Direct SMS | POST `SmsQue/SendText` | SmsQueueService | SendText |
+| Get POIs | GET `LocalPOI/GetAll` | LocalPOIService | GetAll |
+| Get accounts list | GET `Accounts/GetAll` | AccountsService | GetAll |
+| Get driver list | GET `UserProfile/GetAllDrivers` | UserProfileService | GetAllDrivers |
+| Cancel by range | POST `Bookings/CancelByRange` | BookingService | CancelBookingsByDateRange |
+
+### Tariff Selection Logic (GetTariff — Complete Rules)
+
+The system selects which tariff applies based on pickup date/time:
+
+**Tariff 3 (Holiday rate) applies when:**
+- Dec 24 after 18:00 (Christmas Eve evening)
+- Dec 25 (Christmas Day — all day)
+- Dec 26 (Boxing Day — all day)
+- Dec 31 after 18:00 (New Year's Eve evening)
+- Jan 1 (New Year's Day — all day)
+
+**Tariff 2 (Night rate) applies when:**
+- Any day 22:00–06:59 (night hours)
+- All day Sunday
+- Monday 00:00–06:59 (Sunday night overflow)
+- Saturday after 22:00
+- UK bank holidays (hardcoded list — must be updated annually)
+
+**Tariff 1 (Day rate) applies when:**
+- Monday–Friday 07:00–21:59 (not a bank holiday)
+- Saturday 07:00–21:59
+- December 24 before 18:00
+
+**Bank holidays are hardcoded** (2025, 2026, 2027) — Red Taxi should use a configurable bank holiday list or a public API.
+
+### Cash Price Formula (Get9999CashPrice — Step by Step)
+
+```
+1. Calculate journey segments:
+   - No vias: one segment (pickup → destination)
+   - With vias: pickup→via1, via1→via2, ..., lastVia→destination
+   - Each segment = Google Distance Matrix call → miles + minutes
+
+2. Calculate dead mileage (always from base):
+   - Leg A: BasePostcode → pickup (miles)
+   - Leg C: destination → BasePostcode (miles)
+   - deadMiles = legA.miles + legC.miles
+
+3. Calculate totals:
+   - journeyMiles = sum of all segment miles
+   - totalMiles = (journeyMiles + deadMiles) / 2    ← AVERAGE of journey + dead
+   - journeyMinutes = sum of all segment minutes
+
+4. Select tariff (Tariff 1/2/3 based on pickup datetime)
+
+5. Calculate price:
+   - price = tariff.InitialCharge + tariff.FirstMileCharge
+   - If totalMiles > 1:
+       price += (totalMiles - 1) × tariff.SubsequentMileCharge
+   - Final price = price
+
+6. Response includes:
+   - PriceDriver (the calculated price)
+   - PriceAccount (for account bookings, separate calculation)
+   - DeadMileage, DeadMinutes
+   - JourneyMileage, JourneyMinutes
+   - Tariff name
+   - MileageText (formatted: "X.X miles")
+```
+
+### Account Price Formula (GetPriceHVS — Harbour Vale School Specific)
+
+This is a HARDCODED pricing model for specific school accounts:
+```
+1. Calculate journey using AVERAGED bidirectional distances:
+   - Forward: pickup → destination
+   - Reverse: destination → pickup
+   - Average: (forward.miles + reverse.miles) / 2
+
+2. Dead mileage also averaged bidirectionally:
+   - BasePostcode→pickup AND BasePostcode→destination averaged
+   - destination→BasePostcode AND pickup→BasePostcode averaged
+
+3. Driver price:
+   - miles = (journeyMiles + deadMiles) / 2
+   - priceDriver = miles × £2.40
+   - priceDriver × 0.85 (15% discount)
+   - + £7 per via stop (unless via postcode = DT9 4DN — the school itself)
+
+4. Account price:
+   - miles = (journeyMiles + deadMiles) / 2
+   - priceAccount = miles × £2.60
+   - + £15 per via stop (unless via postcode = DT9 4DN)
+```
+
+**Red Taxi note:** This HVS pricing is Ace-specific and hardcoded. Red Taxi must make this configurable as an Account Tariff with per-mile driver rate, per-mile account rate, and per-via surcharges.
+
+### Merge Booking Logic (Complete Backend Rules)
+
+From `BookingService.MergeBookings`:
+
+**Validation:**
+1. Cannot merge a booking with itself
+2. Account numbers MUST match
+3. Either pickup OR destination address must match between the two bookings (not necessarily both)
+
+**Merge behaviour:**
+- If pickups are the SAME postcode: append booking's DESTINATION is added as a via
+- If pickups are DIFFERENT: append booking's PICKUP is added as a via
+- Passenger names concatenated with ", " separator
+- Passenger count incremented by 1
+- Append booking's notes added to primary with `[V{n}]` prefix
+- manuallyPriced set to true on primary (price locked after merge)
+- **For HVS accounts (9014/10026):** hardcoded +£7 to driver price, +£15 to account price per merge
+- **Append booking is marked as CANCELLED** (not deleted — retained for audit)
+
+### COA Entry Logic (Toggle Behaviour)
+
+From `BookingService.RecordCOAEntry`:
+- COA is a **TOGGLE** — calling the same endpoint again REMOVES the COA record
+- Checks: if a COA record exists for the same account + date + passenger + address → DELETE it
+- If no matching record exists → CREATE new COA entry
+- This means the COA button acts as an on/off toggle per stop
+
+### Completion Logic (DispatchService.Complete)
+
+**Cannot complete before pickup time** — system blocks completion if current time is before the booking's pickup datetime.
+
+On completion:
+1. Removes booking from driver's active job
+2. Updates: waitingTime, parkingCharge, price (driver price), tip, status=Complete
+3. Account price only updated if the completing user is an Admin
+4. If scope = Cash: payment status auto-set to Paid
+5. Customer SMS sent on completion (for Cash and Card bookings only, not Account)
+
+### Allocation Logic (DispatchService.AllocateBooking)
+
+1. If booking already has a driver assigned AND new driver is different:
+   - Send un-allocation messages to previous driver
+   - Reset booking status to None
+   - Delete any existing job offers for this booking
+2. Update booking: set userId, status=None, allocatedById, allocatedAt timestamp
+3. Create audit log entry (BookingChangeAudit)
+4. Send allocation messages to new driver (FCM push + SMS)
+
+### Revolut Payment Flow (Complete)
+
+1. **Create order:** `RevoluttService.CreateOrder(amount, description)` → Revolut API → returns `checkout_url`
+2. **Payment link sent to customer:** via SMS/email containing the checkout_url
+3. **Webhook:** Revolut sends `ORDER_COMPLETED` or `ORDER_AUTHORISED` to `/api/bookings/revpaymentupdate`
+4. **On webhook:** system updates booking payment status to Paid, sends receipt SMS
+5. **Refund:** `RevoluttService.RefundOrder(orderId, amount)` → Revolut API
+6. **Cancel order:** `RevoluttService.CancelOrder(orderId)` → Revolut API
+7. **VAT on card:** configurable per company (`CompanyConfig.AddVatOnCardPayments`)
+8. **Currency:** hardcoded GBP
+
+### Booking Creation Flow (Complete Backend Sequence)
+
+1. Map DTO to Booking entity
+2. Set DateCreated to now (UK time)
+3. Clear payment status to "Select" (0)
+4. Standardize phone number (trim spaces)
+5. Standardize postcodes (uppercase, format)
+6. Standardize addresses (remove extra spaces)
+7. Calculate mileage via `TariffService.Get9999CashPrice` (for mileage text, not pricing)
+8. Standardize via postcodes and addresses
+9. If has recurrence rule → CreateBlockBooking (generates all instances)
+10. Else → save single booking
+11. If driver allocated on creation → immediately call AllocateBooking (sends notification)
+12. If return datetime set → create return booking (reversed addresses, separate price calc)
+13. Return list of all created booking IDs
+
+### Return Booking Logic (Backend)
+
+- Addresses reversed (pickup ↔ destination)
+- Vias reversed in order
+- ASAP flag cleared (return is never ASAP)
+- ArriveBy cleared
+- For Cash bookings: price recalculated via tariff (unless manually priced)
+- For Account bookings: only duration recalculated (price comes from account tariff)
+- If original has recurrence rule: return also creates block bookings
+- Each return booking is independent (separate booking ID, no link to original in legacy)
+
+**Red Taxi fix:** return bookings should be linked via `ReturnBookingId` as specced in §84.
