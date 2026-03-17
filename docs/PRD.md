@@ -1545,3 +1545,151 @@ Phase 2 feature. Generic CSV import wizard for new tenants migrating from other 
 - Import preview with record counts
 - Background job processes the import
 - Completion report with success/failure counts
+
+---
+
+## 76. Booking Module — Deep Detail
+
+### Phone Lookup / Caller ID
+When operator receives a call (or enters a phone number manually):
+1. System searches customer records by phone number
+2. If found: popup shows two tabs — **Active Bookings** | **History**
+3. History tab shows **distinct** journeys (deduplicated — same route shown once, ordered by most recent)
+4. Operator clicks a history entry to pre-fill the booking form with that journey's details
+5. If no match: phone number auto-fills in the form, cursor focuses on Pickup Address field
+
+### Via Stops
+- Maximum 5 via stops per booking
+- Each via has: address, postcode, optional passenger name
+- Vias affect price calculation (distance includes all via segments)
+- Vias visible on map route overlay
+
+### Booking Notes
+Two note fields:
+- **Driver Notes:** visible to driver in their app and on allocation message. Used for directions, passenger description, gate codes, etc.
+- **Internal Notes:** visible to operators only. Used for account instructions, special handling, internal flags. Never sent to driver.
+
+### Price Recalculation
+- Auto-recalculates whenever pickup, destination, vias, or pickup time changes
+- Recalculation calls Google Distance Matrix → applies tariff → updates price
+- If `ManuallyPriced = true`: price is locked. Address/time changes do NOT trigger recalculation.
+- Operator can unlock by unchecking "Manually Priced" → triggers immediate recalculation
+- Account tariff overrides standard tariff when booking is for an account
+
+### Duplicate Booking
+- Creates a new booking pre-filled with all details from the original
+- Driver allocation is **stripped** — duplicate is always unallocated
+- New date/time defaults to now (operator adjusts)
+- Operator reviews all fields before confirming
+- Useful for repeat customers calling for the "same as last time"
+
+### School Run Split/Merge
+- **Merge:** in Diary Mode, drag booking A onto booking B. Preconditions: both school-run tagged, same destination, same account. Booking A's pickup becomes a via on booking B.
+- **Split:** operator can split a merged school run booking back into individual bookings. Each split booking gets its original pickup as the primary address.
+- Split/merge is only available for school-run bookings — not general bookings.
+
+---
+
+## 77. Dispatch Module — Deep Detail
+
+### v1: Manual Dispatch Only
+- No automated job offers in v1
+- Operator manually allocates drivers via right-click on scheduler → driver list
+- Soft allocate (no notification) and hard allocate (notification sent) both available
+- CONF SA button batch-confirms all soft allocates
+
+### Job Offer Framework (v2 — architecture ready)
+Schema and entities ready for v2 implementation:
+- `JobOffer` entity: BookingId, DriverId, OfferedAt, ExpiresAt, Status (Pending/Accepted/Rejected/TimedOut)
+- Offer timeout: configurable per tenant + per job urgency (ASAP = shorter timeout)
+- Rejection penalty: configurable per tenant (X rejections in Y hours = Z minute temporary ban from offers)
+- Sequential offering: offer to one driver at a time, move to next on reject/timeout
+- Offer channel: FCM push notification (full-screen takeover in driver app)
+
+### Turn-Down Recording
+When an operator attempts to allocate but no driver is available:
+- "Turn Down" (NO button in top bar) records the booking as a turn-down
+- Turn-down report tracks: date, time, pickup, destination, reason
+- Used for demand analysis (which areas/times have insufficient coverage)
+
+---
+
+## 78. Driver Module — Deep Detail
+
+### Online/Offline Toggle
+- Driver opens app → toggles "Online" switch at top of Schedule screen
+- Going online: starts GPS tracking (every 10s), logs shift start time, driver appears on dispatch map
+- Going offline: stops GPS tracking, logs shift end time, driver disappears from dispatch map
+- Auto-offline after configurable idle period (e.g. 4 hours with no job activity)
+
+### Driver Types
+| Type | Can Rank | Metered Jobs | Pre-Booked Jobs |
+|------|----------|-------------|-----------------|
+| Private Hire | No | No | Yes |
+| Hackney | Yes | Yes | Yes |
+
+Stored on driver profile as `DriverType` enum. Affects:
+- Whether driver can create rank jobs from the app
+- Whether "Enter Final Price" appears on job completion (Hackney runs meter)
+- Reporting: rank jobs tracked separately from pre-booked
+
+### Rank Job Flow (Hackney Only)
+1. Hackney driver at taxi rank picks up passenger
+2. Opens app → "Create Rank Job"
+3. Enters destination address → system calculates tariff-based price
+4. Drives to destination with meter running
+5. On completion: enters final metered price (overrides tariff calculation)
+6. Enters payment type (cash/card)
+7. Job recorded — operator takes commission at settlement
+
+### Rank Job Flow (Private Hire)
+Private hire drivers cannot create rank jobs. If a private hire driver picks up from a rank, it must be pre-booked through the dispatch system.
+
+### Financial Transparency
+Driver app Earnings tab shows:
+- Today's earnings breakdown: each job with price
+- Commission deductions (per-job and total)
+- Card fee deductions (where applicable)
+- Net payout (what they'll actually receive)
+- Weekly running total
+- Statement preview (before official statement is generated)
+- Historical statements with PDF download
+
+---
+
+## 79. Accounts Module — Deep Detail
+
+### Account Creation
+- Operator creates account in dispatch console: company name, address, postcode, email, phone
+- System auto-generates account number (auto-increment from tenant's last account number)
+- System emails login credentials to the account's email address
+- Credentials: account number + auto-generated password (account can change on first login)
+
+### Multiple Bookers
+- Each account can have multiple authorised bookers
+- Each booker has their own login (email + password) linked to the account
+- Booker permissions are equal — all can create, view, and (if permitted) cancel bookings
+- Operator manages bookers from the account edit screen
+- Booker activity tracked: "Booked By" field on each booking shows which booker created it
+
+### Account Web Portal Features
+- **Create booking:** pickup, destination, vias, date/time, passenger selection, repeat booking
+- **Active bookings:** list of current bookings with live map (configurable per tenant — some tenants enable map, some don't)
+- **Booking history:** past bookings with status, filterable by date range
+- **Amend booking:** submit amendment request → operator approves or rejects. Account sees "Amendment Pending" status.
+- **Cancel booking:** configurable per account. Some accounts can cancel freely, others require operator approval. Cancel request shows "Cancellation Pending" until approved.
+- **Passenger management:** add, edit, delete passengers. Passengers linked to account, selectable when creating bookings.
+- **Duplicate booking:** one-click re-book from history
+
+### Account Payment Methods
+Configurable per account:
+- **Invoice:** monthly invoice generated by operator, emailed as PDF. Payment terms per account (Net 7/14/30/60).
+- **Card:** individual bookings payable by card via Revolut payment link
+- **Direct Debit:** GoCardless integration for automated monthly collection (Phase 2)
+
+### Account Invoicing
+- Invoice Processor: operator selects account + date range → sees all uninvoiced completed bookings
+- Individual pricing: each job priced using account tariff (account price + driver price)
+- Grouped pricing (school runs): jobs grouped by route, batch-priced
+- "Post All Priced" → generates invoice PDF → auto-emails to account
+- Auto Email Invoices toggle: when ON, posted invoices auto-send; when OFF, operator manually triggers email
