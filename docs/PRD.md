@@ -2024,3 +2024,46 @@ System suggests which driver should get the next airport run based on:
 - **Hours worked:** balance airport jobs against total hours worked (more hours = higher priority for premium jobs)
 
 This feeds into the Dispatch Scoring Engine (§12) as airport-specific scoring criteria. v1 shows the report; v2 adds the suggestion.
+
+---
+
+## 89. Settlement — Cash & Commission Deep Detail
+
+### Cash Job Tracking
+- When a booking is allocated to a driver and NOT cancelled, it is **automatically included in the driver's running total** — regardless of whether the driver tapped "Complete"
+- This is deliberate: drivers forget to complete jobs. The system assumes: allocated + not cancelled = done.
+- Cash jobs: driver physically keeps the cash. The system records it as income and calculates commission owed.
+- The running total for a driver includes ALL allocated, non-cancelled bookings — complete or not.
+
+### Commission on Cash Jobs
+- Driver owes the company commission on cash jobs
+- Commission is **not collected directly** — it's deducted from the driver's account job earnings
+- Example: driver does £200 cash jobs (owes £40 commission at 20%) + £300 account jobs (driver price £250). Statement shows: Account earnings £250 - Cash commission owed £40 = Net payout £210.
+- If account earnings are insufficient to cover cash commission: balance goes negative (carried forward).
+
+### Negative Balance
+- A driver's settlement balance CAN go negative
+- Negative balance = driver owes the company money
+- Carried forward to next week's statement
+- Example: Week 1 net = -£30. Week 2 account earnings = £200, cash commission = £20. Week 2 payout = £200 - £20 - £30 (brought forward) = £150.
+- Operator can see negative balances on the dashboard and driver profile
+- No automatic collection mechanism — operator manages recovery (conversation with driver, reduced shifts, etc.)
+
+### Settlement Calculation Formula
+```
+Gross Account Earnings    = sum of DriverPrice on all allocated account jobs
+Gross Cash Earnings       = sum of Price on all allocated cash jobs (driver kept this cash)
+Gross Rank Earnings       = sum of Price on all allocated rank jobs (driver kept this cash)
+Gross Card Earnings       = sum of Price on all allocated card jobs
+
+Cash Commission Owed      = Gross Cash × DriverCommissionRate%
+Rank Commission Owed      = Gross Rank × DriverCommissionRate%
+Card Fees                 = sum of card processing fees on card jobs
+
+Total Commission          = Cash Commission + Rank Commission
+Balance Brought Forward   = previous week's closing balance (positive or negative)
+
+Net Payout = Gross Account Earnings - Total Commission - Card Fees + Balance Forward
+```
+
+If Net Payout is negative: no payment made, balance carried to next week.
