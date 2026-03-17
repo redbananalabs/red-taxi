@@ -1693,3 +1693,92 @@ Configurable per account:
 - Grouped pricing (school runs): jobs grouped by route, batch-priced
 - "Post All Priced" → generates invoice PDF → auto-emails to account
 - Auto Email Invoices toggle: when ON, posted invoices auto-send; when OFF, operator manually triggers email
+
+---
+
+## 80. Billing Module — Deep Detail
+
+### Account Invoice Delivery
+Configurable per account — operator sets preferred delivery method:
+- **PDF email only:** invoice PDF attached to email
+- **PDF email + Revolut payment link:** email contains PDF attachment + payment link for instant card payment
+- **PDF email + online portal:** account views and pays invoices via the web portal
+
+### Credit Notes
+- Formal document issued against a specific invoice (not ad-hoc balance adjustments)
+- Credit note has its own number sequence: `CN-001`, `CN-002` (auto-increment per tenant)
+- References the original invoice number
+- Can be partial (credit specific line items) or full (credit entire invoice)
+- Credit note PDF generated via QuestPDF, emailed to account
+- Credit notes appear in financial reports as negative revenue
+
+### Driver Weekly Statement
+Full detail with running balance:
+- **Gross earnings:** total of all completed jobs (cash + account + rank + card)
+- **Commission deductions:** per-job commission based on driver's rate
+- **Card fee deductions:** processing fees on card payments
+- **Expenses note:** summary of submitted expenses (informational, not deducted)
+- **Balance brought forward:** outstanding balance from previous weeks (positive = owed to driver, negative = driver owes company)
+- **Net payout:** gross - commission - card fees +/- balance forward
+- Statement PDF generated via QuestPDF
+
+### Statement Generation
+Configurable per tenant:
+- **Manual:** operator clicks "Process Statement" for a selected date range + driver(s)
+- **Auto:** Hangfire job generates statements every Monday at 06:00 for the previous week (Mon-Sun)
+- Setting in Company Settings: `StatementGeneration = Manual | Auto`
+
+### Driver Payment
+- Operator pays driver outside the system (bank transfer, typically weekly)
+- Operator marks statement as "Paid" in the system with payment date
+- Payment status visible to driver in the app (Paid / Unpaid / Partial)
+- No integrated payout via Stripe/Revolut in v1 — record-keeping only
+
+---
+
+## 81. Messaging Module — Deep Detail
+
+### Message Template Builder
+Tenants customise their notification templates via an intuitive drag-and-drop builder in Message Settings:
+
+**Editor layout:**
+- Left panel: text editor (WYSIWYG for the message body)
+- Right panel: available placeholders as draggable chips/pills
+- Drag a placeholder from the right panel → drop into the text → inserts `{VariableName}`
+- Preview pane below shows the message with sample data
+
+**Available placeholders (draggable):**
+`{BookingId}`, `{PickupTime}`, `{PickupAddress}`, `{DestinationAddress}`, `{PassengerName}`, `{PassengerPhone}`, `{Passengers}`, `{BookingDetails}`, `{DriverName}`, `{DriverPhone}`, `{VehicleReg}`, `{VehicleType}`, `{VehicleColour}`, `{Price}`, `{CompanyName}`, `{TrackingUrl}`, `{PaymentUrl}`, `{ETA}`
+
+**Per-event templates:**
+Each of the 8 messaging events has its own template:
+- DRIVER - ON ALLOCATE
+- DRIVER - UN-ALLOCATE
+- DRIVER - ON AMEND BOOKING
+- DRIVER - ON CANCEL BOOKING
+- CUSTOMER - ON ALLOCATE
+- CUSTOMER - UN-ALLOCATE
+- CUSTOMER - ON AMEND BOOKING
+- CUSTOMER - ON CANCEL BOOKING
+
+**Channel selection:** each event also has a channel toggle (None / WhatsApp / SMS) — same as current legacy system but with the improved template editor.
+
+**Default templates:** system provides sensible defaults on tenant creation (as documented in business-rules.md §42). Tenant can customise from day one.
+
+### SMS Sending
+- Provider: TextLocal (existing) or tenant-configurable (Twilio, etc.)
+- Branded sender ID: tenant's company name (e.g. "Ace Taxis") — configurable in Company Settings
+- SMS uses tenant's purchased SMS pack (bolt-on). When pack depleted: messages queued, operator warned.
+
+### WhatsApp Sending
+- Provider: Twilio WhatsApp Business API (or Meta Cloud API)
+- Per-message cost: 1p charged to tenant (metered via Stripe)
+- WhatsApp messages use approved template formats (Meta requirement)
+- Fallback: if WhatsApp delivery fails, system can auto-fallback to SMS (configurable)
+
+### Local SMS Gateway (Legacy Support)
+- For tenants with Android SMS gateway devices (like Ace's current setup)
+- API endpoint: driver app / gateway device polls for queued messages
+- Gateway sends via device's native SMS (cheaper than provider SMS)
+- SMS Heartbeat monitor: dispatch console shows last gateway ping time
+- If heartbeat stale > 5 minutes: alert in dispatch console
