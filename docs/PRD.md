@@ -2147,3 +2147,205 @@ The Schedule tab in the driver app offers two view modes (toggle at top):
 - Gives driver visibility of upcoming days (tomorrow's early school run, Friday airport booking, etc.)
 - Jobs shown as coloured blocks matching booking status colours
 - Useful for drivers who want to plan their week ahead
+
+---
+
+## 95. Scheduler — Complete Specification (from live system observation)
+
+The scheduler is the primary operational view. Occupies the right panel (in legacy — in Red Taxi, this becomes the bottom-docked timeline + expanded Diary Mode). Auto-refreshes every 15 seconds via polling (Red Taxi will use SignalR push instead).
+
+### Layout & Navigation
+- Date navigation: back/forward arrows + date picker dropdown
+- Toolbar: CONFIRM SA | SHOW ALLOCATED toggle | SHOW COMPLETED toggle | TODAY | DAY | AGENDA views | MERGE MODE toggle
+- Bidirectional sync: clicking a time slot on the scheduler pre-fills the booking form's date/time, UNLESS the form already has committed data (prevents accidental overwrite)
+
+### Booking Tile Label Rules
+Tiles show different content based on booking type:
+
+| Booking Type | Tile Label |
+|-------------|------------|
+| Account / School Run | Passenger name(s) |
+| Cash / Standard | Journey: pickup → destination |
+| Card payment | `[C]` prefix before label |
+| Rejected by timeout | `[RT]` prefix |
+| COA (per stop) | `COA` prefix on the stop address |
+
+### Colour Coding (Extended from §43)
+
+| Visual | Meaning |
+|--------|---------|
+| Driver colour (solid fill) | Allocated to that driver |
+| Driver colour (diagonal stripes) | Allocated AND accepted by driver |
+| Brown/amber (tenant configurable) | Unallocated — no driver assigned |
+| Purple (full-width bar) | Driver block / unavailability marker |
+
+### All-Day Row
+Bookings pinned to the all-day bar at the top of the scheduler are NOT all-day journeys. This row is used for:
+- Unconfirmed jobs that don't have a specific time yet
+- Account-billed jobs where no driver was sent but the company is billing the account (e.g. COA where account still pays)
+- Flexible bookings (driver available all day, no fixed pickup time)
+- Does NOT block the driver's time slots — they can still take timed bookings
+
+### Toolbar Controls
+
+**SHOW ALLOCATED toggle:** filters allocated bookings in/out of the scheduler view. Used to declutter and focus on unallocated jobs needing attention.
+
+**SHOW COMPLETED toggle:** filters completed bookings in/out. Reduces noise once jobs are done.
+
+**MERGE MODE toggle:** when enabled, allows drag-and-drop merging of booking tiles:
+- Drag booking A onto booking B → combine into single trip
+- Passenger names merged (comma separated)
+- Source booking's pickup address added as a via stop on the target
+- Price recalculated to account for extra pickup
+- Passenger count updated
+- **Known issue to fix in Red Taxi:** source booking must be auto-deleted after merge (legacy requires manual deletion)
+
+---
+
+## 96. Booking Detail Modal — Complete Field Specification
+
+Single-click on any booking tile opens the detail modal/context panel.
+
+### Header
+- **Booking #** (auto-incremented ID)
+- **Payment type badge:** CASH (red) | ACCOUNT (red) | CARD - RECEIVED (blue)
+- **Send Confirmation Text** button — sends SMS to passenger phone number
+- **Send Payment Receipt** button — active once payment confirmed
+
+### Left Panel — Journey
+
+| Field | Description |
+|-------|-------------|
+| Pickup Date/Time | When the taxi arrives |
+| From Address | Pickup address (with COA button per stop) |
+| Via 1, Via 2... | Intermediate stops (each with individual COA button) |
+| To Address | Destination |
+| Arrive By | Target arrival time at destination (if set) |
+
+Each via stop and the pickup has its own **COA button** — because a specific passenger at a specific stop may not show up, while others on the same booking are picked up fine.
+
+### Right Panel — Details
+
+| Field | Description |
+|-------|-------------|
+| Details | Free text notes (driver notes) |
+| Type | Cash Job / Account / Card |
+| Account | Account number (if applicable) |
+| Allocated Driver | Driver name + number |
+| Price | Journey price (highlighted in red) |
+| Time | Estimated duration (hours:minutes) |
+| Dead Miles | Distance from driver's location to pickup |
+| Trip Miles | Distance from pickup to destination (via all stops) |
+| Repeat Booking | Yes/No — indicates part of a block booking series |
+| Payment Status | Unpaid / Payment Link Sent / Paid |
+| Send Payment Link / Resend | Revolut payment link action buttons |
+| Payment Link Sent By | Which operator sent it |
+| Payment Link Sent On | Timestamp |
+| Confirmation Status | Whether confirmation SMS was sent |
+| Booked By | Operator name + timestamp |
+
+### Passenger Panel
+
+| Field | Description |
+|-------|-------------|
+| Passenger Name(s) | Comma separated if merged booking |
+| Email | Passenger email |
+| Phone Number | Clickable (initiates call if telephony integrated) |
+| Passenger Count | Number of passengers |
+
+### Action Buttons
+
+| Button | Behaviour |
+|--------|-----------|
+| **Soft Allocate** | Opens driver list. Assigns driver visually (dashed/striped border on tile). No notification sent to driver. |
+| **Allocate Booking** | Opens driver list. Hard allocates — notifies driver immediately. Tile becomes solid driver colour. |
+| **Edit Booking** | Opens booking in the booking form panel for editing |
+| **Duplicate Booking** | Creates a copy — prompts to use same datetime or select new one. Driver allocation stripped. |
+| **Driver Arrived** | Marks driver as on-site at pickup |
+| **Complete Booking** | Marks job as completed — triggers completion form (waiting time, parking, final price) |
+| **Cancel On Arrival** | Account jobs only. Marks as COA — driver paid (full or partial), account billed in full. |
+| **Cancel Booking** | Cancels the booking. For block bookings: prompts "Delete This Only" or "Delete All Future" |
+
+---
+
+## 97. Driver Selection Screen
+
+Triggered by Soft Allocate or Allocate Booking action.
+
+### Layout
+- **Journey summary** displayed at top (green background): pickup → destination with time
+- **Full driver list table:**
+
+| Column | Description |
+|--------|-------------|
+| Driver # | Numeric ID |
+| Name | Driver full name |
+| Vehicle Type | Saloon, Estate, SUV, MPV, WAV |
+| Registration | Vehicle reg plate |
+| Colour | Swatch showing driver's assigned colour |
+
+- **Option (0) "Unallocated"** always present at top of list — selecting this unallocates the booking
+- **Confirmation dialog** before committing: "Are you sure you wish to select [Driver Name] as the driver?"
+- Operator can type driver number directly for fast keyboard entry (number filters the list)
+
+---
+
+## 98. Telephony Integration (3CX / VoIP Incoming Call)
+
+When an incoming call is received via 3CX VoIP system, the API is called with the caller's phone number and a modal auto-displays.
+
+### Caller Popup Layout
+- **Caller number** shown at top
+- **Two tabs:**
+
+**Tab 1: Current Bookings**
+- Shows upcoming and active bookings for this phone number
+- Allows operator to see if the caller already has a booking today
+
+**Tab 2: Previous Bookings**
+- Full booking history for this phone number
+- Columns: Date, Pickup Address, Destination, Name, Price
+- History includes COA indicators on previous jobs
+- Results are **distinct** (deduplicated — same route shown once, ordered by most recent)
+
+### Actions
+| Button | Behaviour |
+|--------|-----------|
+| **Confirm** | Populates the booking form with the caller's last journey details: addresses, price, name, phone. Price pre-populated from most recent booking. |
+| **Get Quote** | Calculates price for the selected journey. Changes to "Reset Price" once pre-populated. |
+| **Close** | Dismisses popup without populating the form |
+
+### Integration Notes
+- Red Taxi will support 3CX and other SIP/VoIP providers via webhook (caller number → API lookup)
+- If no VoIP integration: operator manually enters phone number in the booking form → same lookup triggered via "Lookup" button
+- The popup should also fire from the customer app when a registered customer calls
+
+---
+
+## 99. Scheduler Form Sync
+
+The booking form and scheduler have bidirectional awareness:
+
+### Scheduler → Form
+- Clicking a time slot on the scheduler pre-fills the booking form's date/time field
+- This ONLY works when the form is empty or uncommitted — if the form has data being edited, the click is ignored (prevents accidental overwrite)
+- Clicking on a specific driver's column also pre-fills the driver field (soft allocate on creation)
+
+### Form → Scheduler
+- When a booking is created/saved, the scheduler refreshes to show the new booking tile
+- Via SignalR in Red Taxi (replaces the legacy 15-second polling)
+- Price calculation updates show on the map route overlay in real-time as addresses are entered
+
+---
+
+## 100. Known Legacy Issues to Fix in Red Taxi
+
+Issues observed in the current system that Red Taxi must resolve:
+
+| Issue | Legacy Behaviour | Red Taxi Fix |
+|-------|-----------------|-------------|
+| Merge Mode cleanup | Source booking not auto-deleted after merge — requires manual deletion | Auto-delete source booking on successful merge |
+| Payment link on accounts | Send Payment Link incorrectly visible on Account job modals | Hide payment link buttons when work type = Account |
+| 15-second polling | Scheduler polls API every 15s for updates | Replace with SignalR push — instant updates |
+| Scheduler click override | Clicking scheduler can overwrite form data | Guard: only pre-fill if form is empty/uncommitted |
+| COA per-stop | COA is per-booking, not per-stop | Support per-stop COA (each via has its own COA button) |
