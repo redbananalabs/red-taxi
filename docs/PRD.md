@@ -1782,3 +1782,126 @@ Each of the 8 messaging events has its own template:
 - Gateway sends via device's native SMS (cheaper than provider SMS)
 - SMS Heartbeat monitor: dispatch console shows last gateway ping time
 - If heartbeat stale > 5 minutes: alert in dispatch console
+
+---
+
+## 82. Reporting Module — Deep Detail
+
+### Export Formats
+All 18 reports exportable in three formats:
+- **PDF:** formatted report with tenant branding (logo, colours, company name)
+- **CSV:** raw data for spreadsheet import
+- **Excel (.xlsx):** formatted spreadsheet with headers and column types
+
+Export buttons available on every report page. Syncfusion `SfDataGrid` handles Excel/CSV export natively. PDF via QuestPDF.
+
+### Saved Filters
+- Operators can save custom filter combinations on any report (e.g. "School run accounts last 30 days")
+- Saved as named presets per operator, per report
+- Quick-load from a dropdown on the report page
+- Not a full custom report builder — just saved filter/sort/date-range combinations on the 18 predefined reports
+
+### Scheduled Reports
+Operators can schedule any report to be auto-generated and emailed:
+
+| Setting | Options |
+|---------|---------|
+| Report | Any of the 18 predefined reports |
+| Frequency | Daily / Weekly / Monthly |
+| Day (weekly) | Monday - Sunday |
+| Day (monthly) | 1st - 28th |
+| Time | Hour picker (default 07:00) |
+| Recipients | One or more email addresses |
+| Format | PDF / CSV / Excel |
+| Filters | Uses a saved filter preset |
+
+Scheduled via Hangfire recurring jobs. Each schedule = one Hangfire job. Operators manage their schedules from Reports → Scheduled Reports page.
+
+---
+
+## 83. Company Settings
+
+One page with collapsible sections. Tenant Admin only.
+
+### Sections
+
+**Company Profile**
+- Company name, address, postcode, phone, email
+- Logo upload (displayed in sidebar, PDFs, customer-facing pages)
+- Company registration number (optional)
+- Timezone (default Europe/London)
+- Currency (GBP for v1)
+
+**Branding**
+- Logo (used on invoices, statements, reports, customer portal, customer app)
+- Primary colour (used on PDF headers, accent elements)
+- Secondary colour (used on PDF subheadings, borders)
+- Custom colour scheme applied to all QuestPDF-generated documents
+- Preview button shows sample invoice with current branding
+
+**Pricing**
+- Standard tariffs (edit the 3 default tariffs: Day/Night/Holiday)
+- Account tariffs (manage per-account tariff overrides)
+- Vehicle type multipliers (Saloon 1.0x, Estate, SUV, MPV, WAV)
+- Fixed-price routes (manage route-based fixed prices)
+- Card processing fee % (deducted from driver at settlement)
+
+**Dispatch**
+- Scheduler unallocated colour (colour picker, default #D97706)
+- ASAP bookings enabled (on/off toggle for customer app)
+- Driver status flow: Minimal (Accept → Complete) or Extended (Accept → OnRoute → Arrived → Onboard → Complete)
+- Offer timeout (seconds, for v2 job offers — configurable now, used later)
+- Rejection penalty: enabled/off, threshold (X rejections in Y hours = Z min ban)
+
+**Billing**
+- Statement generation: Auto (day + time picker) or Manual
+- Statement day: day of week for auto generation (default Monday)
+- VAT registered: Yes/No
+- VAT number
+- VAT rate % (default 20)
+- Invoice number prefix (default "INV")
+- Credit note number prefix (default "CN")
+
+**Messaging**
+- Message template builder (drag-drop per event — see §81)
+- Channel selection per event (None / WhatsApp / SMS)
+- SMS provider config (TextLocal API key or SMTP credentials)
+- WhatsApp provider config (Twilio/Meta API key)
+- Branded sender ID for SMS (company name)
+- SMS fallback when WhatsApp fails (on/off)
+- Local SMS gateway enabled (on/off)
+
+**Tracking**
+- Tracking links enabled (on/off — generates tracking URL per booking)
+- Tracking page branded with tenant logo/colours
+
+**Documents**
+- Required document types (add/remove from default list)
+- Expiry warning thresholds (days before expiry: e.g. 30, 14, 7, 1)
+- Expiry blocking mode: Block (driver can't work) or Warn (flag only)
+
+**Expenses**
+- Expense categories (add/edit/delete custom categories)
+
+**Cancellation Policy**
+- Time threshold 1: hours before pickup for free cancellation (default 1hr)
+- Fee at threshold 1: % of fare (default 50%)
+- Time threshold 2: minutes before pickup for full charge (default 30min)
+- Distance-based: charge if driver en route (on/off)
+- Dead miles charge rate for en-route cancellation
+
+**Service Area** (for customer app)
+- Definition method: Postcode prefixes / Polygon / Radius (or combination)
+- Postcode prefix list
+- Polygon editor (draw on Google Maps)
+- Radius: centre point + miles
+
+**Customer App**
+- ASAP bookings enabled (on/off)
+- Account web portal live map enabled (on/off)
+- Vehicle types available for booking (toggle each type)
+
+**Notifications**
+- Platform update notifications (on/off)
+- Low rating alert threshold (e.g. below 3.5 stars)
+- Document expiry email notifications (on/off)
