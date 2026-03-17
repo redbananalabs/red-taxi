@@ -1001,3 +1001,253 @@ src/
 | 1B | ~7 days | 4 parallel agents: Blazor dispatch, Blazor admin, web portal, Flutter app |
 | 2 | ~5 days | Integration: SignalR, drag-drop, school run merge, payments, polish |
 | **Total** | **~3-4 weeks** | |
+
+---
+
+## 46. Customer App (Flutter — Phase 1)
+
+Public-facing Uber-style passenger app. Any member of the public can download, register, and book a taxi.
+
+**Phase 1:** One Red Taxi branded app in App Store / Play Store. Passenger selects taxi company inside the app. Tenant branding (logo, colours, company name) applied to the UI once a company is selected.
+
+**Phase 2:** White-label per-tenant store listings. One Flutter codebase, separate builds per tenant with injected config (tenant ID, assets, colours). Published under Red Taxi's developer account.
+
+### Registration & Auth
+- Phone number + OTP verification (like Uber)
+- No email/password registration — phone-first
+- OTP sent via SMS (TextLocal) or WhatsApp
+
+### Booking Flow
+1. Passenger enters pickup address (Google Places autocomplete)
+2. Enters destination address
+3. Optional: add via stops
+4. System shows **upfront fixed quote** based on tariff (distance × rate)
+5. Passenger selects vehicle type (Saloon, Estate, SUV, MPV, WAV) — price adjusts per type
+6. Selects payment method (card, Revolut, Apple Pay, Google Pay, cash)
+7. Selects booking type: Scheduled (date/time picker) or ASAP (if tenant enables ASAP)
+8. Confirms booking
+9. Booking appears in dispatch console as **pending web booking** — operator must manually accept
+10. Passenger receives confirmation push + optional SMS
+
+### Payment Methods
+- Card via Stripe (Visa, Mastercard, Amex)
+- Revolut Pay
+- Apple Pay (iOS)
+- Google Pay (Android)
+- Cash (driver collects, system records)
+- Pre-payment link (advance bookings — pay before journey via Revolut link)
+
+### Payment Timing
+- **Advance bookings:** pre-pay at time of booking. Refund on cancellation (minus cancellation fee if applicable).
+- **ASAP bookings:** post-pay after journey completes. Charge runs automatically on saved card.
+
+### Live Tracking
+After booking is accepted and driver allocated:
+- Live map showing driver position (GPS updated every 10 seconds)
+- Status updates: Driver Allocated → On Route → Arriving → Passenger Onboard → Completing
+- ETA calculated from driver GPS position to pickup (live, recalculated as driver moves)
+- Push notifications at each status change
+- SMS/WhatsApp notifications configurable per tenant (on/off)
+
+### Passenger Profile
+- Saved addresses (home, work, favourites)
+- Booking history with re-book option
+- Saved payment methods (Stripe tokenised)
+- Phone number (primary identifier)
+- Name
+
+### Ratings
+- After journey completes, passenger prompted to rate driver (1-5 stars)
+- Rating stored on booking record
+- Driver average rating visible to operator in dispatch console
+- No driver-rates-passenger in v1
+
+### Cancellation Policy
+Configurable per tenant. Both time and distance factor in:
+
+| Condition | Fee |
+|-----------|-----|
+| Cancelled > 1 hour before pickup | Free |
+| Cancelled 30min - 1hr before pickup | 50% of quoted fare |
+| Cancelled < 30min before pickup | Full quoted fare |
+| Cancelled after driver en route (distance-based) | Full fare + dead miles charge |
+
+Exact thresholds and percentages configurable per tenant in Company Settings.
+
+### Notifications
+- Push notifications via FCM (always on)
+- In-app real-time updates via SignalR WebSocket
+- SMS fallback: configurable per tenant (on/off in v1)
+- WhatsApp fallback: configurable per tenant (on/off in v1)
+
+---
+
+## 47. Vehicle Types
+
+Five standard vehicle types. Affect pricing — each type can have its own tariff multiplier.
+
+| Type | Description | Tariff Impact |
+|------|-------------|---------------|
+| Saloon | Standard 4-passenger car | Base tariff (1.0x) |
+| Estate | Larger boot, 4 passengers | Configurable multiplier |
+| SUV | Premium, 4-6 passengers | Configurable multiplier |
+| MPV | Multi-passenger vehicle, 6-8 passengers | Configurable multiplier |
+| Wheelchair Accessible (WAV) | Wheelchair accessible vehicle | Configurable multiplier |
+
+Tenants can configure a price multiplier per vehicle type in Tariff Settings. For example: SUV = 1.3x base tariff. If no multiplier is set, defaults to 1.0x (same as Saloon).
+
+The customer app shows available vehicle types with prices so the passenger can choose.
+
+---
+
+## 48. Email Notifications
+
+Transactional emails for documents, not real-time alerts.
+
+### Platform Emails (SendGrid)
+- Trial reminder emails
+- Subscription confirmations
+- Payment failed alerts
+- Welcome / onboarding emails
+
+### Tenant Emails (Configurable Provider)
+Each tenant configures their own email sending:
+- **Option 1:** SMTP credentials (any email provider)
+- **Option 2:** SendGrid API key
+- **Option 3:** Other API (Mailgun, Amazon SES)
+
+Configured in Company Settings. Tenant's sending domain used for `From` address (e.g. `bookings@acetaxisdorset.co.uk`).
+
+### Email Use Cases
+| Email | Trigger | Recipient |
+|-------|---------|-----------|
+| Account invoice PDF | Invoice posted | Account email |
+| Driver statement PDF | Statement generated | Driver email |
+| Payment receipt PDF | Card payment completed (Revolut webhook) | Customer phone/email |
+| Credit note PDF | Credit note created | Account email |
+| Booking confirmation | Booking accepted (if email configured) | Customer email |
+| Document expiry warning | 30/14/7/1 days before expiry | Driver + operator |
+
+---
+
+## 49. Address Entry
+
+Dual provider system for maximum coverage:
+
+- **Google Places Autocomplete:** Primary address entry. As-you-type suggestions. Used for general address lookup, pickup/destination fields in booking form and customer app.
+- **Ideal Postcodes:** UK postcode precision. Operator types postcode → sees list of addresses at that postcode → selects exact address. Used alongside Google for UK-specific accuracy.
+
+Both providers available simultaneously. Operator can type a postcode (triggers Ideal) or start typing an address (triggers Google). The system detects which to use based on input pattern.
+
+---
+
+## 50. Driver Allocation UX
+
+On the dispatch console, operator allocates a driver by:
+
+1. Right-click on a booking block in the scheduler/timeline
+2. Context menu shows "Allocate Driver"
+3. Opens a driver list panel:
+   - Each row: `ID | Name` with row background in **driver's assigned colour**
+   - Filtered to show only available drivers near that time slot
+   - Operator types driver number directly for fast keyboard entry
+   - Or clicks a driver row
+4. On selection, booking block colour changes to the selected driver's colour
+5. Notification sent (or queued for soft allocate confirm)
+
+Alternative: operator types driver number directly into a quick-allocate input on the booking context panel (right slide-in).
+
+---
+
+## 51. Live ETA & Customer Tracking
+
+### Tracking URL
+Auto-generated for every booking where tracking is enabled (configurable per tenant in Company Settings). Format: `track.{platform-domain}/{short-code}`
+
+### Tracking Page
+- Lightweight responsive web page (no app required)
+- Live map showing driver position (GPS pin moves in real-time)
+- ETA calculated from current driver position to pickup/destination
+- Status bar: Driver Allocated → On Route → Arriving → In Journey → Complete
+- Driver details: name, vehicle type, registration, colour
+- Branded with tenant logo and colours
+
+### ETA Calculation
+- Uses Google Distance Matrix from driver's current GPS position to pickup (pre-pickup) or destination (in-journey)
+- Recalculated every 30 seconds as driver moves
+- Pushed to tracking page via SignalR WebSocket
+- Pushed to customer app via SignalR
+
+---
+
+## 52. Driver Documents & Expiry
+
+### Required Documents (default set, configurable per tenant)
+| Document | Expiry Tracked | Default |
+|----------|---------------|---------|
+| Driving Licence | Yes | Required |
+| Private Hire Badge / Hackney Licence | Yes | Required |
+| Vehicle Insurance | Yes | Required |
+| MOT Certificate | Yes | Required |
+| DBS Check | Yes | Required |
+
+Tenants can add custom document types in Settings (e.g. "First Aid Certificate", "Safeguarding Training").
+
+### Expiry Warnings
+Warning thresholds configurable per tenant (default: 30, 14, 7, 1 days before expiry).
+
+Notifications: email to driver + in-app alert + operator dashboard flag.
+
+### Expiry Blocking
+Configurable per tenant:
+- **Block mode:** driver cannot receive job offers when any required document is expired
+- **Warn mode:** driver can still work, operator sees red flag on driver profile and dashboard
+
+---
+
+## 53. Driver Expenses
+
+- Configurable expense categories per tenant (e.g. Fuel, Car Wash, Tolls, Parking, Maintenance, Other)
+- Driver submits expenses via the driver app (amount, category, date, optional receipt photo)
+- Expenses visible to operator in driver profile and expense reports
+- **Tracked for reporting only** — expenses are NOT deducted from the driver's weekly settlement
+- Expense reports available in the reporting module (total by driver, by category, by period)
+
+---
+
+## 54. VAT Configuration
+
+Configurable per tenant in Company Settings:
+- **VAT Registered:** Yes/No toggle
+- **VAT Number:** stored on tenant profile, printed on invoices
+- **VAT Rate:** configurable (default 20% UK)
+- If VAT registered: all account invoices include VAT line (Net + VAT + Gross)
+- VAT Outputs report available for HMRC MTD preparation
+- If not VAT registered: invoices show total only, no VAT line
+
+---
+
+## 55. Invoice & Statement Configuration
+
+### Invoice Numbering
+Auto-increment per tenant: `INV-001`, `INV-002`, etc. Counter stored per tenant, never resets.
+
+### Payment Terms
+Configurable **per account** (not global). Each account can have different terms:
+- Net 7 / Net 14 / Net 30 / Net 60 / Custom days
+- Stored on the Account entity
+- Shown on invoice PDF
+
+### QR Code Adverts
+Tenants can generate QR codes that link to their customer booking portal. QR codes trackable — each scan logged with timestamp and source. Available in the QR Code Adverts report. Used for marketing materials (business cards, flyers, vehicle stickers).
+
+---
+
+## 56. Ratings System
+
+- Passengers rate drivers 1-5 stars after journey completion (via customer app)
+- Rating stored on the booking record (`CustomerRating` field)
+- Driver's average rating calculated and displayed on driver profile in dispatch console
+- Operator can view rating trends in driver reports
+- Low rating alerts: configurable threshold (e.g. below 3.5 triggers operator notification)
+- No driver-rates-passenger in v1
