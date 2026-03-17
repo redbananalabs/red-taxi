@@ -1251,3 +1251,142 @@ Tenants can generate QR codes that link to their customer booking portal. QR cod
 - Operator can view rating trends in driver reports
 - Low rating alerts: configurable threshold (e.g. below 3.5 triggers operator notification)
 - No driver-rates-passenger in v1
+
+---
+
+## 57. Service Area (Customer App)
+
+Tenants define their operating area in Company Settings. The customer app only shows the tenant to passengers whose pickup falls within the service area.
+
+Three definition methods available (tenant picks one or combines):
+
+1. **Postcode prefixes:** e.g. SP, DT, BA — any pickup in those postcode areas is within service
+2. **Polygon on map:** tenant draws a boundary on Google Maps in settings. Pickup must fall inside the polygon.
+3. **Radius:** centre point (lat/lng, typically the office) + radius in miles. Pickup must be within radius.
+
+Tenants can combine methods (e.g. radius for general area + specific postcodes for extended coverage).
+
+Bookings from outside the service area are rejected in the customer app with a message: "Sorry, [Company Name] doesn't cover this area."
+
+Service area does NOT affect dispatch console — operators can create bookings for any address regardless.
+
+---
+
+## 58. In-App Chat (Customer ↔ Driver)
+
+Real-time messaging scoped to the active booking.
+
+### Availability
+- Chat opens when driver is allocated to the booking
+- Chat closes when journey is marked complete
+- Messages are NOT deleted — retained on the booking record
+
+### Implementation
+- SignalR WebSocket connection (same hub as dispatch real-time updates)
+- Messages stored in `BookingChatMessage` table: BookingId, SenderType (Customer/Driver), Message, Timestamp
+- Both customer app and driver app show a chat icon when chat is available
+- Push notification on new message if app is backgrounded
+
+### Operator Visibility
+- Operator can view full chat history on any booking via the booking context panel
+- Chat history visible in booking audit view
+- Operator CANNOT send messages in the chat — it's customer ↔ driver only
+- Operator uses Direct Message (SMS/WhatsApp) for operator → driver communication
+
+---
+
+## 59. Actual Miles Tracking (GPS)
+
+The system tracks actual miles driven from GPS data, separate from estimated miles from Google Distance Matrix.
+
+### How It Works
+1. When driver accepts job, GPS tracking begins logging positions every 10 seconds
+2. Actual miles calculated by summing distance between consecutive GPS points
+3. Two segments tracked separately:
+   - **Dead miles:** driver's position at acceptance → pickup address
+   - **Trip miles:** pickup address → destination address (via any stops)
+4. Stored on the booking: `ActualDeadMiles`, `ActualTripMiles`, `ActualTotalMiles`
+5. `EstimatedMiles` from Google Distance Matrix stored separately for comparison
+
+### Usage
+- Invoice processor shows both Actual Miles and estimated Journey Charge
+- Cancellation fees can reference actual dead miles driven
+- Operator can override actual miles if GPS data is unreliable
+- Reporting: comparison of estimated vs actual miles for tariff accuracy analysis
+
+---
+
+## 60. Surge / Dynamic Pricing
+
+**Phase 2+ feature.** Not in v1.
+
+Architecture supports it: pricing engine can accept a multiplier. When implemented:
+- Demand/supply ratio calculated per service area
+- Multiplier applied to tariff (e.g. 1.5x during peak)
+- Customer app shows surge indicator + adjusted price before confirmation
+- Configurable per tenant (opt-in, not forced)
+
+---
+
+## 61. Vehicle Capacity & Passenger Count
+
+Customer app enforces vehicle capacity:
+
+| Vehicle Type | Max Passengers |
+|-------------|---------------|
+| Saloon | 4 |
+| Estate | 4 |
+| SUV | 6 |
+| MPV | 8 |
+| WAV | 4 (+ wheelchair) |
+
+Passenger selects number of passengers in booking flow. App filters available vehicle types to those that can accommodate the count. If passenger selects 6 pax, only SUV and MPV shown.
+
+Capacity configurable per tenant in Vehicle Type settings (some operators have larger/smaller vehicles).
+
+---
+
+## 62. Audit Trail
+
+Full audit log on every booking. Every change recorded.
+
+### Audit Record Fields
+| Field | Description |
+|-------|-------------|
+| BookingId | Which booking |
+| Timestamp | When the change happened |
+| UserId | Who made the change |
+| UserRole | Role (Dispatcher, Driver, Customer, System) |
+| Action | What happened (Created, Updated, Allocated, Cancelled, StatusChanged, PriceChanged, etc.) |
+| FieldChanged | Which field changed (if update) |
+| OldValue | Previous value |
+| NewValue | New value |
+
+### What's Logged
+- Booking creation (all initial values)
+- Every field update (address, time, passenger, price, status)
+- Allocation / unallocation (which driver, by whom)
+- Status changes (with timestamp of each transition)
+- Price changes (manual override, recalculation)
+- Cancellation (reason, by whom, cancellation fee applied)
+- COA (who reported, timestamp)
+- Chat messages (as audit entries)
+
+Audit log viewable in dispatch console via booking context panel → "Audit" tab. Also available in the Audit View page (Bookings submenu) for cross-booking search.
+
+---
+
+## 63. Operator Roles (Tenant RBAC)
+
+Within a tenant, operators have role-based access control:
+
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| Tenant Admin | Owner / manager | Full access: settings, billing, drivers, accounts, reports, dispatch, user management |
+| Dispatcher | Booking operator | Dispatch: create/amend/cancel bookings, allocate drivers, view schedule, send messages. No access to: billing, settings, driver management, reports |
+| Viewer | Read-only | View dispatch console (read-only), view reports. Cannot create or modify anything. |
+| Accountant | Billing focus | Billing & payments: invoice processing, statements, credit notes, financial reports. No dispatch access. |
+
+Tenant Admin can create operator accounts and assign roles. Roles are additive — a user can have multiple roles if needed (e.g. Dispatcher + Accountant).
+
+Permissions enforced at API level (role claims in JWT) and UI level (menu items/buttons hidden for unauthorised roles).
