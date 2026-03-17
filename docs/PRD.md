@@ -1495,3 +1495,53 @@ Health metrics update in real-time via SignalR on the dashboard page.
 - Major updates: in-app banner + email notification to all tenant admins
 - Minor updates: changelog entry only, no notification
 - Release notes stored in master DB, rendered as markdown
+
+---
+
+## 72. API Rate Limiting
+
+No rate limiting in v1. Tenants trusted. Rate limiting can be added later via ASP.NET Core rate limiting middleware if needed.
+
+---
+
+## 73. Go-Live Strategy
+
+Ace Taxis stays on the legacy system until Red Taxi is fully tested and stable. No parallel run — clean cutover when ready.
+
+1. Build and test Red Taxi with synthetic data
+2. Import Ace data into a staging tenant database
+3. Operator acceptance testing on staging
+4. Clean cutover: switch Ace operations to Red Taxi on a quiet day (Sunday)
+5. Legacy system kept read-only for 30 days as fallback
+
+---
+
+## 74. Marketing Website
+
+**Tech:** Next.js (SEO-optimised, static generation, React ecosystem)
+
+**URL:** `redtaxi.io` (or chosen platform domain)
+
+**Pages:**
+- Home (hero, value proposition, feature highlights)
+- Features (detailed feature breakdown with screenshots)
+- Pricing (interactive plan comparison with cost calculator)
+- About (company info, team)
+- Blog (SEO content, industry news)
+- Contact / Demo request
+- Sign Up → redirects to platform registration flow
+
+**Phase 1:** simple landing page with pricing and signup CTA. Full marketing site built out over time.
+
+---
+
+## 75. Data Import (Phase 2)
+
+Phase 2 feature. Generic CSV import wizard for new tenants migrating from other systems:
+
+- Upload CSV files: drivers, accounts, bookings, passengers, tariffs
+- Column mapping UI (map CSV columns to Red Taxi fields)
+- Validation report before import (missing fields, data issues)
+- Import preview with record counts
+- Background job processes the import
+- Completion report with success/failure counts
