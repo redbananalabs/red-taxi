@@ -374,7 +374,7 @@ For v1: WhatsApp remains one-way notifications only. Chatbot booking is Phase 2/
 - Tenant provisioning workflow
 - Tenant-level config: branding, tariffs, messaging templates
 - Subscription billing integration
-- SaaS packaging: Starter / Growth / Professional / Enterprise tiers
+- SaaS packaging: Solo / Team / Fleet / Enterprise plans with bolt-on marketplace
 
 ### Phase 5 — Partner Network & Job Sharing (Weeks 13-16)
 - Partner company registry and relationship management
@@ -874,13 +874,30 @@ Skippable, progress tracked, shows completion % on dashboard.
 
 ---
 
-## 38. Subscription Billing (Stripe)
+## 38. SaaS Pricing Model (Stripe)
 
-- **Provider:** Stripe
-- **Trial:** 14 days, no card required
-- **Checkout:** Stripe Checkout Session when trial expires or user clicks "Subscribe"
-- **Management:** Stripe Billing Portal (update card, view invoices, change plan, cancel)
-- **Webhooks:** checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.updated, customer.subscription.deleted
+**Base plan + bolt-on marketplace.** Full spec in `docs/saas-pricing.md`.
+
+### Base Plans
+| Plan | Price | Drivers | Bookings/mo |
+|------|-------|---------|-------------|
+| Solo | £199/mo | 5 | 1,500 |
+| Team | £389/mo | 20 | 5,000 |
+| Fleet | £799/mo | 50 | 15,000 |
+| Enterprise | Custom | Unlimited | Unlimited |
+
+All plans include: dispatch console, driver app, booking/pricing/dispatch, accounts, invoicing, all reports, partner network, support. 14-day free trial, no card required. 20% annual discount.
+
+### Bolt-Ons
+- Extra drivers: £89/mo per 5-pack
+- Extra bookings: £60 (500) / £200 (2,000) / £400 (5,000) per month
+- SMS packs: £25 (500) / £75 (2,000) / £150 (5,000)
+- WhatsApp: 1p per message (metered)
+- Customer web portal: £109/mo
+- Custom domain / white-label: £65/mo
+- API access: £109/mo
+
+Bolt-on pricing set 20% higher than upgrading to next tier — incentivises natural plan upgrades. Stripe Subscription with multiple line items (base + bolt-ons). Metered billing for WhatsApp.
 
 ---
 

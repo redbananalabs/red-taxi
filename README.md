@@ -71,7 +71,7 @@ Source of truth — produced from legacy code analysis + 40+ UI screenshots + Ch
 | [Data Model](docs/data-model/master-data-model.md) | Entity definitions, per-tenant DB architecture |
 | [API Contract](docs/api/api-contract.md) | 232 legacy endpoints mapped to v2 REST routes |
 | [Module Map](docs/module-map.md) | 72 modules across 10 parallelisation groups |
-| [SaaS Packaging](docs/saas-packaging.md) | Starter / Growth / Professional / Enterprise tiers |
+| [SaaS Packaging](docs/saas-pricing.md) | Solo / Team / Fleet / Enterprise + bolt-on marketplace |
 | [Build Handoff](docs/claude-code-handoff.md) | Step-by-step build plan, machine allocation, definition of done |
 
 ## Legacy Reference

@@ -135,7 +135,7 @@ Or configure a simple PowerShell script that builds + publishes + restarts the I
 | `api-contract.md` | 232 legacy endpoints → v2 REST routes |
 | `architecture.md` | Stack decisions, project structure, ADRs |
 | `module-map.md` | 72 modules for parallel development |
-| `saas-packaging.md` | SaaS tiers (not needed for Phase 1) |
+| `saas-pricing.md` | SaaS pricing (Solo/Team/Fleet/Enterprise + bolt-ons) |
 
 ---
 

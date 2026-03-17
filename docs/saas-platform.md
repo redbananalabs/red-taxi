@@ -2,25 +2,30 @@
 
 ---
 
-## 1. Subscription Tiers
+## 1. Subscription Plans & Pricing
 
-| Tier | Drivers | Bookings/mo | Monthly Price | Features |
-|------|---------|-------------|--------------|----------|
-| Starter | ≤15 | ≤3,000 | TBD | Core dispatch, booking, pricing, driver app, SMS/WhatsApp, web booker portal, basic reports |
-| Growth | ≤40 | ≤10,000 | TBD | Everything in Starter + account invoicing, driver statements, full reporting suite, API access |
-| Professional | ≤100 | ≤30,000 | TBD | Everything in Growth + partner network, cover requests, white-label customer portal, custom domain |
-| Enterprise | Custom | Custom | Custom | Everything in Professional + dedicated support, SLA, custom integrations, per-tenant DB option |
+**Full pricing spec: `docs/saas-pricing.md`**
 
-Prices TBD — to be set before launch. All tiers include a 14-day free trial.
+Base plan + bolt-on marketplace model:
+
+| Plan | Price | Drivers | Bookings/mo |
+|------|-------|---------|-------------|
+| Solo | £199/mo | 5 | 1,500 |
+| Team | £389/mo | 20 | 5,000 |
+| Fleet | £799/mo | 50 | 15,000 |
+| Enterprise | Custom | Unlimited | Unlimited |
+
+All plans include full dispatch, driver app, reports, partner network, support. Bolt-ons for extra drivers (£89/5-pack), booking bundles, SMS packs, WhatsApp (1p/msg), web portal (£109), custom domain (£65), API access (£109). Bolt-on pricing deliberately ~20% more expensive than upgrading to incentivise tier upgrades.
 
 ### Entitlement Enforcement
 
-Limits are enforced at the API level via middleware that checks the tenant's active plan:
+Limits enforced at the API level via middleware that checks the tenant's active plan + bolt-ons:
 
-- **Driver limit:** cannot create/activate drivers beyond tier limit
-- **Booking limit:** soft warning at 80%, hard block at 100% (monthly rolling count, resets 1st of month)
-- **Feature gating:** partner network, custom domains, API access locked to appropriate tier
-- **Overage handling:** system shows upgrade prompt, does not silently fail
+- **Driver limit:** plan limit + (bolt-on packs × 5). Cannot create/activate beyond total.
+- **Booking limit:** plan allowance + purchased bundles. Soft warning at 80%, hard block at 100% (monthly rolling, resets 1st of month).
+- **Feature gating:** customer web portal, custom domain, API access locked behind bolt-on purchase.
+- **Overage handling:** system shows upgrade prompt or buy-bundle prompt, does not silently fail.
+- **Upsell triggers:** automated prompts when usage patterns suggest upgrading would be cheaper than bolt-ons.
 
 ---
 
@@ -241,10 +246,17 @@ public class Tenant
     public bool OnboardingCompleted { get; set; } = false;
     public string? OnboardingProgress { get; set; }     // JSON: {"tariffs": true, "drivers": false, ...}
 
-    // Limits
+    // Limits (plan + bolt-ons combined)
     public int MaxDrivers { get; set; }
     public int MaxBookingsPerMonth { get; set; }
     public int CurrentMonthBookingCount { get; set; }
+    public int SmsPackBalance { get; set; }
+    public int WhatsAppMessageCount { get; set; }          // current month, metered
+
+    // Bolt-On Flags
+    public bool HasWebPortal { get; set; } = false;
+    public bool HasCustomDomain { get; set; } = false;
+    public bool HasApiAccess { get; set; } = false;
 
     // Config
     public string SchedulerUnallocatedColour { get; set; } = "#D97706";
@@ -258,9 +270,9 @@ public class Tenant
 public enum SubscriptionPlan
 {
     Trial,
-    Starter,
-    Growth,
-    Professional,
+    Solo,
+    Team,
+    Fleet,
     Enterprise
 }
 

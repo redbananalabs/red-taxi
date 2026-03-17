@@ -10,7 +10,7 @@ These documents were produced from legacy code analysis, 40+ UI screenshots, and
 | [business-rules.md](business-rules.md) | Operational logic, tariff values, COA, school runs (28 sections) |
 | [claude-code-handoff.md](claude-code-handoff.md) | Build instructions for Claude Code |
 | [module-map.md](module-map.md) | 72 modules across 10 parallelisation groups |
-| [saas-packaging.md](saas-packaging.md) | SaaS tier definitions |
+| [saas-pricing.md](saas-pricing.md) | SaaS pricing: Solo/Team/Fleet/Enterprise + bolt-ons |
 
 ## Architecture & Technical
 

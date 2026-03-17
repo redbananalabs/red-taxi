@@ -1,3 +1,5 @@
+> **⚠️ SUPERSEDED:** This document contains an earlier tier model (Starter/Growth/Professional/Enterprise). The current pricing model uses Solo/Team/Fleet/Enterprise with a bolt-on marketplace. See `docs/saas-pricing.md` for the authoritative pricing spec.
+
 # Red Taxi Platform — SaaS Packaging & Pricing
 
 **Version:** 2.0  
