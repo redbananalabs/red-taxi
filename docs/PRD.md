@@ -1390,3 +1390,108 @@ Within a tenant, operators have role-based access control:
 Tenant Admin can create operator accounts and assign roles. Roles are additive — a user can have multiple roles if needed (e.g. Dispatcher + Accountant).
 
 Permissions enforced at API level (role claims in JWT) and UI level (menu items/buttons hidden for unauthorised roles).
+
+---
+
+## 64. GDPR Compliance
+
+- All personal data stored with purpose and legal basis documented
+- **Right to erasure:** customer or driver can request data deletion. System anonymises booking records (replaces name/phone/address with "REDACTED") but retains financial records for accounting compliance (7 years UK requirement)
+- **Data export:** tenant can export all their data as JSON/CSV from settings (GDPR Article 20 portability)
+- **Consent management:** customer app collects explicit consent for data processing, marketing, and location tracking. Stored with timestamp.
+- **Data retention:** configurable per tenant. Default: active data kept indefinitely, deleted customer data purged after 30 days, booking records retained 7 years for financial compliance
+- **Cookie consent:** tracking page and web portal show cookie banner where required
+- **Privacy policy:** platform provides a template, tenants can customise
+
+---
+
+## 65. Error Monitoring & Logging
+
+### Sentry (Error Tracking)
+- All unhandled exceptions captured with stack trace, user context, tenant context
+- Performance monitoring (API response times, slow queries)
+- Release tracking (errors tagged to deployment version)
+- Alert rules: notify platform admin on error spike or new error type
+
+### Seq (Structured Logging)
+- All application logs sent to Seq via Serilog
+- Structured log events with tenant ID, user ID, booking ID, request ID
+- Queryable dashboard for debugging
+- Log retention: 30 days rolling
+
+### Per-Tenant Context
+Every log entry and error includes: `TenantId`, `TenantSlug`, `UserId`, `UserRole`, `RequestId`. This enables filtering logs by tenant for support.
+
+---
+
+## 66. System Health (Tenant Dashboard)
+
+Tenant dashboard shows operational health:
+
+| Metric | Source |
+|--------|--------|
+| Platform uptime (last 30 days) | Health check endpoint monitoring |
+| API response time (avg last hour) | Sentry performance |
+| Active operators online | SignalR connection count |
+| Active drivers online | GPS last-updated within 5 min |
+| SMS gateway status | Heartbeat check (green/red) |
+| Bookings today | Real-time count |
+| Unallocated bookings | Real-time count |
+
+Health metrics update in real-time via SignalR on the dashboard page.
+
+---
+
+## 67. Backup & Data Export
+
+### Automated Backups
+- Daily automated backup of ALL tenant databases to Hetzner Object Storage
+- Retention: 30 days rolling (configurable)
+- Master database (`RedTaxi_Platform`) backed up separately
+- Hangfire job runs at 02:00 UTC daily
+
+### Tenant Data Export (GDPR)
+- Tenant Admin can download a full export of their data from Settings → Data Export
+- Export format: ZIP containing JSON files (one per entity type) + CSV summary
+- Includes: bookings, drivers, accounts, customers, invoices, statements, settings
+- Generated as a background job, download link emailed when ready
+- Also available via API for programmatic access (API bolt-on required)
+
+---
+
+## 68. Timezones
+
+- All timestamps stored in UTC in the database
+- Tenant timezone configured in Company Settings (default: `Europe/London`)
+- All UI displays convert UTC → tenant's local timezone
+- Booking pickup times entered in local timezone, converted to UTC on save
+- API accepts and returns UTC timestamps (ISO 8601 format)
+- Driver app uses device timezone for display
+
+---
+
+## 69. Currency
+
+- **GBP only for v1**
+- Currency symbol and formatting stored on tenant record (`Currency = "GBP"`)
+- Architecture supports multi-currency (stored as string, formatting via CultureInfo)
+- Multi-currency can be enabled in v2 by allowing tenant to set currency in Company Settings
+- All monetary values stored as `decimal` with 2 decimal places
+
+---
+
+## 70. Help & Support (v1)
+
+- **v1:** In-app ticket system (Ticket Raise button in user menu). Tickets stored in master DB, visible to platform admin.
+- **Phase 2:** Searchable knowledge base, in-app contextual help tooltips, video tutorials
+
+---
+
+## 71. Platform Updates & Changelog
+
+- In-app release notes: "What's New" modal shown on first login after an update
+- Changelog accessible from user menu → "What's New"
+- Platform admin publishes release notes via admin panel
+- Major updates: in-app banner + email notification to all tenant admins
+- Minor updates: changelog entry only, no notification
+- Release notes stored in master DB, rendered as markdown
