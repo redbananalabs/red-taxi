@@ -1934,3 +1934,93 @@ One page with collapsible sections. Tenant Admin only.
 - Quote message uses a template (customisable in Message Settings): "Hi {PassengerName}, your quote from {PickupAddress} to {DestinationAddress} is £{Price}. Call us on {CompanyPhone} to book. {CompanyName}"
 - Quote is NOT a booking — no diary entry, no allocation, no record beyond the sent message
 - Operator can also generate a quote without sending (just show price on screen for phone conversation)
+
+---
+
+## 85. Booking Edge Cases (Continued)
+
+### Post-Completion Amendment
+- Completed bookings CAN be reopened and amended by operators
+- Amendable fields: price, waiting time, parking, actual miles, driver price, account price
+- Status can revert: Completed → back to Allocated (rare, for error correction)
+- All amendments logged in full audit trail (who changed what, when, old/new values)
+- If booking has been invoiced: amendment triggers a warning "This booking has been invoiced — changes will require a credit note"
+
+### Cancel Range / Block Booking Cancellation
+Two cancel workflows for repeat bookings:
+
+**From Cancel Range page:**
+- Operator selects date range → sees all bookings in that range
+- Can filter by account, driver, recurrence group
+- Select individual bookings or "Select All" → cancel
+
+**From dispatch console (individual booking):**
+- Right-click or context panel on a booking
+- If booking is standalone: "Cancel This Booking" option only
+- If booking is part of a recurrence group (Block Booking): operator offered two options:
+  1. "Cancel This Journey Only" — cancels just this instance
+  2. "Cancel Block Booking" — cancels ALL future instances in the recurrence group (past completed instances untouched)
+- Confirmation dialog shows count of bookings that will be cancelled
+
+### Duplicate Detection
+- System auto-detects potential duplicates when creating a booking
+- Match criteria: same phone number + same pickup address + same date + within 2 hours of each other
+- Warning shown to operator: "Possible duplicate — existing booking #12345 at 14:30 from same address"
+- Operator can dismiss and create anyway (not blocked)
+- Duplicate Bookings report (in Reports → Bookings) shows all flagged duplicates for review
+
+---
+
+## 86. Work Type (Scope)
+
+Operator manually selects the work type on every booking. Refers to payment format and source:
+
+| Work Type | Description | Payment |
+|-----------|-------------|---------|
+| Cash | Customer pays driver in cash | Cash |
+| Account | Corporate account booking | Invoiced to account |
+| Rank | Driver picks up from taxi rank (Hackney only) | Always cash |
+| Card | Customer pays by card (Revolut link) | Card |
+| Web | Booking from web portal or customer app | Card, cash, or account |
+
+Work type drives:
+- How the booking is settled (cash = driver keeps it minus commission, account = invoiced, card = Revolut)
+- Reporting (Count By Scope report, earnings breakdown by type)
+- Commission rules (account jobs may be exempt from commission)
+- Invoice processing (only account jobs appear in Invoice Processor)
+
+---
+
+## 87. Local POIs
+
+Simple address shortcut system. POIs provide quick address entry — operator types POI name, system fills the full address.
+
+- 451 POIs in Ace's current database (pubs, schools, venues, hospitals, care homes)
+- Fields: Name, Postcode, Address, Type (category)
+- Categories: Pub, School, Hospital, Wedding Venue, Care Home, Miscellaneous (configurable per tenant)
+- Searchable from the booking form address fields — operator starts typing a POI name, it appears in autocomplete alongside Google Places results
+- POI results shown with a pin icon to distinguish from Google results
+- CRUD: Add New POI, Edit, Delete from the Local POIs admin page
+- Import: included in the Ace data import wizard
+
+---
+
+## 88. Airport Runs
+
+Airport bookings are regular bookings where pickup or destination is an airport. No special booking logic — they're identified by address matching.
+
+### Airport Runs Report
+- Shows all bookings where pickup or destination contains "Airport" or matches a known airport POI
+- Period filter: Last 1 / 3 / 6 / 12 months
+- Table: Driver, Date, Pickup, Destination, Price
+- Grouped by driver (expandable rows)
+- Used to track which drivers are doing airport work and how frequently
+
+### Airport Job Fairness (v2 — Dispatch Scoring)
+System suggests which driver should get the next airport run based on:
+- **Recency:** who did the last airport job (longest since last = higher priority)
+- **Count:** number of airport jobs in current period (fewer = higher priority)
+- **Availability:** driver must be available at the booking time
+- **Hours worked:** balance airport jobs against total hours worked (more hours = higher priority for premium jobs)
+
+This feeds into the Dispatch Scoring Engine (§12) as airport-specific scoring criteria. v1 shows the report; v2 adds the suggestion.
