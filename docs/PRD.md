@@ -2975,3 +2975,177 @@ SubTotal = (EarningsCash + EarningsCard + EarningsRank) - TotalCommission + Earn
 | MPVPlus vehicle type | Separate from MPV | Add as vehicle type option |
 | 15 POI categories | More than specced | Include all as defaults |
 | 11 message events | 3 more than specced | Add CustomerOnComplete, DriverDirect, DriverGlobal |
+
+---
+
+## 107. Complete Entity Field Audit (from Automated Scan)
+
+Source: Full entity scan of all 40 DbSet entities in `TaxiDispatchContext`.
+
+### Booking Entity — Fields NOT Yet in PRD
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Tip | decimal(18,2) | Driver tip amount (entered on completion) |
+| VatAmountAdded | decimal(18,2) | VAT added to card payment price |
+| PostedForInvoicing | bool | Marks booking as posted to an account invoice |
+| PostedForStatement | bool | Marks booking as posted to a driver statement |
+| SuggestedUserId | int? | System-suggested driver (for v2 auto-dispatch) |
+| PaymentReceiptSent | bool | Whether receipt has been sent |
+| WaitingTimePriceDriver | decimal(18,2) | Calculated waiting charge at driver rate |
+| WaitingTimePriceAccount | decimal(18,2) | Calculated waiting charge at account rate |
+| VehicleType | enum | Vehicle type for this booking |
+| AllocatedAt | DateTime? | Timestamp of allocation |
+| AllocatedById | int? | Which operator allocated |
+| PaymentOrderId | string? | Revolut order ID for card payments |
+| PaymentLink | string? | Revolut checkout URL |
+| InvoiceNumber | int? | FK to AccountInvoice once invoiced |
+| StatementId | int? | FK to DriverInvoiceStatement once on a statement |
+| CellText | computed | Scheduler tile text: Account→PassengerName, else Pickup→Destination |
+| DateUpdated | DateTime? | Last update timestamp |
+| UpdatedByName | string | Who last updated |
+| CancelledByName | string | Who cancelled |
+| ActionByUserId | int | Current action user (not persisted) |
+
+### Account Entity — Fields NOT Yet in PRD
+
+| Field | Type | Notes |
+|-------|------|-------|
+| PurchaseOrderNo | string? | PO number for corporate accounts |
+| Reference | string? | External reference field |
+| BookerEmail | string | Primary booker's email |
+| BookerName | string | Primary booker's name |
+| AccountTariffId | int? | FK to AccountTariff (links account to its tariff) |
+
+### UserProfile (Driver) — Fields NOT Yet in PRD
+
+| Field | Type | Notes |
+|-------|------|-------|
+| VehicleMake | string(20) | e.g. "Toyota" |
+| VehicleModel | string(30) | e.g. "Prius" |
+| VehicleColour | string(20) | e.g. "Silver" |
+| Heading | decimal(6,3) | GPS heading in degrees |
+| Speed | decimal(6,2) | GPS speed |
+| ShowAllBookings | bool | Driver sees all bookings (not just their own) |
+| ShowHVSBookings | bool | Driver sees HVS bookings |
+| NonAce | bool | Marks driver as external/substitute |
+| CommsPlatform | enum | Preferred comms: None/WhatsApp/SMS/Push |
+| ChromeFCM | string | Browser push token (for web notifications) |
+| LastLogin | DateTime? | |
+
+### AccountTariff Entity — Dual Pricing Structure
+
+This is how account-specific pricing works. Each account links to an AccountTariff:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Id | int | PK |
+| Name | string | Tariff name (e.g. "Harbour Vale School", "Meter+Admin") |
+| AccountInitialCharge | double | Standing charge billed to account |
+| DriverInitialCharge | double | Standing charge paid to driver |
+| AccountFirstMileCharge | double | First mile rate for account |
+| DriverFirstMileCharge | double | First mile rate for driver |
+| AccountAdditionalMileCharge | double | Per-mile rate for account |
+| DriverAdditionalMileCharge | double | Per-mile rate for driver |
+
+**This is the configurable replacement for the hardcoded HVS pricing.** Each account tariff has separate account and driver rates for each pricing component.
+
+### Tariff Entity (Standard) — Exact Fields
+
+| Field | Type | Notes |
+|-------|------|-------|
+| Type | TariffType | Tariff_1 (day), Tariff_2 (night), Tariff_3 (holiday) |
+| Name | string | Display name |
+| Description | string | |
+| InitialCharge | double | Standing charge |
+| FirstMileCharge | double | First mile rate |
+| AdditionalMileCharge | double | Per-mile rate after first mile |
+
+---
+
+## 108. Complete Entity List (40 Entities from DbContext)
+
+All entities in the legacy database. Red Taxi must port or replace all of these:
+
+**Core Booking:**
+Booking, BookingVia, BookingChangeAudit
+
+**Pricing:**
+Tariff, AccountTariff, ZoneToZonePrice
+
+**Dispatch:**
+DriverAllocation, DriverOnShift, JobOffer
+
+**Users & Auth:**
+AppRefreshToken, TenantUser, DriverUserProfile, AccountUserLink, UserDeviceRegistration, UserProfile, UserActionLog
+
+**Accounts:**
+Account, AccountInvoice, AccountPassenger, CreditNote
+
+**Drivers:**
+DriverInvoiceStatement, DriverAvailability, DriverAvailabilityAudit, DriverLocationHistory, DriverMessage, DriverExpense, DriverShiftLog, DocumentExpiry
+
+**Messaging & Notifications:**
+MessagingNotifyConfig, UINotification
+
+**Config:**
+CompanyConfig, LocalPOI, GeoFence
+
+**Web/External:**
+WebBooking, WebAmendmentRequest, UrlMapping, QRCodeClick, ReviewRequest, COARecord, TurnDown
+
+**Entities we hadn't documented:**
+- `TurnDown` — records turn-downs (no driver available) with timestamp and amount
+- `WebAmendmentRequest` — account portal amendment requests (pending operator approval)
+- `GeoFence` — geographic zones (may be for service area or pricing zones)
+- `ZoneToZonePrice` — zone-based fixed pricing (alternative to postcode-based)
+- `QRCodeClick` — QR code scan tracking (counter per QR code)
+- `ReviewRequest` — customer review/rating requests
+- `UrlMapping` — short URL tracking for payment/booking links
+- `DriverMessage` — message history (operator → driver)
+- `DriverAllocation` — allocation history/log
+- `AccountUserLink` — links AppUser to Account (multiple bookers per account)
+- `AccountPassenger` — passengers belonging to an account
+
+---
+
+## 109. Driver App — Complete Screen Inventory (25 Screens)
+
+From `ace-driver-app/lib/screens/`:
+
+| Screen | Lines | What It Does |
+|--------|-------|-------------|
+| home_screen | 585 | Main screen with shift toggle + next job |
+| dashboard_screen | 1,374 | Driver dashboard with stats |
+| booking_screen | 925 | View allocated bookings |
+| bookings_details_screen | 514 | Single booking detail view |
+| job_offer_screen | 607 | Full-screen job offer (accept/reject) |
+| completed_job_screen | 439 | Job completion form (waiting, parking, price) |
+| trip_details_screen | 474 | Active trip with status progression |
+| availability_screen | 1,607 | Set availability (largest screen — complex UI) |
+| scheduler_screen | — | Calendar/schedule view |
+| earning_report_screen | 523 | Earnings breakdown |
+| your_statement_screen | 773 | View statements with PDF |
+| view_expenses_screen | 748 | View expense history |
+| add_expense_screen | 483 | Submit new expense |
+| document_screen | 513 | Upload/view documents |
+| profile_screen | 535 | Driver profile |
+| messages_screen | — | View operator messages |
+| report_screen | 649 | Reports |
+| settings_screen | — | App settings |
+| create_booking_screen | — | Create rank job (Hackney) |
+| booking_log_screen | — | Booking action log |
+| live_gps_logs_screen | — | GPS debugging (dev tool) |
+| login_screen | 352 | Login |
+| splash_screen | — | App loading |
+| gps_service | — | Background GPS service |
+| webview_screen | — | In-app browser |
+
+**Screens we hadn't specced:**
+- `create_booking_screen` — rank job creation (already captured in §78)
+- `booking_log_screen` — driver can see action log on their bookings
+- `messages_screen` — dedicated messages screen (not just notifications)
+- `report_screen` — driver-accessible reports (earnings by period, etc.)
+- `dashboard_screen` — separate from schedule, shows stats/KPIs
+
+Red Taxi driver app should include all 25 screens. The 5-tab structure we specced covers these but some screens (booking log, reports, messages) need to be accessible from within tabs.
