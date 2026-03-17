@@ -2114,3 +2114,36 @@ Operator can transfer an allocated booking to a different driver without cancell
 5. Booking ID stays the same — no new booking created
 6. Both the unallocation and new allocation logged in audit trail
 7. Customer notified of driver change (if customer notification enabled)
+
+---
+
+## 93. Optimistic Concurrency
+
+When two operators open the same booking simultaneously:
+
+- Each booking has a `ConcurrencyToken` (EF Core `[ConcurrencyCheck]` / `RowVersion` timestamp)
+- When operator A saves changes, the token is checked against the database
+- If operator B saved first (token mismatch): operator A sees a warning: "This booking was modified by [Operator Name] at [time]. Your changes conflict. Review and retry."
+- Operator A's changes are NOT saved — they must reload the booking, see the updated state, and re-apply their changes
+- Applies to: booking edits, allocation, status changes, price amendments
+- Does NOT apply to: read-only views, reports, dashboard (these always show latest)
+
+SignalR helps prevent this in practice: when operator B saves, all other operators see the booking update in real-time on the scheduler/map/context panel. The concurrency check is a safety net for race conditions.
+
+---
+
+## 94. Driver App — Calendar View
+
+The Schedule tab in the driver app offers two view modes (toggle at top):
+
+### List View (Default)
+- Today's jobs in chronological order (as specced in driver app design §Tab 1)
+- Cards with pickup, destination, passenger, time, status
+
+### Calendar View
+- Week view showing 7 days
+- Each day shows job count badge
+- Tap a day → expands to show that day's jobs as a list
+- Gives driver visibility of upcoming days (tomorrow's early school run, Friday airport booking, etc.)
+- Jobs shown as coloured blocks matching booking status colours
+- Useful for drivers who want to plan their week ahead
