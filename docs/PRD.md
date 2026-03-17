@@ -2893,3 +2893,85 @@ These items are hardcoded for Ace Taxis in the legacy code and MUST be configura
 | Special phone numbers | 07825350912, 07738825598 | Remove — these are debug/test numbers |
 | Special test number | 0000011111 | Remove — test artefact |
 | Cutoff date | 2025-09-09 | Remove — migration artefact |
+
+---
+
+## 105. Settlement & Commission — Complete Logic from AccountsService
+
+Source: `AccountsService.cs` ProcessDrivers method (2,247 lines).
+
+### Driver Statement Calculation (Exact Legacy Logic)
+
+```
+Per driver, for the statement period:
+
+EarningsCash     = sum(Price) where Scope = Cash
+EarningsCard     = sum(Price) where Scope = Card AND PaymentStatus = Paid
+                   → If VAT on card payments: EarningsCard = sum(Price / 1.2)
+EarningsAccount  = sum(Price) where Scope = Account
+                   + sum(ParkingCharge) for account jobs
+                   + sum(WaitingPriceDriver) for account jobs
+EarningsRank     = sum(Price) where Scope = Rank
+
+CashCommRate     = driver's CashCommissionRate % (from UserProfile)
+CardRate         = company CardTopupRate % (from CompanyConfig)
+
+Commission calculation per scope:
+  Cash:    commission = (Price / 100) × CashCommRate
+  Card:    commission = (Price / 100) × (CashCommRate + CardRate)
+  Rank:    commission = (Price / 100) × 7.5    ← HARDCODED 7.5% for rank
+  Account: commission = 0 (account jobs have no commission)
+
+CardFees  = (EarningsCard / 100) × CardRate
+
+TotalCommission = ((EarningsCash + EarningsCard) / 100 × CashCommRate)
+                + (EarningsRank / 100 × 7.5)
+                + CardFees
+
+SubTotal = (EarningsCash + EarningsCard + EarningsRank) - TotalCommission + EarningsAccount
+```
+
+**Key findings:**
+- **Rank commission is hardcoded at 7.5%** — Red Taxi must make this configurable per driver
+- **Card earnings exclude VAT** if `AddVatOnCardPayments = true` (price / 1.2)
+- **Account parking + waiting charges added to driver's account earnings** (increases their payout)
+- **Card rate is a COMPANY-LEVEL setting** not per-driver
+- **Only Paid card jobs counted** — unpaid/pending card jobs excluded from statement
+
+### Waiting Time Pricing (Hardcoded)
+- **Driver waiting rate:** £0.33 per minute
+- **Account waiting rate:** £0.42 per minute
+- These are hardcoded — Red Taxi must make configurable per tenant in Pricing settings
+
+### VAT Outputs Calculation
+- Groups all non-cancelled Cash/Rank/Card jobs by scope, then by driver
+- Per driver: total price × (commission rate / 100) = commission taken
+- VAT = (commission / 100) × 20% (VAT on commission, not on fare)
+- If VAT on card payments enabled: card prices adjusted by subtracting VatAmountAdded
+- Separate line for "CARD PAYMENTS VAT" showing total card VAT collected
+- Output format: CSV (SCOPE, TOTAL CASH, COMMISSION TAKEN, VAT TOTAL)
+
+### Statement Email Flow
+1. Statement generated per driver
+2. PDF generated via QuestPDF (GenerateStatementPDF)
+3. Email sent to driver with PDF attachment
+4. Each booking updated with StatementId (linking booking → statement)
+
+---
+
+## 106. Additional Configurable Items Found
+
+| Item | Legacy Value | Red Taxi Config |
+|------|-------------|-----------------|
+| Rank commission rate | 7.5% hardcoded | Per-driver commission settings |
+| Driver waiting rate | £0.33/min | Company Settings → Pricing → Waiting Charges |
+| Account waiting rate | £0.42/min | Company Settings → Pricing → Waiting Charges |
+| Card top-up rate | CompanyConfig.CardTopupRate | Company Settings → Pricing → Card Fee % |
+| VAT on card payments | CompanyConfig.AddVatOnCardPayments | Company Settings → VAT → Add VAT on Card Payments toggle |
+| Driver on break states | Start/Finish/OnBreak/FinishBreak | Driver app supports break tracking (add to spec) |
+| SafeGuarding document | Document type in legacy | Add to default document types |
+| FirstAidCert document | Document type in legacy | Add to default document types |
+| DriverPhoto document | Document type in legacy | Add to default document types |
+| MPVPlus vehicle type | Separate from MPV | Add as vehicle type option |
+| 15 POI categories | More than specced | Include all as defaults |
+| 11 message events | 3 more than specced | Add CustomerOnComplete, DriverDirect, DriverGlobal |
