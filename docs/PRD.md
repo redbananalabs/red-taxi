@@ -4545,3 +4545,133 @@ Key points:
 - **Total estimated:** ~3 weeks
 - **Build logs:** every agent writes to `docs/build-logs/agent-{N}.md` for full continuity
 - **Agent prompts:** copy-paste ready prompts for each agent in the strategy doc
+
+---
+
+## 139. Stripe Configuration — Platform Billing
+
+### Architecture
+```
+┌──────────────────────────────────┐     ┌──────────────────────────────────┐
+│   PLATFORM STRIPE                │     │   TENANT PAYMENT PROCESSOR       │
+│   (Red Banana Labs account)      │     │   (Each tenant's own account)    │
+│                                  │     │                                  │
+│   Tenants pay US for:            │     │   Passengers pay TENANT for:     │
+│   - Monthly subscription         │     │   - Ride fares                   │
+│   - Bolt-on add-ons             │     │   - Payment links                │
+│   - Usage overages (future)      │     │   - Pre-payments                 │
+│                                  │     │                                  │
+│   Stripe Billing API             │     │   Tenant chooses:                │
+│   Products + Prices              │     │   - Stripe (their own keys)      │
+│   Customer Portal                │     │   - Revolut (their own keys)     │
+│   Webhooks → our API             │     │   Configured in Company Settings │
+└──────────────────────────────────┘     └──────────────────────────────────┘
+```
+
+### Platform Stripe Products (Created via Seed Script)
+
+Products and prices are created by a `StripeSeedService` at startup (idempotent — skips if already exists). Prices stored in master DB `PlatformConfig` table so they can be changed and resynced.
+
+**Plans:**
+| Product | Monthly Price | Annual Price (20% off) |
+|---------|-------------|----------------------|
+| Solo (5 drivers, 1,500 bookings/mo) | £199 | £1,910/yr |
+| Team (20 drivers, 5,000 bookings/mo) | £389 | £3,734/yr |
+| Fleet (50 drivers, 15,000 bookings/mo) | £799 | £7,670/yr |
+| Enterprise | Custom (manual quote) | Custom |
+
+**Bolt-ons (recurring add-ons):**
+| Bolt-on | Monthly Price |
+|---------|-------------|
+| +5 Drivers | £89 |
+| +2,000 Bookings | £60 |
+| +5,000 Bookings | £200 |
+| +10,000 Bookings | £400 |
+| SMS Pack 500 | £25 |
+| SMS Pack 2,000 | £75 |
+| SMS Pack 5,000 | £150 |
+| Web Portal | £109 |
+| Custom Domain | £65 |
+| API Access | £109 |
+
+### Price Change Flow
+1. Admin updates price in Red Taxi platform admin
+2. System creates NEW Stripe Price (old price archived, not deleted — Stripe requires this)
+3. Existing subscribers stay on old price until next renewal (or force-migrate)
+4. New subscribers get new price
+
+### Stripe Webhook Events
+| Event | Action |
+|-------|--------|
+| `checkout.session.completed` | Tenant signup complete → provision tenant DB |
+| `customer.subscription.created` | Activate tenant, set plan limits |
+| `customer.subscription.updated` | Plan upgrade/downgrade → update limits |
+| `customer.subscription.deleted` | Start grace period → soft lock → hard lock → delete |
+| `invoice.paid` | Record payment, reset billing cycle |
+| `invoice.payment_failed` | Send payment failure email, retry logic |
+| `customer.subscription.trial_will_end` | Send trial ending reminder (3 days before) |
+
+### Stripe Keys
+| Environment | Key Type | Storage |
+|------------|---------|---------|
+| Development | `sk_test_*` / `pk_test_*` | `appsettings.Development.json` |
+| Production | `sk_live_*` / `pk_live_*` | Environment variables (Hetzner) |
+| Webhook secret | `whsec_*` | Environment variables |
+
+### Tenant Payment Processor (Ride Payments)
+Each tenant configures their own payment processor in Company Settings → Payments:
+
+**Option A: Stripe**
+- Tenant enters their own `sk_live_*` and `pk_live_*` keys
+- System uses Stripe Payment Intents for ride payments
+- Stripe Checkout for payment links
+
+**Option B: Revolut**
+- Tenant enters their Revolut API key
+- System uses Revolut Orders API (existing legacy flow §102)
+- Webhook URL auto-configured per tenant subdomain
+
+Both support: create payment, send payment link, webhook for completion, refunds.
+
+---
+
+## 140. Local Development Environment
+
+### Required Software (Claude Code installs these)
+| Tool | Purpose | Install Method |
+|------|---------|---------------|
+| .NET 8 SDK | Backend build | `winget install Microsoft.DotNet.SDK.8` |
+| SQL Server 2022 Express | Database | `winget install Microsoft.SQLServer.2022.Express` |
+| SQL Server Management Studio | DB admin | `winget install Microsoft.SQLServerManagementStudio` |
+| Redis (Windows) | Cache + sessions | `winget install Redis.Redis` or Memurai |
+| Node.js 20 LTS | Frontend tooling (Tailwind) | `winget install OpenJS.NodeJS.LTS` |
+| Flutter SDK | Mobile apps | `winget install Google.Flutter` |
+| IIS (Windows feature) | Local hosting | `Enable-WindowsFeature IIS-WebServer` |
+| Git | Version control | Already installed |
+
+### Local URLs
+| Service | URL |
+|---------|-----|
+| API | `https://localhost:5001` or IIS `https://redtaxi.local` |
+| Dispatch Console (Blazor Server) | `https://localhost:5002` |
+| Tenant Admin (Blazor WASM) | `https://localhost:5003` |
+| Customer Portal (Blazor WASM) | `https://localhost:5004` |
+| SQL Server | `localhost\SQLEXPRESS` |
+| Redis | `localhost:6379` |
+
+### Database Setup
+```
+Master DB: RedTaxi_Platform (tenant registry, Stripe data)
+Tenant DB: RedTaxi_ace (first tenant — Ace Taxis)
+```
+
+### IIS Configuration
+- Application pool: .NET CLR v4.0 / No Managed Code
+- Site binding: `https://redtaxi.local:443` (self-signed cert)
+- Publish API to IIS for realistic hosting (not just Kestrel)
+
+### Git Workflow
+- Work on feature branches: `agent/{N}-{feature}`
+- **Always merge back to main** after completing a feature
+- No long-lived branches — merge early, merge often
+- Commit messages: descriptive, reference PRD section numbers

@@ -1,266 +1,212 @@
-# Red Taxi — Claude Code Build Handoff
+# Claude Code Handoff — Red Taxi Platform
 
-**Date:** 2026-03-16  
-**Status:** Ready to build Phase 1
-
----
-
-## 1. What Claude Code Should Do First
-
-### Step 1: Analyse Legacy Service Files
-Extract exact business logic from these god services before writing any new code:
-
-| File | Lines | Extract |
-|------|-------|---------|
-| `TaxiDispatch.Lib/Services/BookingService.cs` | 2,142 | Every booking operation: create, update, cancel, complete, duplicate, merge, price calc triggers, recurrence handling |
-| `TaxiDispatch.Lib/Services/DispatchService.cs` | 1,002 | Allocation flow, soft allocate, confirm, unallocate, job offer sending, turn-down recording |
-| `TaxiDispatch.Lib/Services/AccountsService.cs` | 2,247 | Invoice generation, statement generation, batch pricing, credit notes, posting/unposting, HVS pricing |
-| `TaxiDispatch.Lib/Services/TariffService.cs` | 709 | Price calculation (Google Distance Matrix call, tariff application, dead miles) |
-| `TaxiDispatch.Lib/Services/AceMessagingService.cs` | 891 | Message template rendering, channel selection (SMS/WhatsApp/Push), send logic |
-| `TaxiDispatch.Lib/Services/WebBookingService.cs` | 878 | Web portal booking creation, acceptance, rejection, amendment requests |
-| `TaxiDispatch.Lib/Services/AvailabilityService.cs` | 491 | Availability CRUD, preset logic, availability grid queries |
-
-For each service: produce a document listing every public method, what it does, which entities it touches, and which MediatR handler it should become.
-
-### Step 2: Create the Solution Structure
-
-The repo should be organised as follows (legacy code copied in for reference):
-
-```
-redtaxi/
-├── legacy/                         ← existing Ace projects (READ-ONLY reference)
-│   ├── TaxiDispatch.API/
-│   ├── TaxiDispatch.Lib/
-│   ├── TaxiDispatch.Tests/
-│   ├── ace-admin-ui/               ← React dispatch console (if available)
-│   ├── ace-sms-gateway/            ← Android SMS gateway (if available)
-│   └── ace-driver-app/             ← Driver app (if available)
-├── src/
-│   ├── RedTaxi.sln
-│   ├── RedTaxi.API/                (.NET 8 Web API + Blazor Server host)
-│   ├── RedTaxi.Application/        (MediatR handlers by feature)
-│   ├── RedTaxi.Domain/             (Entities, enums, events, interfaces)
-│   ├── RedTaxi.Infrastructure/     (EF Core, Redis, external APIs)
-│   ├── RedTaxi.Blazor/             (Dispatch console - Blazor Server + Syncfusion)
-│   └── RedTaxi.WebPortal/          (Customer booking portal)
-├── tests/
-│   ├── RedTaxi.UnitTests/
-│   ├── RedTaxi.IntegrationTests/
-│   └── RedTaxi.ArchTests/
-├── docs/                            ← already populated (8 docs + chatgpt-source)
-├── docker-compose.yml
-├── .github/workflows/deploy.yml
-└── .gitignore
-```
-
-Claude Code should reference `legacy/` when extracting business logic but NEVER modify files in that folder.
-
-### Step 3: Build Strategy — API First, Then Parallel Frontends
-
-The backend API is built first as the single source of truth. Once the API is stable, parallel agents build each frontend project against it.
-
-#### Phase 1A: Backend API (Days 1-5)
-
-Build in this order:
-
-1. **Solution scaffold** — RedTaxi.sln, project references, NuGet packages
-2. **Domain entities** — port from legacy `Data/Models/`, remove TenantId columns (per-tenant DB means no TenantId needed), add new entities (Customer, SavedAddress)
-3. **DbContext** — RedTaxiDbContext with per-tenant database connection resolution (master DB holds tenant registry, each tenant gets own database)
-4. **Auth** — ASP.NET Core Identity + JWT + roles (SuperAdmin, TenantAdmin, Dispatcher, Driver, AccountUser, WebBooker)
-5. **Booking CRUD** — CreateBooking, UpdateBooking, CancelBooking, CompleteBooking, GetBookingsToday, GetBookingById, FindBookings, DuplicateBooking
-6. **Pricing engine** — TariffService port: Google Distance Matrix, tariff selection by time/day, price calculation (InitialCharge + FirstMile + AdditionalMiles × Rate), account tariff overrides (dual pricing)
-7. **Customer directory** — CreateCustomer, LookupByPhone, GetCustomer
-8. **Driver availability** — SetAvailability, GetAvailability (with presets: Custom, SR AM Only, SR PM Only, SR Only, UNAVAILABLE ALL DAY), availability logs
-9. **Dispatch** — AllocateBooking, SoftAllocate, ConfirmSoftAllocates, RecordTurnDown, COA
-10. **Driver fleet** — DriverList, DriverAdd, DriverUpdate, GPS ingestion, shift tracking
-11. **Messaging** — SendSMS, SendWhatsApp, SendPush (event-driven via domain events)
-12. **Accounts** — AccountCRUD, InvoiceProcessor, StatementProcessing, CreditNotes
-13. **Reporting** — all 18 report endpoints (driver earnings, booking stats, financials)
-14. **Web booking** — CreateWebBooking, Accept, Reject, AmendRequest
-15. **Admin/Config** — CompanySettings, MessageSettings, TariffConfig, AccountTariffs, LocalPOIs
-
-Deploy to IIS after each sprint for immediate testing.
-
-#### Phase 1B: Parallel Frontend Agents (Days 6-12)
-
-Once the API is stable, spin up parallel agents:
-
-| Agent | Project | Key screens |
-|-------|---------|-------------|
-| Agent 1 | RedTaxi.Blazor (dispatch console) | Booking form, diary/scheduler, availability grid, driver status, map, dashboard, all admin pages |
-| Agent 2 | RedTaxi.WebPortal (customer portal) | Account login, booking form, active bookings, passenger management, booking history |
-| Agent 3 | Flutter driver app (Phase 3) | Login, jobs, accept/reject, navigation, GPS, documents, earnings |
-
-All agents consume the same API. No blocking dependencies between them.
-
-#### Phase 2: Integration & Polish (Days 13-18)
-- SignalR real-time updates (diary, dispatch, GPS)
-- Drag-and-drop booking reallocation
-- School run merge
-- Payment links (Revolut)
-- Phone lookup / caller ID
-- Dark mode
-- Keyboard shortcuts
-
-### Staging: IIS on Windows
-
-During development, deploy to IIS on your Windows machine alongside the existing Ace system.
-
-**IIS Setup:**
-- Create a new IIS site: `RedTaxi` on a different port (e.g. 5100) or subdomain
-- Application Pool: .NET CLR version = No Managed Code (runs via ASP.NET Core module)
-- Install ASP.NET Core Hosting Bundle on the server
-- Publish command: `dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi`
-- SQL Server: create `RedTaxi` database alongside existing `TaxiDispatch` database
-- Redis: install Redis for Windows or use Docker Desktop for Redis only
-- Connection strings in `appsettings.Production.json`
-
-**Deployment during dev:**
-```
-dotnet publish src/RedTaxi.API -c Release -o C:\inetpub\redtaxi
-```
-Or configure a simple PowerShell script that builds + publishes + restarts the IIS app pool.
-
-**Later:** Hetzner Docker deployment for production (docker-compose.yml already in repo).
+> **Read this first. Then read the files it references. Then start building.**
 
 ---
 
-## 2. Reference Documents (all in `docs/`)
+## What You're Building
 
-| Doc | Purpose |
-|-----|---------|
-| `PRD.md` | What to build (34 sections) |
-| `business-rules.md` | How it works (28 sections) |
-| `data-model.md` | Entity definitions and relationships |
-| `api-contract.md` | 232 legacy endpoints → v2 REST routes |
-| `architecture.md` | Stack decisions, project structure, ADRs |
-| `module-map.md` | 72 modules for parallel development |
-| `saas-pricing.md` | SaaS pricing (Solo/Team/Fleet/Enterprise + bolt-ons) |
+Red Taxi is a multi-tenant SaaS taxi dispatch platform. 7 apps, 1 API, per-tenant databases. First tenant: Ace Taxis (Dorset, UK).
 
----
-
-## 3. Key Technical Decisions (Do Not Override)
-
-- **Blazor Server** for dispatch console (not WASM)
-- **Syncfusion Blazor** components: SfSchedule (diary), SfDataGrid (lists/reports), SfChart (dashboard), SfTextBox/SfDropDown (forms)
-- **MediatR** — one handler per use case, no service-to-service calls
-- **Domain events** — messaging triggered by events (BookingAllocated → send notification), not by direct calls
-- **Hangfire** for background jobs (not RabbitMQ)
-- **QuestPDF** for invoice/statement PDFs
-- **SignalR** for real-time dispatch updates (built into Blazor Server)
-- **EF Core** with `IDbContextFactory` (same pattern as legacy)
-- **Redis** for GPS cache and SignalR backplane
-- **Per-tenant database** — master DB (`RedTaxi_Platform`) holds tenant registry, each tenant gets own DB (`RedTaxi_{slug}`). Connection resolved per-request via `ITenantConnectionResolver`. No TenantId columns, no global query filters — complete physical isolation.
-
----
-
-## 4. Legacy Code to Port vs Rewrite
-
-### Port (copy logic, clean up structure)
-- Tariff calculation (TariffService.GetPriceHVS — the core algorithm works)
-- Booking entity model (Booking.cs — field definitions are correct)
-- Enum definitions (BookingEnums.cs — all values must match for import compatibility)
-- AutoMapper profiles (field mappings between entities and DTOs)
-
-### Rewrite (logic is correct but structure is wrong)
-- BookingService → split into ~15 MediatR handlers
-- DispatchService → split into ~8 MediatR handlers
-- AccountsService → split into ~12 MediatR handlers
-- AceMessagingService → domain event handlers (not direct calls)
-
-### Discard
-- WeatherForecast.cs (template leftover)
-- ATestController (test endpoint)
-- Legacy migration files (new baseline migration for Red Taxi)
-
----
-
-## 5. Phase 1A Definition of Done (API)
-
-The API is complete when all these endpoints work via Swagger/Postman:
-
-1. Auth: login, register, refresh token, role-based access
-2. Create a booking with all fields (pickup, destination, vias, passenger, date/time, scope)
-3. Price auto-calculates using tariff rules (T1/T2/T3 + account tariffs)
-4. Get bookings today, by date range, by ID, by search term
-5. Allocate a driver to a booking (+ soft allocate + confirm)
-6. Complete and cancel bookings (+ COA)
-7. Look up customer by phone number, create customer
-8. Set and get driver availability (with presets)
-9. Driver list with profiles, GPS position update
-10. Account CRUD, invoice processor, statement processing
-11. All 18 report endpoints returning correct data
-12. Web booking submit, accept, reject
-13. Send SMS/WhatsApp/Push via domain events on allocation/completion
-14. Company settings, message settings, tariff config, POIs
-
-## 6. Phase 1B Definition of Done (Blazor Dispatch Console)
-
-The dispatch console is complete when an operator can:
-
-1. Log in and see the dashboard with KPI cards and driver earnings
-2. Create a booking and see the price auto-calculate with map route
-3. See bookings on the diary/scheduler with driver columns
-4. Allocate a driver (booking changes to driver's colour)
-5. Soft allocate and bulk confirm
-6. Drag bookings between drivers on the diary
-7. Search bookings by multiple fields
-8. Look up customer by phone (caller ID popup with history)
-9. Set driver availability using presets
-10. View all admin pages: accounts, drivers, tariffs, billing, reports
-11. Receive real-time SignalR updates on diary changes
-12. Toggle dark mode
-
----
-
-## 7. Machine Allocation & Parallel Agent Plan
-
-### Hardware
-
-| Machine | OS | Assigned Work |
-|---------|-----|--------------|
-| PC 1 | Windows + IIS | Backend API (Phase 1A) → then Blazor dispatch console (Phase 1B) |
-| PC 2 | Windows | Customer web portal + admin features |
-| Mac | macOS | Flutter driver app (iOS build requires Xcode on Mac) |
-
-### Phase 1A: API Build (Days 1-5) — PC 1 Only
-
-Single agent on PC 1 builds the entire API. Deploy to IIS on same machine for immediate testing. This is sequential — the API contract must be solid before frontends start.
-
-### Phase 1B: Parallel Frontend Build (Days 6-12) — All 3 Machines
-
-| Machine | Agent | Project | Key deliverable |
-|---------|-------|---------|----------------|
-| PC 1 | Agent 1 | `src/RedTaxi.Blazor/` | Dispatch console (Syncfusion SfSchedule, booking form, all admin pages) |
-| PC 2 | Agent 2 | `src/RedTaxi.WebPortal/` | Account web booker portal (login, booking, passengers, history) |
-| Mac | Agent 3 | `src/RedTaxi.DriverApp/` (Flutter) | Driver app for iOS + Android (login, jobs, GPS, documents) |
-
-All three agents point at the same API running on PC 1 (IIS). Set API base URL as an environment variable so each frontend can reach it.
-
-### Optional: Extra Parallelism with VMs
-
-If you want to push harder, split the Blazor work across two agents:
-
-| Machine | Agent | Focus |
-|---------|-------|-------|
-| PC 1 | Agent 1A | Blazor dispatch: booking form, diary, availability, driver status, map |
-| PC 1 VM | Agent 1B | Blazor admin: dashboard, accounts, billing, reports, drivers, settings |
-| PC 2 | Agent 2 | Customer web portal |
-| Mac | Agent 3 | Flutter driver app |
-
-This gets you 4 parallel agents. The Blazor split works cleanly because dispatch pages and admin pages share the API but have no UI dependencies on each other.
-
-### Git Workflow for Parallel Agents
-
-Each agent works on its own branch:
+## Repository
 
 ```
-main
-├── feature/api-phase1          ← PC 1 (days 1-5)
-├── feature/blazor-dispatch     ← PC 1 / Agent 1A (days 6-12)
-├── feature/blazor-admin        ← PC 1 VM / Agent 1B (days 6-12)
-├── feature/web-portal          ← PC 2 / Agent 2 (days 6-12)
-└── feature/driver-app          ← Mac / Agent 3 (days 6-12)
+git clone https://github.com/onesoftuk/red-taxi.git
 ```
 
-Merge to main via PR when each feature set is testable. API merges first, then frontends merge against it.
+GitHub token: provided separately (do not commit tokens to repo)
+
+## Context Files — Read in This Order
+
+1. **`docs/build-strategy.md`** — build phases, agent assignment, parallel execution plan, dependency graph
+2. **`docs/PRD.md`** — 140 sections, 4,600+ lines. The COMPLETE product spec. Every business rule, formula, entity, screen, workflow.
+3. **`docs/business-rules.md`** — 42 business rule sections (extracted from legacy code)
+4. **`docs/architecture/master-architecture.md`** — system architecture
+5. **`docs/data-model/master-data-model.md`** — entity relationships
+6. **`docs/design/design-language.md`** — design system (Material Dark, Syncfusion, Tailwind)
+7. **`docs/design/dispatch-layout.md`** — dispatch console map-centric layout
+8. **`docs/design/driver-app.md`** — driver app 5-tab design
+9. **`docs/saas-pricing.md`** — SaaS pricing model (Solo/Team/Fleet + bolt-ons)
+10. **`design-tokens.json`** — colours, typography, spacing tokens
+
+There are 70+ docs in the repo. Search them when you need detail on any topic.
+
+## Legacy Code (Reference Only — Do NOT Port)
+
+The `legacy/` folder contains the old system code for reference:
+- `legacy/TaxiDispatch.API/` — .NET 8 backend (20 controllers, 232 endpoints)
+- `legacy/TaxiDispatch.Lib/` — 18 services (13,758 lines), 36 entities
+- `legacy/ace-dispatcher/` — React dispatch console
+- `legacy/ace-admin-panel/` — React admin panel
+- `legacy/ace-driver-app/` — Flutter driver app
+- `legacy/ace-account-web-booker/` — React account portal
+- `legacy/ace-local-sms/` — .NET MAUI Android SMS gateway
+
+Use these to verify business logic, NOT to copy code. The rebuild is clean architecture, not a port.
+
+## Tech Stack (LOCKED — Do Not Change)
+
+| Layer | Choice |
+|-------|--------|
+| Backend | .NET 8, EF Core 8, MediatR, SQL Server, Redis, Hangfire, SignalR |
+| Dispatch Console | Blazor Server + Syncfusion (Material Dark) + Tailwind CSS |
+| Customer Portal | Blazor WASM + Tailwind CSS |
+| Tenant Admin | Blazor WASM + Tailwind CSS |
+| Driver App | Flutter (iOS + Android) |
+| Customer App | Flutter (iOS + Android) |
+| Operator Mobile App | Flutter (iOS + Android) |
+| Platform Billing | Stripe Billing (subscriptions) |
+| Tenant Payments | Stripe or Revolut (tenant's own keys, tenant chooses) |
+| SMS | TextLocal (branded) |
+| Maps | Google Maps + Distance Matrix |
+| Address | Google Places + Ideal Postcodes (dual) |
+| PDF | QuestPDF |
+| Icons | Lucide Icons |
+| Email | SendGrid (platform); tenant-configurable (SMTP/SendGrid/Mailgun/SES) |
+| Error Monitoring | Sentry + Seq |
+
+## Local Development Setup
+
+**Install these tools first:**
+- .NET 8 SDK
+- SQL Server 2022 Express (connection: `Server=localhost\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True`)
+- Redis for Windows (or Memurai) on `localhost:6379`
+- Node.js 20 LTS (for Tailwind CSS build)
+- Flutter SDK (for mobile apps)
+- IIS (enable Windows feature, for realistic local hosting)
+
+**Database setup:**
+- Master DB: `RedTaxi_Platform` (tenant registry, Stripe config)
+- First tenant DB: `RedTaxi_ace` (Ace Taxis business data)
+- EF Core migrations handle schema creation
+
+**Stripe setup:**
+- Use TEST mode keys (`sk_test_*`, `pk_test_*`) for development
+- Products/prices created via `StripeSeedService` (idempotent seed on startup)
+- See PRD §139 for full Stripe product list and webhook events
+
+**Local URLs:**
+- API: `https://localhost:5001`
+- Dispatch Console: `https://localhost:5002`
+- Tenant Admin: `https://localhost:5003`
+- Customer Portal: `https://localhost:5004`
+
+## Solution Structure
+
+```
+src/
+├── RedTaxi.sln
+├── RedTaxi.Domain/              Entities, enums, domain events, interfaces
+├── RedTaxi.Application/         MediatR handlers (one per use case), DTOs, validators
+├── RedTaxi.Infrastructure/      EF Core, Redis, Stripe, Revolut, Google Maps, SendGrid, Hangfire
+├── RedTaxi.API/                 Controllers, SignalR hubs, middleware, auth
+├── RedTaxi.Shared/              DTOs, validation, API client (shared by Blazor projects)
+├── RedTaxi.Blazor/              Dispatch console (Blazor Server + Syncfusion + Tailwind)
+├── RedTaxi.TenantAdmin/         Tenant admin portal (Blazor WASM + Tailwind)
+├── RedTaxi.WebPortal/           Customer/account portal (Blazor WASM + Tailwind)
+└── mobile/
+    ├── red_taxi_shared/          Shared Flutter package (API client, models, auth, design tokens)
+    ├── red_taxi_driver/          Driver app (Flutter)
+    ├── red_taxi_customer/        Customer app (Flutter)
+    └── red_taxi_operator/        Operator mobile app (Flutter)
+```
+
+## Architecture Rules
+
+1. **One MediatR handler per use case** — no fat service classes. Each handler does ONE thing.
+2. **Domain events for side-effects** — messaging, notifications, audit trails triggered by events, not direct calls.
+3. **Per-tenant database** — no TenantId columns. Connection resolved per-request via `ITenantConnectionResolver`. Master DB only has tenant registry + Stripe data.
+4. **Global query filters** — EF Core 8 global filters for soft deletes.
+5. **Outbox pattern** — for reliable multi-channel message delivery.
+6. **No God Classes** — the legacy `BookingService` was 2,142 lines mixing everything. We fix this with clean separation.
+
+## Git Workflow
+
+- **Always work on feature branches** then merge back to main
+- Branch naming: `feature/{description}` or `agent/{N}-{description}`
+- **Merge to main after each feature completes** — no long-lived branches
+- Commit messages reference PRD sections: `"feat: booking creation (§76, §102, §134)"`
+
+## Build Logs
+
+**Mandatory.** Maintain build logs at `docs/build-logs/agent-{N}.md`. Log:
+- What was built
+- Files created/modified
+- Decisions made (with rationale)
+- What's left
+- Known bugs or tech debt
+- Handoff notes for the next session
+
+This is how future Claude Code sessions get context. Skip this and context is lost.
+
+## Build Order (Critical Path)
+
+```
+1. Foundation: Domain entities (40+), enums, DTOs, DbContext, migrations, solution scaffold
+2. Core API: Booking CRUD, pricing engine (5-level priority), dispatch/allocation, auth (JWT + refresh)
+3. Core API: Accounts, billing, invoicing, statements, messaging, company config
+4. Dispatch Console: Map, scheduler, booking form, caller popup, allocation, real-time (SignalR)
+5. Tenant Admin: Invoice processor, statement processor, availability, zone pricing, reports, settings
+6. Customer Portal: Account booker login, booking, history, passengers, amendments
+7. Driver App: 25 screens — schedule, offers, active job, availability, earnings, documents
+8. Customer App: 15 screens — tenant select, OTP, booking, tracking, rating, history
+9. Operator Mobile: 4 tabs — bookings, alerts, live map, more
+10. Integration: SignalR wiring, Stripe webhooks, Revolut, push notifications, SMS
+11. Polish: Edge cases (§84-85), drag-and-drop, school run merge, deployment
+```
+
+Steps 4-9 can run in parallel once step 3 is complete.
+
+## Key Business Logic (Don't Miss These)
+
+### Pricing Priority (5 levels)
+```
+1. Manual override (ManuallyPriced = true)
+2. Zone-to-Zone (pickup in polygon A, destination in polygon B)
+3. Fixed route (postcode prefix match)
+4. Account tariff (dual pricing: driver rate + account rate)
+5. Standard tariff (Day=T1 / Night=T2 / Holiday=T3)
+```
+
+### Cash Price Formula (§102)
+```
+totalMiles = (journeyMiles + deadMiles) / 2  ← AVERAGED, not added
+price = tariff.InitialCharge + tariff.FirstMileCharge
+if totalMiles > 1: price += (totalMiles - 1) × tariff.AdditionalMileCharge
+```
+
+### Settlement Formula (§105)
+```
+Commission = ((CashEarnings + CardEarnings) × CashCommRate%)
+           + (RankEarnings × RankCommRate%)
+           + CardFees
+Net = (Cash + Card + Rank) - Commission + AccountEarnings
+```
+
+### Tariff Selection (§102)
+- Tariff 1 (Day): Mon-Fri 07:00-21:59, Sat 07:00-21:59
+- Tariff 2 (Night): Any day 22:00-06:59, all Sunday, bank holidays
+- Tariff 3 (Holiday): Dec 24 after 18:00, Dec 25-26, Dec 31 after 18:00, Jan 1
+
+### Booking State Machine (§134)
+```
+Created → Allocated → Accepted → OnRoute → Arrived → PassengerOnBoard → Completed
+                   → Rejected/Timeout → back to Unallocated
+At any point → Cancelled, COA (Cancel on Arrival), Reallocated
+```
+
+## What Success Looks Like
+
+When you're done, an operator should be able to:
+1. Log into the dispatch console, see today's bookings on a map + scheduler
+2. Receive a phone call, see caller popup with history, create a booking in 3 clicks
+3. Allocate a driver (drag-and-drop or driver list), driver gets push notification
+4. Driver accepts on their app, drives to pickup, completes the job
+5. Customer gets live tracking link, rates the driver after
+6. At end of week: process driver statements, generate account invoices, send PDFs
+7. Tenant admin manages drivers, accounts, tariffs, zones, availability, reports
+
+And a taxi company should be able to:
+1. Sign up at redtaxi.co.uk, pick a plan, start 14-day trial
+2. Configure their company, add drivers, set tariffs
+3. Go live taking bookings within 30 minutes of signup
