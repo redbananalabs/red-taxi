@@ -170,6 +170,7 @@ namespace AceTaxisAPI
             builder.Services.AddScoped<UINotificationService>();
             builder.Services.AddScoped<UserActionsService>();
             builder.Services.AddScoped<GeoZoneService>();
+            builder.Services.AddScoped<UrlTrackingService>();
             // cache service
 
             builder.Services.AddScoped<UserLocationCacheService>();

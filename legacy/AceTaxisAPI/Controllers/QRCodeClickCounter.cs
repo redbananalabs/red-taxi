@@ -1,8 +1,5 @@
-﻿using AceTaxis.Data;
-using AceTaxis.Data.Models;
-using Microsoft.AspNetCore.Http;
+using AceTaxis.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace AceTaxisAPI.Controllers
 {
@@ -10,23 +7,17 @@ namespace AceTaxisAPI.Controllers
     [ApiController]
     public class QRCodeClickCounter : ControllerBase
     {
-        private readonly AceDbContext _db;
+        private readonly UrlTrackingService _service;
 
-        public QRCodeClickCounter(AceDbContext db)
+        public QRCodeClickCounter(UrlTrackingService service)
         {
-            _db = db;
+            _service = service;
         }
 
         [HttpGet]
         public async Task<IActionResult> RedirectToLongUrl([FromRoute] string location)
         {
-            var click = new QRCodeClick();
-            click.Location = location;
-            click.TimeStamp = DateTime.Now.ToUKTime();
-
-            await _db.QRCodeClicks.AddAsync(click);
-            await _db.SaveChangesAsync();
-
+            await _service.RecordQRCodeClick(location);
             return Redirect($"https://acetaxisdorset.co.uk?referer={location}");
         }
 
