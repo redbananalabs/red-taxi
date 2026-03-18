@@ -73,6 +73,7 @@ Use these to verify business logic, NOT to copy code. The rebuild is clean archi
 - Redis for Windows (or Memurai) on `localhost:6379`
 - Node.js 20 LTS (for Tailwind CSS build)
 - Flutter SDK (for mobile apps)
+- Stripe CLI (`winget install Stripe.StripeCLI` then `stripe login`)
 - IIS (enable Windows feature, for realistic local hosting)
 
 **Database setup:**
@@ -82,7 +83,10 @@ Use these to verify business logic, NOT to copy code. The rebuild is clean archi
 
 **Stripe setup:**
 - Use TEST mode keys (`sk_test_*`, `pk_test_*`) for development
-- Products/prices created via `StripeSeedService` (idempotent seed on startup)
+- Install Stripe CLI: `winget install Stripe.StripeCLI` then `stripe login`
+- Forward webhooks locally: `stripe listen --forward-to https://localhost:5001/api/stripe/webhook`
+  (this auto-generates the webhook signing secret `whsec_*`)
+- Products/prices created via `StripeSeedService` at startup (idempotent — uses Stripe API)
 - See PRD §139 for full Stripe product list and webhook events
 
 **Local URLs:**
