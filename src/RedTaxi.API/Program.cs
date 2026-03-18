@@ -5,7 +5,7 @@ using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using RedTaxi.API.Hubs;
+using RedTaxi.Application.Hubs;
 using RedTaxi.API.Middleware;
 using RedTaxi.API.Services;
 using RedTaxi.Application;
@@ -200,6 +200,9 @@ try
     // -----------------------------------------------------------------------
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
     builder.Services.AddScoped<IStripeService, StripeSeedService>();
+    builder.Services.AddScoped<IPricingService, RedTaxi.Application.Pricing.Services.PricingService>();
+    builder.Services.AddScoped<IDistanceMatrixService, RedTaxi.Infrastructure.ExternalServices.StubDistanceMatrixService>();
+    builder.Services.AddScoped<RedTaxi.Application.Identity.Services.JwtTokenService>();
 
     // -----------------------------------------------------------------------
     // Health checks

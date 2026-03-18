@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RedTaxi.Domain\RedTaxi.Domain.csproj" />
-    <ProjectReference Include="..\RedTaxi.Application\RedTaxi.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
