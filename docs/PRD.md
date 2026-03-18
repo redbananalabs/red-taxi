@@ -988,7 +988,11 @@ src/
 ├── RedTaxi.Blazor/                 (Dispatch console — Blazor Server + Syncfusion + Tailwind)
 ├── RedTaxi.WebPortal/              (Customer portal — Blazor WASM + Tailwind)
 ├── RedTaxi.TenantAdmin/            (Tenant admin — Blazor WASM + Tailwind)
-└── RedTaxi.DriverApp/              (Flutter — separate, not in .NET solution)
+└── mobile/
+    ├── red_taxi_driver/             (Driver app — Flutter, iOS + Android)
+    ├── red_taxi_customer/           (Customer app — Flutter, iOS + Android)
+    ├── red_taxi_operator/           (Operator mobile app — Flutter, iOS + Android)
+    └── red_taxi_shared/             (Shared Flutter package: API client, models, auth, design tokens)
 ```
 
 ---
@@ -998,9 +1002,9 @@ src/
 | Phase | Duration | Deliverable |
 |-------|----------|-------------|
 | 1A | ~5 days | Complete backend API (all endpoints, per-tenant DB, Stripe integration) |
-| 1B | ~7 days | 4 parallel agents: Blazor dispatch, Blazor admin, web portal, Flutter app |
+| 1B | ~7 days | 5 parallel agents: Blazor dispatch, Blazor admin, web portal, Flutter driver + customer + operator (shared package first) |
 | 2 | ~5 days | Integration: SignalR, drag-drop, school run merge, payments, polish |
-| **Total** | **~3-4 weeks** | |
+| **Total** | **~3-4 weeks** | 7 apps + API |
 
 ---
 
