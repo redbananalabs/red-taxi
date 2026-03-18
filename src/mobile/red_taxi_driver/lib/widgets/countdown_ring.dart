@@ -124,21 +124,6 @@ class _CountdownRingState extends State<CountdownRing>
   }
 }
 
-/// Animated builder that is safe to use instead of AnimatedBuilder.
-class AnimatedBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext context, Widget? child) builder;
-  final Widget? child;
-
-  const AnimatedBuilder({
-    super.key,
-    required super.listenable,
-    required this.builder,
-    this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) => builder(context, child);
-}
 
 class _RingPainter extends CustomPainter {
   final double progress;
