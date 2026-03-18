@@ -4722,3 +4722,66 @@ Each tenant's dispatch console and mobile apps should centre on THEIR operating 
 - Latitude: 51.0478 (Gillingham, Dorset)
 - Longitude: -2.2769
 - Zoom: 13
+
+---
+
+## 142. Dispatch Console Layout — REVISED (Matches Legacy UX)
+
+**Replaces the floating-panel layout from §42.** Based on operator feedback, the dispatch console follows the legacy split-panel layout which operators are already trained on.
+
+### Layout Structure
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Top Bar (48px): RT logo | Search (Ctrl+K) | SMS | DM | GM | 🔔 | +New │
+├──────────────┬───────────────────────────────────────────────────────────┤
+│              │                                                           │
+│              │  ┌─── Tab Bar ──────────────────────────────────────────┐ │
+│   BOOKING    │  │  [📍 Map]   [📋 Scheduler]                          │ │
+│   FORM       │  ├──────────────────────────────────────────────────────┤ │
+│              │  │                                                      │ │
+│   (always    │  │   Active Tab Content:                                │ │
+│    visible)  │  │                                                      │ │
+│              │  │   MAP VIEW:                                          │ │
+│   Pickup     │  │   - Google Maps (dark)                               │ │
+│   Dest       │  │   - Driver position pins                            │ │
+│   Passenger  │  │   - Booking pickup markers                          │ │
+│   Phone      │  │                                                      │ │
+│   Date/Time  │  │   SCHEDULER VIEW:                                    │ │
+│   Scope      │  │   - Day timeline (default)                           │ │
+│   Price      │  │   - Driver rows on Y-axis                           │ │
+│   Vias       │  │   - Booking tiles with driver colours               │ │
+│   Details    │  │   - Unallocated row (amber)                         │ │
+│   Actions    │  │   - Drag-and-drop allocation                        │ │
+│              │  │   - Current time indicator (red line)                │ │
+│              │  │                                                      │ │
+│              │  └──────────────────────────────────────────────────────┘ │
+├──────────────┤                                                           │
+│  KPI Bar     │  (KPIs can also go here or at top — operator preference) │
+└──────────────┴───────────────────────────────────────────────────────────┘
+```
+
+### Key Design Decisions
+- **Booking form permanently visible on the left** — operator can always see the form while viewing the map or scheduler. No sliding/hiding.
+- **Splitter in the middle** — draggable to resize left/right panels. Default: ~35% form / ~65% map+scheduler.
+- **Map and Scheduler are TABBED** on the right panel — click tab to switch. Not stacked, not split.
+- **Default view: Scheduler (Day)** — shows today's bookings by driver. Map is secondary tab.
+- **Sidebar still exists** (collapsed icon bar, 48-64px) on the far left for navigation to other pages.
+
+### Tab Options (Right Panel)
+| Tab | Icon | Content |
+|-----|------|---------|
+| Scheduler | 📋 | Day timeline with driver rows + booking tiles |
+| Map | 📍 | Google Maps with driver positions + booking pins |
+
+### Scheduler Default = Day View
+- Y-axis: driver rows (one per driver, coloured with driver colour) + Unallocated row
+- X-axis: hourly time slots (06:00 — 22:00, scrollable to 00:00-05:00)
+- Booking tiles placed at pickup time, width = duration
+- Current time: red vertical line
+- Click booking tile → detail appears (either below form or as modal)
+
+### Why This Changed
+The original §42 spec had a map-centric layout with floating panels (Uber-style). Operator feedback: dispatchers spend 90% of their time in the scheduler, not the map. The booking form needs to be permanently visible for quick data entry during phone calls. This split-panel layout matches how legacy Ace Taxis dispatcher works and what operators are trained on.
+
+### Keyboard Shortcuts Still Apply (§23)
+All shortcuts from §23 still work. Cmd+K opens command palette, Tab cycles focus, etc.
