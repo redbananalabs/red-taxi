@@ -36,6 +36,8 @@
     </div>
 
     <div class="timeline-body">
+        @if (DriverResources.Count > 0)
+        {
         <SfSchedule TValue="ScheduleBooking"
                     @bind-SelectedDate="CurrentDate"
                     Height="100%"
@@ -75,6 +77,13 @@
                 <ScheduleView Option="View.TimelineDay"></ScheduleView>
             </ScheduleViews>
         </SfSchedule>
+        }
+        else
+        {
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9CA3AF;">
+                <span>Loading scheduler...</span>
+            </div>
+        }
     </div>
 </div>
 
@@ -240,12 +249,13 @@
             _drivers = await driversTask ?? new();
             _bookings = await bookingsTask ?? new();
         }
-        catch
+        catch (Exception ex)
         {
-            // API not available
+            Console.WriteLine($"Timeline LoadData error: {ex.Message}");
         }
 
         MapToScheduleData();
+        await InvokeAsync(StateHasChanged);
     }
 
     private void MapToScheduleData()
