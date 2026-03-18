@@ -17,6 +17,7 @@ namespace RedTaxi.API.Controllers;
 
 [ApiController]
 [Route("api/payments")]
+[Authorize(Roles = "Admin,User")]
 public class PaymentsController : ControllerBase
 {
     private readonly IMediator _mediator;

@@ -8,7 +8,7 @@ namespace RedTaxi.API.Controllers;
 
 [ApiController]
 [Route("api/web-bookings")]
-[Authorize]
+[Authorize(Roles = "Admin,User")]
 public class WebBookingsController : ControllerBase
 {
     private readonly IMediator _mediator;

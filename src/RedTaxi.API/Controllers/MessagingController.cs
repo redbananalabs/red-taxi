@@ -9,7 +9,7 @@ namespace RedTaxi.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin,User")]
 public class MessagingController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -27,6 +27,7 @@ public class MessagingController : ControllerBase
     }
 
     [HttpPut("config/{id:int}")]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<MessagingConfigDto>> UpdateConfig(
         int id, [FromBody] UpdateMessagingConfigCommand command)
     {

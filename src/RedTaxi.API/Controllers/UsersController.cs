@@ -9,7 +9,7 @@ namespace RedTaxi.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
     private readonly IMediator _mediator;
