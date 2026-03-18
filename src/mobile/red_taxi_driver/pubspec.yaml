@@ -1,0 +1,23 @@
+name: red_taxi_driver
+description: Red Taxi Driver App
+version: 1.0.0
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  red_taxi_shared:
+    path: ../red_taxi_shared
+  provider: ^6.1.0
+  go_router: ^13.0.0
+  geolocator: ^11.0.0
+  firebase_messaging: ^14.7.0
+  firebase_core: ^2.24.0
+  google_maps_flutter: ^2.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

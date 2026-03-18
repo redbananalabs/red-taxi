@@ -41,6 +41,15 @@ packages/
 # Environment
 .env
 
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+*.iml
+pubspec.lock
+
 # Docker volumes
 sqldata/
 redisdata/

@@ -1,0 +1,6 @@
+@RedTaxi.API_HostAddress = http://localhost:5197
+
+GET {{RedTaxi.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
