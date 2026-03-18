@@ -145,6 +145,18 @@ public class BookingsController : ControllerBase
         return Ok(count);
     }
 
+    /// <summary>GET api/bookings/phone-lookup?phone={number} — BK27: Phone Number History Lookup</summary>
+    [HttpGet("phone-lookup")]
+    public async Task<ActionResult<PhoneLookupResult>> PhoneLookup(
+        [FromQuery] string phone, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(phone))
+            return BadRequest("Phone number is required.");
+
+        var result = await _mediator.Send(new PhoneLookupQuery(phone), ct);
+        return Ok(result);
+    }
+
     /// <summary>POST api/bookings/cancel-range — Cancel a range of block bookings</summary>
     [HttpPost("cancel-range")]
     public async Task<ActionResult<int>> CancelRange(

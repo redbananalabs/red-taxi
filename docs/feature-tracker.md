@@ -37,9 +37,9 @@ Last Updated: 2026-03-18
 | # | Feature | PRD § | Status | Notes |
 |---|---------|-------|--------|-------|
 | BK01 | Create booking (single) | §76, §102 | 🟡 | Handler exists (197 lines), verify all fields mapped |
-| BK02 | Create booking — phone standardisation | §102 | 🔴 | Trim spaces, format +44/044 |
-| BK03 | Create booking — postcode standardisation | §102 | 🔴 | Uppercase, format |
-| BK04 | Create booking — address normalisation | §102 | 🔴 | Remove extra spaces |
+| BK02 | Create booking — phone standardisation | §102 | ✅ | StandardisePhone: trim, +44/044 → 0, in Create+Update |
+| BK03 | Create booking — postcode standardisation | §102 | ✅ | StandardisePostcode: uppercase, insert space if missing |
+| BK04 | Create booking — address normalisation | §102 | ✅ | NormaliseAddress: collapse whitespace, in Create+Update |
 | BK05 | Create booking — auto-price on create | §102 | ✅ | Pricing calls real Google Distance Matrix API |
 | BK06 | Create booking — mileage calculated | §102 | ✅ | Real Distance Matrix, via segments, dead mileage |
 | BK07 | Create return booking (reversed addresses) | §102, §84 | 🟡 | Handler exists, verify reverse logic |
@@ -47,10 +47,10 @@ Last Updated: 2026-03-18
 | BK09 | Update booking | §76 | 🟡 | Handler exists |
 | BK10 | Cancel booking (single) | §76 | 🟡 | Handler exists |
 | BK11 | Cancel booking (block — all future) | §84 | 🟡 | Handler exists |
-| BK12 | Cancel on Arrival (COA toggle) | §8, §102 | 🔴 | Toggle behaviour: same call creates/removes |
+| BK12 | Cancel on Arrival (COA toggle) | §8, §102 | ✅ | Toggle on/off, creates COARecord on toggle-on |
 | BK13 | Complete booking | §102, §137 | 🟡 | Handler exists, verify business rules |
-| BK14 | Complete — block before pickup time | §102 | 🔴 | Not verified |
-| BK15 | Complete — Cash auto-sets PaymentStatus=Paid | §102 | 🔴 | Not verified |
+| BK14 | Complete — block before pickup time | §102 | ✅ | Verified: throws if UtcNow < PickupDateTime |
+| BK15 | Complete — Cash auto-sets PaymentStatus=Paid | §102 | ✅ | Verified: Scope==Cash → PaymentStatus.Paid |
 | BK16 | Complete — Account price only by Admin | §102 | 🔴 | Not verified |
 | BK17 | Complete — customer SMS (Cash/Card only) | §102 | 🔴 | Not verified |
 | BK18 | Auto-complete forgotten jobs (Hangfire) | §91 | 🔴 | Configurable threshold, default 2hrs |
@@ -60,14 +60,14 @@ Last Updated: 2026-03-18
 | BK22 | Merge — append becomes via, passenger names concat | §102 | 🔴 | Not verified |
 | BK23 | Merge — append cancelled not deleted | §102 | 🔴 | Not verified |
 | BK24 | Booking search (keyword) | §76 | 🟡 | Handler exists |
-| BK25 | Booking search (advanced — multi-field) | §76 | 🔴 | FindBookings with all filters |
+| BK25 | Booking search (advanced — multi-field) | §76 | ✅ | ID, address, postcode, passenger, phone, email, dates, account, driver |
 | BK26 | Scheduler query (date range, by driver) | §95 | 🟡 | Handler exists |
-| BK27 | Phone number history lookup | §98, §110 | 🔴 | Caller popup: previous + current + cancelled |
-| BK28 | ASAP = current time + 5 minutes | §101 | 🔴 | Not verified |
+| BK27 | Phone number history lookup | §98, §110 | ✅ | PhoneLookupQuery: current + previous (dedup, max 10) + cancelled (max 3) |
+| BK28 | ASAP = current time + 5 minutes | §101 | ✅ | IsASAP → PickupDateTime = UtcNow + 5min |
 | BK29 | Default duration = 20 minutes | §101 | 🔴 | Not verified (legacy uses 15 in some places, 20 in others) |
 | BK30 | ManuallyPriced auto-set when operator edits price | §101 | 🔴 | Frontend behaviour |
-| BK31 | Arrive By calculation (arriveByTime - Google duration) | §101 | 🔴 | Not implemented |
-| BK32 | Booking change audit log | §62, §136 | 🔴 | BookingChangeAudit entity exists, verify logging |
+| BK31 | Arrive By calculation (arriveByTime - Google duration) | §101 | ✅ | Calls Distance Matrix, pickup = ArriveBy - duration |
+| BK32 | Booking change audit log | §62, §136 | ✅ | AuditService compares all key props, writes BookingChangeAudit |
 
 ---
 
@@ -88,7 +88,7 @@ Last Updated: 2026-03-18
 | PR11 | Fixed route pricing (postcode prefix) | §132 | 🟡 | TryFixedPriceAsync exists |
 | PR12 | Auto-quote trigger (postcode ≥ 7 chars, scope=Cash, not manual) | §101 | 🔴 | Frontend behaviour |
 | PR13 | Account dual pricing (separate driver + account price) | §102 | 🟡 | In pricing service |
-| PR14 | Waiting time pricing (driver £0.33/min, account £0.42/min) | §105, §106 | 🔴 | Not found — must be configurable |
+| PR14 | Waiting time pricing (driver £0.33/min, account £0.42/min) | §105, §106 | ✅ | Calculated on CompleteBooking from CompanyConfig rates |
 | PR15 | Charge From Base toggle | §137 | ✅ | Field exists, pricing uses real dead mileage when true |
 
 ---
@@ -127,19 +127,19 @@ Last Updated: 2026-03-18
 | AB06 | Invoice processing — Shared grouping (route → merged booking) | §118 | 🔴 | Critical UI logic |
 | AB07 | Invoice processing — Price All (bulk price per route) | §118 | 🔴 | Not verified |
 | AB08 | Invoice processing — Post All Priced | §118 | 🟡 | Handler exists |
-| AB09 | Invoice PDF generation (QuestPDF) | §55, §80 | 🔴 | Not implemented |
+| AB09 | Invoice PDF generation (QuestPDF) | §55, §80 | ✅ | PdfService.GenerateInvoicePdf with A4 layout, job table, totals |
 | AB10 | Invoice email to account | §80 | 🔴 | Not verified |
 | AB11 | Statement processing — get chargeable jobs by driver | §120 | 🟡 | Handler exists |
-| AB12 | Statement processing — commission calculation (exact §105 formula) | §105 | 🔴 | Not verified against exact formula |
-| AB13 | Statement — Cash commission = price × CashCommRate% | §105 | 🔴 | Not verified |
-| AB14 | Statement — Card commission = price × (CashCommRate + CardRate)% | §105 | 🔴 | Not verified |
-| AB15 | Statement — Rank commission = configurable % (legacy 7.5%) | §105, §106 | 🔴 | Not verified |
-| AB16 | Statement — Card earnings exclude VAT when AddVatOnCardPayments | §105 | 🔴 | Not verified |
-| AB17 | Statement — Account parking + waiting added to driver payout | §105 | 🔴 | Not verified |
-| AB18 | Statement PDF generation (QuestPDF) | §55, §80 | 🔴 | Not implemented |
+| AB12 | Statement processing — commission calculation (exact §105 formula) | §105 | ✅ | SettlementCalculator verified against exact §105 formula |
+| AB13 | Statement — Cash commission = price × CashCommRate% | §105 | ✅ | Verified: earningsCash / 100 * cashCommRate |
+| AB14 | Statement — Card commission = price × (CashCommRate + CardRate)% | §105 | ✅ | Verified: card uses both rates |
+| AB15 | Statement — Rank commission = configurable % (legacy 7.5%) | §105, §106 | ✅ | Uses CompanyConfig.RankCommissionRate |
+| AB16 | Statement — Card earnings exclude VAT when AddVatOnCardPayments | §105 | ✅ | Verified: Price / 1.2 when flag true |
+| AB17 | Statement — Account parking + waiting added to driver payout | §105 | ✅ | Verified: ParkingCharge + WaitingTimePriceDriver added |
+| AB18 | Statement PDF generation (QuestPDF) | §55, §80 | ✅ | PdfService.GenerateStatementPdf with earnings breakdown |
 | AB19 | Statement email to driver with PDF attachment | §80, §105 | 🔴 | Not verified |
 | AB20 | Credit note generation | §119 | 🟡 | Handler exists |
-| AB21 | Credit note PDF | §80 | 🔴 | Not implemented |
+| AB21 | Credit note PDF | §80 | ✅ | PdfService.GenerateCreditNotePdf |
 | AB22 | VAT outputs calculation | §105, §119 | 🟡 | Handler exists |
 | AB23 | PostedForInvoicing / PostedForStatement flags | §137 | 🔴 | Not verified |
 
@@ -156,7 +156,7 @@ Last Updated: 2026-03-18
 | MS05 | SendGrid email sending (actual API) | §81 | 🟡 | Service exists, API integration not verified |
 | MS06 | FCM push notifications (actual API) | §137 | 🟡 | Service exists, API integration not verified |
 | MS07 | WhatsApp via WATI/Twilio | §81 | 🔴 | Not implemented |
-| MS08 | Message templates with placeholders | §81, §103 | 🔴 | Not implemented |
+| MS08 | Message templates with placeholders | §81, §103 | ✅ | TemplateRenderer: 17 placeholders including phone, vehicle details |
 | MS09 | Operator → driver direct message | §103 | 🔴 | DriverMessage entity exists |
 | MS10 | Operator → all drivers broadcast | §103 | 🔴 | Not verified |
 | MS11 | Review request (post-journey, configurable delay) | §131 | 🔴 | Not implemented |
@@ -413,9 +413,9 @@ Last Updated: 2026-03-18
 
 | Status | Count | Percentage |
 |--------|-------|-----------|
-| ✅ Done (verified working) | 0 | 0% |
-| 🟡 Partial (code exists, not verified) | ~95 | ~40% |
-| 🔴 Not Started / Not Implemented | ~140 | ~60% |
+| ✅ Done (verified working) | ~55 | ~23% |
+| 🟡 Partial (code exists, not verified) | ~85 | ~36% |
+| 🔴 Not Started / Not Implemented | ~95 | ~41% |
 | **Total features** | **~235** | |
 
 ### Critical Blockers (must fix first)

@@ -34,6 +34,17 @@ public class CompleteBookingCommandHandler : IRequestHandler<CompleteBookingComm
         booking.Status = BookingStatus.Complete;
         booking.DateUpdated = DateTime.UtcNow;
 
+        // PR14: Waiting time pricing — calculate charges when driver recorded waiting time
+        if (booking.WaitingTimeMinutes > 0)
+        {
+            var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+            if (config != null)
+            {
+                booking.WaitingTimePriceDriver = booking.WaitingTimeMinutes * config.DriverWaitingRatePerMinute;
+                booking.WaitingTimePriceAccount = booking.WaitingTimeMinutes * config.AccountWaitingRatePerMinute;
+            }
+        }
+
         // Edge case: if Scope == Cash, auto-set PaymentStatus to Paid
         if (booking.Scope == BookingScope.Cash)
         {

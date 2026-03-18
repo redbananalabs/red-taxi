@@ -49,12 +49,24 @@ public class FindBookingsQueryHandler : IRequestHandler<FindBookingsQuery, FindB
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             var term = request.SearchTerm.Trim();
-            query = query.Where(b =>
-                (b.PhoneNumber != null && b.PhoneNumber.Contains(term)) ||
-                (b.PassengerName != null && b.PassengerName.Contains(term)) ||
-                (b.PickupAddress.Contains(term)) ||
-                (b.DestinationAddress != null && b.DestinationAddress.Contains(term)) ||
-                (b.Details != null && b.Details.Contains(term)));
+
+            // BK25: If term is a numeric booking ID, search by ID directly
+            if (int.TryParse(term, out var bookingId))
+            {
+                query = query.Where(b => b.Id == bookingId);
+            }
+            else
+            {
+                query = query.Where(b =>
+                    (b.PhoneNumber != null && b.PhoneNumber.Contains(term)) ||
+                    (b.PassengerName != null && b.PassengerName.Contains(term)) ||
+                    (b.PickupAddress.Contains(term)) ||
+                    (b.PickupPostCode.Contains(term)) ||
+                    (b.DestinationAddress != null && b.DestinationAddress.Contains(term)) ||
+                    (b.DestinationPostCode != null && b.DestinationPostCode.Contains(term)) ||
+                    (b.Details != null && b.Details.Contains(term)) ||
+                    (b.Email != null && b.Email.Contains(term)));
+            }
         }
 
         int totalCount = await query.CountAsync(ct);

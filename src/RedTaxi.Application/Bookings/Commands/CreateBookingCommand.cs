@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -31,35 +32,78 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
     private readonly ICurrentUserService _currentUser;
     private readonly IPricingService _pricing;
     private readonly IPublisher _publisher;
+    private readonly IDistanceMatrixService _distanceMatrix;
 
     public CreateBookingCommandHandler(
         TenantDbContext db,
         ICurrentUserService currentUser,
         IPricingService pricing,
-        IPublisher publisher)
+        IPublisher publisher,
+        IDistanceMatrixService distanceMatrix)
     {
         _db = db;
         _currentUser = currentUser;
         _pricing = pricing;
         _publisher = publisher;
+        _distanceMatrix = distanceMatrix;
+    }
+
+    // ── BK02: Phone Standardisation ──────────────────────────────────────────
+    private static string? StandardisePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return phone;
+        phone = phone.Trim().Replace(" ", "");
+        if (phone.StartsWith("+44")) phone = "0" + phone[3..];
+        if (phone.StartsWith("044")) phone = "0" + phone[3..];
+        return phone;
+    }
+
+    // ── BK03: Postcode Standardisation ───────────────────────────────────────
+    private static string? StandardisePostcode(string? postcode)
+    {
+        if (string.IsNullOrWhiteSpace(postcode)) return postcode;
+        postcode = postcode.Trim().ToUpperInvariant();
+        // Insert space if missing: "SP84AA" → "SP8 4AA"
+        if (postcode.Length >= 5 && !postcode.Contains(' '))
+            postcode = postcode[..^3] + " " + postcode[^3..];
+        return postcode;
+    }
+
+    // ── BK04: Address Normalisation ──────────────────────────────────────────
+    private static string? NormaliseAddress(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) return address;
+        return Regex.Replace(address.Trim(), @"\s+", " ");
     }
 
     public async Task<BookingDto> Handle(CreateBookingCommand request, CancellationToken ct)
     {
         var dto = request.Dto;
 
+        // BK28: ASAP — override pickup to now + 5 minutes
+        var pickupDateTime = dto.PickupDateTime;
+        if (dto.IsASAP)
+            pickupDateTime = DateTime.UtcNow.AddMinutes(5);
+
+        // BK31: ArriveBy — calculate pickup time from arrival time minus travel duration
+        if (dto.ArriveBy.HasValue && !string.IsNullOrWhiteSpace(dto.PickupAddress) && !string.IsNullOrWhiteSpace(dto.DestinationAddress))
+        {
+            var (_, durationMinutes) = await _distanceMatrix.GetDistanceAsync(dto.PickupAddress, dto.DestinationAddress, ct);
+            pickupDateTime = dto.ArriveBy.Value.AddMinutes(-durationMinutes);
+        }
+
         var booking = new Booking
         {
-            PickupAddress = dto.PickupAddress,
-            PickupPostCode = dto.PickupPostCode ?? string.Empty,
-            DestinationAddress = dto.DestinationAddress,
-            DestinationPostCode = dto.DestinationPostCode,
+            PickupAddress = NormaliseAddress(dto.PickupAddress) ?? dto.PickupAddress,
+            PickupPostCode = StandardisePostcode(dto.PickupPostCode) ?? string.Empty,
+            DestinationAddress = NormaliseAddress(dto.DestinationAddress),
+            DestinationPostCode = StandardisePostcode(dto.DestinationPostCode),
             Details = dto.Details,
             PassengerName = dto.PassengerName,
             Passengers = dto.Passengers,
-            PhoneNumber = dto.PhoneNumber,
+            PhoneNumber = StandardisePhone(dto.PhoneNumber),
             Email = dto.Email,
-            PickupDateTime = dto.PickupDateTime,
+            PickupDateTime = pickupDateTime,
             ArriveBy = dto.ArriveBy,
             IsASAP = dto.IsASAP,
             Scope = (BookingScope)dto.Scope,
@@ -79,8 +123,8 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
             {
                 booking.Vias.Add(new BookingVia
                 {
-                    Address = via.Address,
-                    PostCode = via.PostCode,
+                    Address = NormaliseAddress(via.Address) ?? via.Address,
+                    PostCode = StandardisePostcode(via.PostCode),
                     ViaSequence = via.ViaSequence,
                 });
             }
@@ -107,14 +151,14 @@ public class CreateBookingCommandHandler : IRequestHandler<CreateBookingCommand,
         {
             var returnBooking = new Booking
             {
-                PickupAddress = dto.DestinationAddress,
-                PickupPostCode = dto.DestinationPostCode ?? string.Empty,
-                DestinationAddress = dto.PickupAddress,
-                DestinationPostCode = dto.PickupPostCode,
+                PickupAddress = NormaliseAddress(dto.DestinationAddress) ?? dto.DestinationAddress!,
+                PickupPostCode = StandardisePostcode(dto.DestinationPostCode) ?? string.Empty,
+                DestinationAddress = NormaliseAddress(dto.PickupAddress),
+                DestinationPostCode = StandardisePostcode(dto.PickupPostCode),
                 Details = dto.Details != null ? $"[Return] {dto.Details}" : "[Return]",
                 PassengerName = dto.PassengerName,
                 Passengers = dto.Passengers,
-                PhoneNumber = dto.PhoneNumber,
+                PhoneNumber = StandardisePhone(dto.PhoneNumber),
                 Email = dto.Email,
                 PickupDateTime = dto.ReturnPickupDateTime.Value,
                 IsASAP = false,
