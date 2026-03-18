@@ -1,0 +1,102 @@
+@inject ApiService Api
+
+<div class="modal-overlay" @onclick="() => OnClose.InvokeAsync()">
+    <div class="driver-selector" @onclick:stopPropagation="true">
+        <div class="panel-header">
+            <h3 class="panel-title">Allocate Driver</h3>
+            <button class="panel-close" @onclick="() => OnClose.InvokeAsync()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="driver-selector-search">
+            <input type="text" class="form-input" placeholder="Search drivers..." @bind="_search" @bind:event="oninput" />
+        </div>
+
+        <div class="driver-selector-list">
+            @foreach (var driver in FilteredDrivers)
+            {
+                <button class="driver-selector-item @(_selectedDriverId == driver.UserId ? "selected" : "")"
+                        @onclick="() => _selectedDriverId = driver.UserId">
+                    <span class="driver-dot-lg" style="background-color: @(driver.ColorCodeRGB ?? "#6B7280")"></span>
+                    <div class="driver-selector-info">
+                        <span class="driver-selector-name">@driver.FullName</span>
+                        <span class="driver-selector-meta font-mono">
+                            @GetVehicleTypeName(driver.VehicleType) | @driver.RegNo
+                            @if (!string.IsNullOrEmpty(driver.VehicleColour))
+                            {
+                                <text> | @driver.VehicleColour</text>
+                            }
+                        </span>
+                    </div>
+                    @if (_selectedDriverId == driver.UserId)
+                    {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="icon-sm check-icon">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    }
+                </button>
+            }
+
+            @if (!FilteredDrivers.Any())
+            {
+                <div class="driver-selector-empty">No drivers found</div>
+            }
+        </div>
+
+        <div class="panel-actions">
+            <button class="btn-secondary" @onclick="() => OnClose.InvokeAsync()">Cancel</button>
+            <button class="btn-primary" disabled="@(!_selectedDriverId.HasValue)" @onclick="Confirm">
+                Allocate
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int BookingId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<int> OnDriverSelected { get; set; }
+
+    private List<DriverDto> _drivers = new();
+    private string _search = "";
+    private int? _selectedDriverId;
+
+    private IEnumerable<DriverDto> FilteredDrivers => string.IsNullOrWhiteSpace(_search)
+        ? _drivers.Where(d => d.IsActive)
+        : _drivers.Where(d => d.IsActive && (
+            (d.FullName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.RegNo?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _drivers = await Api.GetDriversAsync() ?? new();
+        }
+        catch
+        {
+            _drivers = new();
+        }
+    }
+
+    private async Task Confirm()
+    {
+        if (_selectedDriverId.HasValue)
+        {
+            await OnDriverSelected.InvokeAsync(_selectedDriverId.Value);
+        }
+    }
+
+    private static string GetVehicleTypeName(int type) => type switch
+    {
+        0 => "Saloon",
+        1 => "Estate",
+        2 => "MPV",
+        3 => "Executive",
+        4 => "Minibus",
+        _ => "Unknown"
+    };
+}

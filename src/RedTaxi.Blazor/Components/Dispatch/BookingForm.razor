@@ -1,0 +1,222 @@
+@inject ApiService Api
+
+<div class="booking-form">
+    <div class="panel-header">
+        <h3 class="panel-title">New Booking</h3>
+        <button class="panel-close" @onclick="OnClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="panel-body">
+        <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="bookingForm">
+            <!-- ASAP / Arrive By toggles -->
+            <div class="form-row form-toggles">
+                <label class="toggle-label">
+                    <input type="checkbox" @bind="_model.IsASAP" class="toggle-input" />
+                    <span class="toggle-switch"></span>
+                    ASAP
+                </label>
+                <label class="toggle-label">
+                    <input type="checkbox" checked="@(_model.ArriveBy.HasValue)" @onchange="ToggleArriveBy" class="toggle-input" />
+                    <span class="toggle-switch"></span>
+                    Arrive By
+                </label>
+                <label class="toggle-label">
+                    <input type="checkbox" @bind="_model.IsReturn" class="toggle-input" />
+                    <span class="toggle-switch"></span>
+                    Return
+                </label>
+            </div>
+
+            <!-- Date/Time -->
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label class="form-label">Pickup Date</label>
+                    <input type="date" class="form-input" @bind="_pickupDate" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Pickup Time</label>
+                    <input type="time" class="form-input" @bind="_pickupTime" />
+                </div>
+            </div>
+
+            @if (_model.ArriveBy.HasValue)
+            {
+                <div class="form-group">
+                    <label class="form-label">Arrive By</label>
+                    <input type="datetime-local" class="form-input" @bind="_model.ArriveBy" />
+                </div>
+            }
+
+            <!-- Addresses -->
+            <div class="form-group">
+                <label class="form-label">Pickup Address</label>
+                <input type="text" class="form-input" @bind="_model.PickupAddress" placeholder="Start typing address..." />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Destination</label>
+                <input type="text" class="form-input" @bind="_model.DestinationAddress" placeholder="Where to?" />
+            </div>
+
+            <!-- Passenger info -->
+            <div class="form-divider"></div>
+
+            <div class="form-group">
+                <label class="form-label">Passenger Name</label>
+                <input type="text" class="form-input" @bind="_model.PassengerName" placeholder="Name" />
+            </div>
+
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label class="form-label">Phone</label>
+                    <input type="tel" class="form-input" @bind="_model.PhoneNumber" placeholder="Phone number" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-input" @bind="_model.Email" placeholder="Email" />
+                </div>
+            </div>
+
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label class="form-label">Passengers</label>
+                    <input type="number" class="form-input" @bind="_model.Passengers" min="1" max="16" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vehicle Type</label>
+                    <select class="form-select" @bind="_model.VehicleType">
+                        <option value="0">Saloon</option>
+                        <option value="1">Estate</option>
+                        <option value="2">MPV</option>
+                        <option value="3">Executive</option>
+                        <option value="4">Minibus</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Scope -->
+            <div class="form-divider"></div>
+
+            <div class="form-row form-row-2col">
+                <div class="form-group">
+                    <label class="form-label">Scope</label>
+                    <select class="form-select" @bind="_model.Scope">
+                        <option value="0">Cash</option>
+                        <option value="1">Account</option>
+                        <option value="2">Rank</option>
+                        <option value="3">Card</option>
+                    </select>
+                </div>
+                @if (_model.Scope == 1)
+                {
+                    <div class="form-group">
+                        <label class="form-label">Account No.</label>
+                        <input type="number" class="form-input" @bind="_model.AccountNumber" placeholder="Account #" />
+                    </div>
+                }
+            </div>
+
+            <!-- Details -->
+            <div class="form-group">
+                <label class="form-label">Details / Notes</label>
+                <textarea class="form-input form-textarea" @bind="_model.Details" placeholder="Special instructions..." rows="2"></textarea>
+            </div>
+
+            @if (_model.IsReturn)
+            {
+                <div class="form-group">
+                    <label class="form-label">Return Pickup Time</label>
+                    <input type="datetime-local" class="form-input" @bind="_model.ReturnPickupDateTime" />
+                </div>
+            }
+
+            <!-- Price display -->
+            @if (_priceResult != null)
+            {
+                <div class="price-display">
+                    <div class="price-row">
+                        <span class="price-label">Estimated Price</span>
+                        <span class="price-value font-mono">@_priceResult.DriverPrice.ToString("C2")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_priceResult.MileageText))
+                    {
+                        <div class="price-detail">
+                            <span>@_priceResult.MileageText</span>
+                            <span>@_priceResult.DurationText</span>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Actions -->
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" @onclick="OnClose">Cancel</button>
+                <button type="button" class="btn-outline" @onclick="GetPrice" disabled="@_loadingPrice">
+                    @(_loadingPrice ? "Pricing..." : "Get Price")
+                </button>
+                <button type="submit" class="btn-primary" disabled="@_submitting">
+                    @(_submitting ? "Creating..." : "Confirm Booking")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<BookingDto> OnBookingCreated { get; set; }
+
+    private BookingCreateDto _model = new()
+    {
+        PickupDateTime = DateTime.Now.AddMinutes(15),
+        Passengers = 1,
+        IsASAP = true
+    };
+    private DateOnly _pickupDate = DateOnly.FromDateTime(DateTime.Today);
+    private TimeOnly _pickupTime = TimeOnly.FromDateTime(DateTime.Now.AddMinutes(15));
+    private PriceResultDto? _priceResult;
+    private bool _loadingPrice;
+    private bool _submitting;
+
+    private async Task GetPrice()
+    {
+        if (string.IsNullOrWhiteSpace(_model.PickupAddress) || string.IsNullOrWhiteSpace(_model.DestinationAddress))
+            return;
+
+        _loadingPrice = true;
+        try
+        {
+            _priceResult = await Api.GetPriceAsync(_model.PickupAddress, _model.DestinationAddress,
+                _model.VehicleType, _model.AccountNumber);
+        }
+        catch { }
+        _loadingPrice = false;
+    }
+
+    private async Task HandleSubmit()
+    {
+        _submitting = true;
+        try
+        {
+            _model.PickupDateTime = _pickupDate.ToDateTime(_pickupTime);
+            var result = await Api.CreateBookingAsync(_model);
+            if (result != null)
+                await OnBookingCreated.InvokeAsync(result);
+        }
+        catch { }
+        _submitting = false;
+    }
+
+    private void ToggleArriveBy(ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
+        if (isChecked)
+            _model.ArriveBy = _model.PickupDateTime.AddHours(1);
+        else
+            _model.ArriveBy = null;
+    }
+}

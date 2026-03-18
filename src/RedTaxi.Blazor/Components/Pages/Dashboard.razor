@@ -1,0 +1,144 @@
+@page "/"
+@inject DispatchState State
+@inject ApiService Api
+@implements IDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Dispatch Console - Red Taxi</PageTitle>
+
+<div class="dispatch-view">
+    <!-- KPI strip -->
+    <div class="kpi-strip">
+        <div class="kpi-item">
+            <span class="kpi-value font-mono">@_kpis.TodayBookings</span>
+            <span class="kpi-label">Today</span>
+        </div>
+        <div class="kpi-item kpi-warning">
+            <span class="kpi-value font-mono">@_kpis.UnallocatedBookings</span>
+            <span class="kpi-label">Unallocated</span>
+        </div>
+        <div class="kpi-item kpi-success">
+            <span class="kpi-value font-mono">@_kpis.DriversOnline</span>
+            <span class="kpi-label">Online</span>
+        </div>
+        <div class="kpi-item">
+            <span class="kpi-value font-mono">@_kpis.ActiveJobs</span>
+            <span class="kpi-label">Active</span>
+        </div>
+        <div class="kpi-item kpi-info">
+            <span class="kpi-value font-mono">@_kpis.CompletedToday</span>
+            <span class="kpi-label">Completed</span>
+        </div>
+        <div class="kpi-item">
+            <span class="kpi-value font-mono">@_kpis.TodayRevenue.ToString("C0")</span>
+            <span class="kpi-label">Revenue</span>
+        </div>
+    </div>
+
+    <!-- Map area with floating panels -->
+    <div class="map-area">
+        <!-- The map -->
+        <MapView />
+
+        <!-- Booking form (left float) -->
+        <div class="panel-left @(State.IsBookingFormOpen ? "panel-open" : "")">
+            @if (State.IsBookingFormOpen)
+            {
+                <BookingForm OnClose="() => State.CloseBookingForm()"
+                             OnBookingCreated="HandleBookingCreated" />
+            }
+        </div>
+
+        <!-- Context panel (right slide) -->
+        <div class="panel-right @(State.IsBookingDetailOpen || State.IsDriverDetailOpen ? "panel-open" : "")">
+            @if (State.IsBookingDetailOpen && State.SelectedBooking != null)
+            {
+                <BookingDetailPanel Booking="State.SelectedBooking"
+                                    OnClose="() => State.CloseBookingDetail()"
+                                    OnAllocate="HandleAllocateRequest" />
+            }
+            else if (State.IsDriverDetailOpen && State.SelectedDriver != null)
+            {
+                <DriverDetailPanel Driver="State.SelectedDriver"
+                                   OnClose="() => State.CloseDriverDetail()" />
+            }
+        </div>
+
+        <!-- Driver selector modal -->
+        @if (State.IsDriverSelectorOpen && State.SelectedBooking != null)
+        {
+            <DriverSelector BookingId="State.SelectedBooking.Id"
+                            OnClose="() => State.CloseDriverSelector()"
+                            OnDriverSelected="HandleDriverAllocated" />
+        }
+    </div>
+
+    <!-- Timeline bar (bottom dock) -->
+    <Timeline />
+</div>
+
+@code {
+    private DashboardKpiDto _kpis = new(0, 0, 0, 0m, 0, 0);
+    private List<BookingDto> _bookings = new();
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateHasChanged;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var kpiTask = Api.GetDashboardKpisAsync();
+            var bookingsTask = Api.GetBookingsAsync(DateTime.Today);
+            await Task.WhenAll(kpiTask, bookingsTask);
+
+            _kpis = await kpiTask ?? _kpis;
+            _bookings = await bookingsTask ?? _bookings;
+        }
+        catch
+        {
+            // API not available - use defaults
+        }
+    }
+
+    private async Task HandleBookingCreated(BookingDto booking)
+    {
+        State.CloseBookingForm();
+        State.SelectBooking(booking);
+        await LoadData();
+    }
+
+    private void HandleAllocateRequest()
+    {
+        State.OpenDriverSelector();
+    }
+
+    private async Task HandleDriverAllocated(int driverUserId)
+    {
+        if (State.SelectedBooking != null)
+        {
+            try
+            {
+                await Api.AllocateDriverAsync(State.SelectedBooking.Id, driverUserId);
+                State.CloseDriverSelector();
+                await LoadData();
+            }
+            catch
+            {
+                // Handle error
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+    }
+}

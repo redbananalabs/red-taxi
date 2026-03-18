@@ -1,0 +1,183 @@
+@inject DispatchState State
+@inject ApiService Api
+@inject NavigationManager Nav
+
+<div class="cmd-overlay" @onclick="HandleOverlayClick">
+    <div class="cmd-palette" @onclick:stopPropagation="true">
+        <div class="cmd-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cmd-search-icon">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" class="cmd-input" placeholder="Search bookings, drivers, customers..."
+                   @bind="_query" @bind:event="oninput" @onkeydown="HandleKeyDown" autofocus />
+            <kbd class="cmd-esc">ESC</kbd>
+        </div>
+
+        @if (string.IsNullOrWhiteSpace(_query))
+        {
+            <!-- Quick actions -->
+            <div class="cmd-section">
+                <div class="cmd-section-title">Quick Actions</div>
+                <button class="cmd-item" @onclick="NewBooking">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cmd-item-icon">
+                        <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    <span>New Booking</span>
+                    <kbd class="cmd-shortcut">Ctrl+N</kbd>
+                </button>
+                <button class="cmd-item" @onclick="NavigateToBookings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cmd-item-icon">
+                        <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                        <rect x="9" y="3" width="6" height="4" rx="1" />
+                    </svg>
+                    <span>View All Bookings</span>
+                </button>
+                <button class="cmd-item" @onclick="NavigateToDrivers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cmd-item-icon">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                    </svg>
+                    <span>View All Drivers</span>
+                </button>
+                <button class="cmd-item" @onclick="NavigateToDashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="cmd-item-icon">
+                        <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                    <span>Dashboard</span>
+                </button>
+            </div>
+        }
+        else
+        {
+            <!-- Search results -->
+            @if (_searchBookings.Any())
+            {
+                <div class="cmd-section">
+                    <div class="cmd-section-title">Bookings</div>
+                    @foreach (var b in _searchBookings.Take(5))
+                    {
+                        <button class="cmd-item" @onclick="() => SelectBooking(b)">
+                            <span class="cmd-item-id font-mono">#@b.Id</span>
+                            <span class="cmd-item-text">@b.PassengerName - @b.PickupAddress</span>
+                            <StatusBadge Status="@b.Status" />
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (_searchDrivers.Any())
+            {
+                <div class="cmd-section">
+                    <div class="cmd-section-title">Drivers</div>
+                    @foreach (var d in _searchDrivers.Take(5))
+                    {
+                        <button class="cmd-item" @onclick="() => SelectDriver(d)">
+                            <span class="driver-dot" style="background-color: @(d.ColorCodeRGB ?? "#6B7280")"></span>
+                            <span class="cmd-item-text">@d.FullName</span>
+                            <span class="cmd-item-meta font-mono">@d.RegNo</span>
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (!_searchBookings.Any() && !_searchDrivers.Any())
+            {
+                <div class="cmd-empty">
+                    <p>No results for "@_query"</p>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private string _query = "";
+    private List<BookingDto> _searchBookings = new();
+    private List<DriverDto> _searchDrivers = new();
+    private List<BookingDto> _allBookings = new();
+    private List<DriverDto> _allDrivers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var bookingsTask = Api.GetBookingsAsync(DateTime.Today);
+            var driversTask = Api.GetDriversAsync();
+            await Task.WhenAll(bookingsTask, driversTask);
+            _allBookings = await bookingsTask ?? new();
+            _allDrivers = await driversTask ?? new();
+        }
+        catch { }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            State.CloseCommandPalette();
+            return;
+        }
+
+        // Trigger search on input
+        Search();
+    }
+
+    private void Search()
+    {
+        if (string.IsNullOrWhiteSpace(_query))
+        {
+            _searchBookings.Clear();
+            _searchDrivers.Clear();
+            return;
+        }
+
+        var q = _query.ToLowerInvariant();
+        _searchBookings = _allBookings.Where(b =>
+            (b.PassengerName?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (b.PickupAddress?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (b.DestinationAddress?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (b.PhoneNumber?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            b.Id.ToString().Contains(q)
+        ).ToList();
+
+        _searchDrivers = _allDrivers.Where(d =>
+            (d.FullName?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.RegNo?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (d.PhoneNumber?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+        ).ToList();
+    }
+
+    private void HandleOverlayClick()
+    {
+        State.CloseCommandPalette();
+    }
+
+    private void NewBooking()
+    {
+        State.CloseCommandPalette();
+        State.OpenBookingForm();
+    }
+
+    private void SelectBooking(BookingDto booking)
+    {
+        State.CloseCommandPalette();
+        State.SelectBooking(booking);
+    }
+
+    private void SelectDriver(DriverDto driver)
+    {
+        State.CloseCommandPalette();
+        State.SelectDriver(driver);
+    }
+
+    private void NavigateToBookings() => Navigate("/bookings");
+    private void NavigateToDrivers() => Navigate("/drivers");
+    private void NavigateToDashboard() => Navigate("/");
+
+    private void Navigate(string url)
+    {
+        State.CloseCommandPalette();
+        Nav.NavigateTo(url);
+    }
+}

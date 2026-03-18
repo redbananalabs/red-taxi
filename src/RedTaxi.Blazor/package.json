@@ -1,0 +1,12 @@
+{
+  "name": "redtaxi-blazor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "css:build": "npx tailwindcss -i ./wwwroot/css/tailwind-input.css -o ./wwwroot/css/tailwind.css --minify",
+    "css:watch": "npx tailwindcss -i ./wwwroot/css/tailwind-input.css -o ./wwwroot/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}

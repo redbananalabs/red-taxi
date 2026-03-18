@@ -1,0 +1,126 @@
+@inject ApiService Api
+
+<div class="detail-panel">
+    <div class="panel-header">
+        <div class="panel-header-info">
+            <h3 class="panel-title">
+                <span class="driver-dot-lg" style="background-color: @(Driver.ColorCodeRGB ?? "#6B7280")"></span>
+                @Driver.FullName
+            </h3>
+        </div>
+        <button class="panel-close" @onclick="OnClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="panel-body">
+        <!-- Driver Info -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">Details</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-key">Phone</span>
+                    <span class="detail-val font-mono">@Driver.PhoneNumber</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-key">Vehicle</span>
+                    <span class="detail-val">@GetVehicleTypeName(Driver.VehicleType)</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-key">Registration</span>
+                    <span class="detail-val font-mono">@Driver.RegNo</span>
+                </div>
+                @if (!string.IsNullOrEmpty(Driver.VehicleMake))
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Make/Model</span>
+                        <span class="detail-val">@Driver.VehicleMake @Driver.VehicleModel</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Driver.VehicleColour))
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Colour</span>
+                        <span class="detail-val">@Driver.VehicleColour</span>
+                    </div>
+                }
+                <div class="detail-item">
+                    <span class="detail-key">Status</span>
+                    <span class="detail-val">@(Driver.IsActive ? "Active" : "Inactive")</span>
+                </div>
+                @if (Driver.CommissionRate.HasValue)
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Commission</span>
+                        <span class="detail-val font-mono">@(Driver.CommissionRate.Value.ToString("P0"))</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Current/Next Jobs -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">Today's Jobs</h4>
+            @if (_driverBookings.Any())
+            {
+                @foreach (var booking in _driverBookings.OrderBy(b => b.PickupDateTime))
+                {
+                    <div class="driver-job-card" @onclick="() => SelectBooking(booking)">
+                        <div class="driver-job-time font-mono">@booking.PickupDateTime.ToString("HH:mm")</div>
+                        <div class="driver-job-info">
+                            <span class="driver-job-pickup">@booking.PickupAddress</span>
+                            @if (!string.IsNullOrEmpty(booking.DestinationAddress))
+                            {
+                                <span class="driver-job-dest">@booking.DestinationAddress</span>
+                            }
+                        </div>
+                        <StatusBadge Status="@booking.Status" />
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="empty-text">No jobs for today</p>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DriverDto Driver { get; set; } = default!;
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    [CascadingParameter] private DispatchState? State { get; set; }
+
+    private List<BookingDto> _driverBookings = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            var allBookings = await Api.GetBookingsAsync(DateTime.Today);
+            _driverBookings = allBookings?.Where(b => b.UserId == Driver.UserId).ToList() ?? new();
+        }
+        catch
+        {
+            _driverBookings = new();
+        }
+    }
+
+    private void SelectBooking(BookingDto booking)
+    {
+        // Navigate to booking detail
+    }
+
+    private static string GetVehicleTypeName(int type) => type switch
+    {
+        0 => "Saloon",
+        1 => "Estate",
+        2 => "MPV",
+        3 => "Executive",
+        4 => "Minibus",
+        _ => "Unknown"
+    };
+}

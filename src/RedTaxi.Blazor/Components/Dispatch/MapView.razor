@@ -1,0 +1,30 @@
+@inject IJSRuntime JS
+
+<div class="map-container">
+    <div id="dispatch-map" class="map-element"></div>
+    <div class="map-placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="map-placeholder-icon">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+        </svg>
+        <p class="map-placeholder-text">Live Map</p>
+        <p class="map-placeholder-sub">Google Maps will render here</p>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("dispatchInterop.initMap", "dispatch-map");
+            }
+            catch
+            {
+                // Map JS not loaded yet or API key not configured
+            }
+        }
+    }
+}

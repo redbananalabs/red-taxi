@@ -1,0 +1,29 @@
+<span class="status-badge @GetStatusClass()">@GetStatusText()</span>
+
+@code {
+    [Parameter] public int? Status { get; set; }
+
+    private string GetStatusText() => Status switch
+    {
+        0 => "Unallocated",
+        1 => "Allocated",
+        2 => "Accepted",
+        3 => "On Route",
+        4 => "On Board",
+        5 => "Completed",
+        6 => "Cancelled",
+        _ => "Unknown"
+    };
+
+    private string GetStatusClass() => Status switch
+    {
+        0 => "badge-unallocated",
+        1 => "badge-allocated",
+        2 => "badge-accepted",
+        3 => "badge-onroute",
+        4 => "badge-onboard",
+        5 => "badge-completed",
+        6 => "badge-cancelled",
+        _ => "badge-unknown"
+    };
+}

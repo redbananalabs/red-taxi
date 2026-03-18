@@ -1,0 +1,228 @@
+@inject ApiService Api
+
+<div class="detail-panel">
+    <div class="panel-header">
+        <div class="panel-header-info">
+            <h3 class="panel-title">Booking #<span class="font-mono">@Booking.Id</span></h3>
+            <StatusBadge Status="@Booking.Status" />
+        </div>
+        <button class="panel-close" @onclick="OnClose">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+        </button>
+    </div>
+
+    <div class="panel-body">
+        <!-- Journey Info -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">Journey</h4>
+            <div class="journey-route">
+                <div class="journey-point journey-pickup">
+                    <div class="journey-dot pickup-dot"></div>
+                    <div class="journey-info">
+                        <span class="journey-label">Pickup</span>
+                        <span class="journey-address">@Booking.PickupAddress</span>
+                    </div>
+                </div>
+                @if (Booking.Vias?.Any() == true)
+                {
+                    @foreach (var via in Booking.Vias.OrderBy(v => v.ViaSequence))
+                    {
+                        <div class="journey-point journey-via">
+                            <div class="journey-dot via-dot"></div>
+                            <div class="journey-info">
+                                <span class="journey-label">Via @via.ViaSequence</span>
+                                <span class="journey-address">@via.Address</span>
+                            </div>
+                        </div>
+                    }
+                }
+                <div class="journey-point journey-dest">
+                    <div class="journey-dot dest-dot"></div>
+                    <div class="journey-info">
+                        <span class="journey-label">Destination</span>
+                        <span class="journey-address">@(Booking.DestinationAddress ?? "TBA")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Time -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">Schedule</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-key">Pickup</span>
+                    <span class="detail-val font-mono">@Booking.PickupDateTime.ToString("ddd dd MMM HH:mm")</span>
+                </div>
+                @if (Booking.ArriveBy.HasValue)
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Arrive By</span>
+                        <span class="detail-val font-mono">@Booking.ArriveBy.Value.ToString("HH:mm")</span>
+                    </div>
+                }
+                <div class="detail-item">
+                    <span class="detail-key">Type</span>
+                    <span class="detail-val">@(Booking.IsASAP ? "ASAP" : "Pre-booked")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Passenger -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">Passenger</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-key">Name</span>
+                    <span class="detail-val">@Booking.PassengerName</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-key">Phone</span>
+                    <span class="detail-val font-mono">@Booking.PhoneNumber</span>
+                </div>
+                @if (!string.IsNullOrEmpty(Booking.Email))
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Email</span>
+                        <span class="detail-val">@Booking.Email</span>
+                    </div>
+                }
+                <div class="detail-item">
+                    <span class="detail-key">Passengers</span>
+                    <span class="detail-val font-mono">@Booking.Passengers</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">Pricing</h4>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-key">Price</span>
+                    <span class="detail-val font-mono price-highlight">@Booking.Price.ToString("C2")</span>
+                </div>
+                @if (Booking.AccountNumber.HasValue)
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Account Price</span>
+                        <span class="detail-val font-mono">@Booking.PriceAccount.ToString("C2")</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Booking.MileageText))
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Distance</span>
+                        <span class="detail-val font-mono">@Booking.MileageText</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Booking.DurationText))
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Duration</span>
+                        <span class="detail-val font-mono">@Booking.DurationText</span>
+                    </div>
+                }
+                <div class="detail-item">
+                    <span class="detail-key">Scope</span>
+                    <span class="detail-val">@GetScopeName(Booking.Scope)</span>
+                </div>
+                @if (Booking.AccountNumber.HasValue)
+                {
+                    <div class="detail-item">
+                        <span class="detail-key">Account</span>
+                        <span class="detail-val">@Booking.AccountName (#@Booking.AccountNumber)</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Driver -->
+        @if (!string.IsNullOrEmpty(Booking.DriverName))
+        {
+            <div class="detail-section">
+                <h4 class="detail-section-title">Driver</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-key">Name</span>
+                        <span class="detail-val">
+                            @if (!string.IsNullOrEmpty(Booking.DriverColour))
+                            {
+                                <span class="driver-dot" style="background-color: @Booking.DriverColour"></span>
+                            }
+                            @Booking.DriverName
+                        </span>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Details -->
+        @if (!string.IsNullOrEmpty(Booking.Details))
+        {
+            <div class="detail-section">
+                <h4 class="detail-section-title">Notes</h4>
+                <p class="detail-notes">@Booking.Details</p>
+            </div>
+        }
+
+        <!-- Meta -->
+        <div class="detail-section detail-meta">
+            <span class="detail-meta-item">Created @Booking.DateCreated.ToString("dd/MM/yyyy HH:mm")</span>
+            @if (!string.IsNullOrEmpty(Booking.BookedByName))
+            {
+                <span class="detail-meta-item">by @Booking.BookedByName</span>
+            }
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="panel-actions">
+        @if (Booking.Status == 0)
+        {
+            <button class="btn-primary" @onclick="() => OnAllocate.InvokeAsync()">Allocate Driver</button>
+        }
+        @if (Booking.Status < 5 && !Booking.Cancelled)
+        {
+            <button class="btn-secondary" @onclick="HandleCancel">Cancel</button>
+        }
+        @if (Booking.Status >= 2 && Booking.Status < 5)
+        {
+            <button class="btn-success" @onclick="HandleComplete">Complete</button>
+        }
+        <button class="btn-outline" @onclick="HandleDuplicate">Duplicate</button>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BookingDto Booking { get; set; } = default!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnAllocate { get; set; }
+
+    private async Task HandleCancel()
+    {
+        try { await Api.CancelBookingAsync(Booking.Id); } catch { }
+    }
+
+    private async Task HandleComplete()
+    {
+        try { await Api.CompleteBookingAsync(Booking.Id); } catch { }
+    }
+
+    private Task HandleDuplicate()
+    {
+        // Would open booking form pre-filled with this booking's data
+        return Task.CompletedTask;
+    }
+
+    private static string GetScopeName(int? scope) => scope switch
+    {
+        0 => "Cash",
+        1 => "Account",
+        2 => "Rank",
+        3 => "Card",
+        _ => "Unknown"
+    };
+}

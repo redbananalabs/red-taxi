@@ -1,0 +1,71 @@
+@inject DispatchState State
+@inject ApiService Api
+
+<header class="topbar">
+    <div class="topbar-left">
+        <h1 class="topbar-title">Dispatch Console</h1>
+    </div>
+
+    <div class="topbar-center">
+        <button class="topbar-search" @onclick="() => State.ToggleCommandPalette()">
+            <svg class="topbar-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <span class="topbar-search-text">Search bookings, drivers...</span>
+            <kbd class="topbar-kbd">Ctrl+K</kbd>
+        </button>
+    </div>
+
+    <div class="topbar-right">
+        <!-- Unallocated count badge -->
+        <button class="topbar-badge-btn" title="Unallocated bookings">
+            <svg class="topbar-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+                <rect x="9" y="3" width="6" height="4" rx="1" />
+            </svg>
+            @if (_unallocatedCount > 0)
+            {
+                <span class="topbar-badge">@_unallocatedCount</span>
+            }
+        </button>
+
+        <!-- Notifications bell -->
+        <button class="topbar-icon-btn" title="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="topbar-icon">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+        </button>
+
+        <!-- New booking button -->
+        <button class="topbar-new-btn" @onclick="() => State.OpenBookingForm()" title="New Booking (Ctrl+N)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="topbar-new-icon">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Booking
+        </button>
+
+        <!-- User menu -->
+        <div class="topbar-user">
+            <div class="topbar-avatar">D</div>
+        </div>
+    </div>
+</header>
+
+@code {
+    private int _unallocatedCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var kpis = await Api.GetDashboardKpisAsync();
+            if (kpis != null)
+                _unallocatedCount = kpis.UnallocatedBookings;
+        }
+        catch
+        {
+            // API might not be available yet
+        }
+    }
+}

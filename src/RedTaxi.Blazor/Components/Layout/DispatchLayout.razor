@@ -1,0 +1,81 @@
+@inherits LayoutComponentBase
+@inject DispatchState State
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="dispatch-shell">
+    <!-- Sidebar -->
+    <Sidebar />
+
+    <!-- Main content area -->
+    <div class="dispatch-main">
+        <!-- Top bar -->
+        <TopBar />
+
+        <!-- Content area -->
+        <div class="dispatch-content">
+            @Body
+        </div>
+    </div>
+</div>
+
+<!-- Command Palette overlay -->
+@if (State.IsCommandPaletteOpen)
+{
+    <CommandPalette />
+}
+
+@code {
+    private DotNetObjectReference<DispatchLayout>? _objRef;
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += StateHasChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("dispatchInterop.initKeyboard", _objRef);
+        }
+    }
+
+    [JSInvokable]
+    public void OnCommandPaletteToggle()
+    {
+        State.ToggleCommandPalette();
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnNewBooking()
+    {
+        State.OpenBookingForm();
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnEscapePressed()
+    {
+        if (State.IsCommandPaletteOpen)
+            State.CloseCommandPalette();
+        else if (State.IsDriverSelectorOpen)
+            State.CloseDriverSelector();
+        else if (State.IsBookingFormOpen)
+            State.CloseBookingForm();
+        else if (State.IsBookingDetailOpen)
+            State.CloseBookingDetail();
+        else if (State.IsDriverDetailOpen)
+            State.CloseDriverDetail();
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= StateHasChanged;
+        _objRef?.Dispose();
+    }
+}

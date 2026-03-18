@@ -1,0 +1,45 @@
+@inject DispatchState State
+
+<div class="booking-card @(IsSelected ? "booking-card-selected" : "")" @onclick="HandleClick">
+    <div class="booking-card-header">
+        <span class="booking-card-id font-mono">#@Booking.Id</span>
+        <span class="booking-card-time font-mono">@Booking.PickupDateTime.ToString("HH:mm")</span>
+        <StatusBadge Status="@Booking.Status" />
+    </div>
+    <div class="booking-card-body">
+        <div class="booking-card-route">
+            <div class="booking-card-pickup">
+                <span class="route-dot pickup-dot-sm"></span>
+                <span class="route-text">@Booking.PickupAddress</span>
+            </div>
+            @if (!string.IsNullOrEmpty(Booking.DestinationAddress))
+            {
+                <div class="booking-card-dest">
+                    <span class="route-dot dest-dot-sm"></span>
+                    <span class="route-text">@Booking.DestinationAddress</span>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="booking-card-footer">
+        <span class="booking-card-passenger">@Booking.PassengerName</span>
+        <span class="booking-card-price font-mono">@Booking.Price.ToString("C2")</span>
+        @if (!string.IsNullOrEmpty(Booking.DriverName))
+        {
+            <span class="booking-card-driver">
+                <span class="driver-dot" style="background-color: @(Booking.DriverColour ?? "#6B7280")"></span>
+                @Booking.DriverName
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BookingDto Booking { get; set; } = default!;
+    [Parameter] public bool IsSelected { get; set; }
+
+    private void HandleClick()
+    {
+        State.SelectBooking(Booking);
+    }
+}

@@ -1,0 +1,144 @@
+@page "/bookings"
+@inject ApiService Api
+@inject DispatchState State
+@rendermode InteractiveServer
+
+<PageTitle>Bookings - Red Taxi</PageTitle>
+
+<div class="bookings-page">
+    <div class="bookings-header">
+        <h2 class="page-title">Bookings</h2>
+        <div class="bookings-actions">
+            <div class="bookings-filters">
+                <input type="date" class="form-input" value="@_selectedDate.ToString("yyyy-MM-dd")"
+                       @onchange="HandleDateChange" />
+                <select class="form-select" @onchange="HandleStatusChange">
+                    <option value="">All Statuses</option>
+                    <option value="0">Unallocated</option>
+                    <option value="1">Allocated</option>
+                    <option value="2">Accepted</option>
+                    <option value="3">On Route</option>
+                    <option value="4">On Board</option>
+                    <option value="5">Completed</option>
+                    <option value="6">Cancelled</option>
+                </select>
+            </div>
+            <button class="btn-primary" @onclick="() => State.OpenBookingForm()">
+                + New Booking
+            </button>
+        </div>
+    </div>
+
+    <div class="bookings-table-wrap">
+        <table class="bookings-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Passenger</th>
+                    <th>Pickup</th>
+                    <th>Destination</th>
+                    <th>Driver</th>
+                    <th>Price</th>
+                    <th>Scope</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_bookings.Any())
+                {
+                    @foreach (var b in _bookings)
+                    {
+                        <tr class="booking-row @(State.SelectedBooking?.Id == b.Id ? "selected" : "")"
+                            @onclick="() => State.SelectBooking(b)">
+                            <td class="font-mono">@b.Id</td>
+                            <td class="font-mono">@b.PickupDateTime.ToString("HH:mm")</td>
+                            <td><StatusBadge Status="@b.Status" /></td>
+                            <td>@b.PassengerName</td>
+                            <td class="cell-truncate">@b.PickupAddress</td>
+                            <td class="cell-truncate">@b.DestinationAddress</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(b.DriverName))
+                                {
+                                    <span class="driver-tag">
+                                        @if (!string.IsNullOrEmpty(b.DriverColour))
+                                        {
+                                            <span class="driver-dot" style="background-color: @b.DriverColour"></span>
+                                        }
+                                        @b.DriverName
+                                    </span>
+                                }
+                            </td>
+                            <td class="font-mono">@b.Price.ToString("F2")</td>
+                            <td>@GetScopeName(b.Scope)</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="9" class="empty-state">No bookings found</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Right panel for detail -->
+    @if (State.IsBookingDetailOpen && State.SelectedBooking != null)
+    {
+        <div class="bookings-detail-overlay">
+            <BookingDetailPanel Booking="State.SelectedBooking"
+                                OnClose="() => State.CloseBookingDetail()"
+                                OnAllocate="() => State.OpenDriverSelector()" />
+        </div>
+    }
+</div>
+
+@code {
+    private List<BookingDto> _bookings = new();
+    private DateTime _selectedDate = DateTime.Today;
+    private int? _statusFilter;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBookings();
+    }
+
+    private async Task LoadBookings()
+    {
+        try
+        {
+            _bookings = await Api.GetBookingsAsync(_selectedDate, _statusFilter) ?? new();
+        }
+        catch
+        {
+            _bookings = new();
+        }
+    }
+
+    private async Task HandleDateChange(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var date))
+        {
+            _selectedDate = date;
+            await LoadBookings();
+        }
+    }
+
+    private async Task HandleStatusChange(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        _statusFilter = string.IsNullOrEmpty(val) ? null : int.Parse(val);
+        await LoadBookings();
+    }
+
+    private static string GetScopeName(int? scope) => scope switch
+    {
+        0 => "Cash",
+        1 => "Account",
+        2 => "Rank",
+        3 => "Card",
+        _ => ""
+    };
+}

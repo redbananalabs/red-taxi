@@ -1,0 +1,152 @@
+@inject DispatchState State
+@inject ApiService Api
+@implements IDisposable
+
+<div class="timeline @(State.IsTimelineExpanded ? "timeline-expanded" : "")">
+    <div class="timeline-header">
+        <div class="timeline-header-left">
+            <h3 class="timeline-title">Timeline</h3>
+            <span class="timeline-date font-mono">@State.SelectedDate.ToString("ddd dd MMM yyyy")</span>
+        </div>
+        <div class="timeline-header-right">
+            <button class="timeline-nav-btn" @onclick="PrevDay" title="Previous day">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <button class="timeline-nav-btn" @onclick="Today" title="Today">Today</button>
+            <button class="timeline-nav-btn" @onclick="NextDay" title="Next day">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+            <button class="timeline-expand-btn" @onclick="() => State.ToggleTimeline()">
+                @if (State.IsTimelineExpanded)
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="17 13 12 18 7 13" /></svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="17 11 12 6 7 11" /></svg>
+                }
+            </button>
+        </div>
+    </div>
+
+    <div class="timeline-body">
+        <!-- Time columns header -->
+        <div class="timeline-grid">
+            <div class="timeline-driver-col timeline-header-cell">Driver</div>
+            @for (int h = 0; h < 24; h++)
+            {
+                var hour = h;
+                <div class="timeline-hour-col timeline-header-cell @(hour == DateTime.Now.Hour && State.SelectedDate == DateTime.Today ? "timeline-current-hour" : "")">
+                    <span class="font-mono">@hour.ToString("00"):00</span>
+                </div>
+            }
+        </div>
+
+        <!-- Driver rows -->
+        @if (_drivers.Any())
+        {
+            @foreach (var driver in _drivers)
+            {
+                <div class="timeline-row" @onclick="() => State.SelectDriver(driver)">
+                    <div class="timeline-driver-col">
+                        <span class="timeline-driver-dot" style="background-color: @(driver.ColorCodeRGB ?? "#6B7280")"></span>
+                        <span class="timeline-driver-name">@driver.FullName</span>
+                    </div>
+                    @for (int h = 0; h < 24; h++)
+                    {
+                        var hour = h;
+                        var bookingsInHour = _bookings.Where(b =>
+                            b.UserId == driver.UserId &&
+                            b.PickupDateTime.Hour <= hour &&
+                            b.PickupDateTime.AddHours(1).Hour > hour).ToList();
+
+                        <div class="timeline-hour-col timeline-cell @(hour == DateTime.Now.Hour && State.SelectedDate == DateTime.Today ? "timeline-current-hour" : "")">
+                            @foreach (var booking in bookingsInHour)
+                            {
+                                <div class="timeline-block @GetStatusClass(booking.Status)"
+                                     title="@booking.PickupAddress → @booking.DestinationAddress"
+                                     @onclick:stopPropagation="true"
+                                     @onclick="() => State.SelectBooking(booking)">
+                                    <span class="font-mono">@booking.PickupDateTime.ToString("HH:mm")</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="timeline-empty">
+                <p>No drivers loaded. Connect to API to see the timeline.</p>
+            </div>
+        }
+
+        <!-- Now indicator -->
+        @if (State.SelectedDate == DateTime.Today)
+        {
+            <div class="timeline-now-line" style="left: calc(120px + (@DateTime.Now.Hour * 60 + @DateTime.Now.Minute) / 1440.0 * (100% - 120px))"></div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<DriverDto> _drivers = new();
+    private List<BookingDto> _bookings = new();
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += HandleStateChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async void HandleStateChange()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadData();
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var driversTask = Api.GetDriversAsync();
+            var bookingsTask = Api.GetBookingsAsync(State.SelectedDate);
+            await Task.WhenAll(driversTask, bookingsTask);
+            _drivers = await driversTask ?? new();
+            _bookings = await bookingsTask ?? new();
+        }
+        catch
+        {
+            // API not available
+        }
+    }
+
+    private void PrevDay() => State.SetDate(State.SelectedDate.AddDays(-1));
+    private void Today() => State.SetDate(DateTime.Today);
+    private void NextDay() => State.SetDate(State.SelectedDate.AddDays(1));
+
+    private static string GetStatusClass(int? status) => status switch
+    {
+        0 => "block-unallocated",
+        1 => "block-allocated",
+        2 => "block-accepted",
+        3 => "block-onroute",
+        4 => "block-onboard",
+        5 => "block-completed",
+        6 => "block-cancelled",
+        _ => "block-unallocated"
+    };
+
+    public void Dispose()
+    {
+        State.OnChange -= HandleStateChange;
+    }
+}
