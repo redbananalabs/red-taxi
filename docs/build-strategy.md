@@ -1,3 +1,6 @@
+# ⚠️ DEPRECATED — See build-strategy-v2.md instead
+# This was the rewrite-from-scratch approach. We pivoted to wrap-and-extend.
+
 # Red Taxi Platform — Build Strategy & Parallel Agent Playbook
 
 > **Version:** 1.0

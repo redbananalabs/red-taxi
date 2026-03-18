@@ -1,3 +1,5 @@
+# ⚠️ ARCHIVED — These are from the v1 rewrite approach (now deprecated)
+
 # Agent 9 Build Log — Dispatch UI + Edge Cases + Deployment
 Started: 2026-03-18
 Last Updated: 2026-03-18

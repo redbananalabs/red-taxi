@@ -1,3 +1,5 @@
+# ⚠️ ARCHIVED — These are from the v1 rewrite approach (now deprecated)
+
 # Agent 2 Build Log — Identity + Accounts + Billing API
 Started: 2026-03-18
 Last Updated: 2026-03-18

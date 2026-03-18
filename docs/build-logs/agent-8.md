@@ -1,3 +1,5 @@
+# ⚠️ ARCHIVED — These are from the v1 rewrite approach (now deprecated)
+
 # Agent 8 Build Log — Real-time + Payments + Messaging Integration
 Started: 2026-03-18
 Last Updated: 2026-03-18
