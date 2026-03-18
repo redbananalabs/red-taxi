@@ -4693,3 +4693,32 @@ Tenant DB: RedTaxi_ace (first tenant — Ace Taxis)
 - **Always merge back to main** after completing a feature
 - No long-lived branches — merge early, merge often
 - Commit messages: descriptive, reference PRD section numbers
+
+---
+
+## 141. Configurable Map Centre (Per Tenant)
+
+Each tenant's dispatch console and mobile apps should centre on THEIR operating area, not a hardcoded location.
+
+### CompanyConfig Fields
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| MapCenterLatitude | decimal(9,7) | 51.0478 | Default map centre latitude |
+| MapCenterLongitude | decimal(10,7) | -2.2769 | Default map centre longitude |
+| MapDefaultZoom | int | 13 | Default zoom level (10=county, 13=town, 16=street) |
+
+### How It's Set
+1. **Auto-set on signup:** geocode the company postcode → set lat/lng
+2. **Manual override:** Company Settings → Map Centre section
+3. **Click-to-set:** small map preview in settings, click to place pin
+4. **Zoom slider:** 10 to 18
+
+### Where It's Used
+- Dispatch console → MapView centres on these coordinates
+- Operator mobile app → Live Map tab
+- Customer app → initial map view before GPS lock
+
+### Seed Data (Ace Taxis)
+- Latitude: 51.0478 (Gillingham, Dorset)
+- Longitude: -2.2769
+- Zoom: 13
