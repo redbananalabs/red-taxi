@@ -1,0 +1,260 @@
+@page "/create-booking"
+@attribute [Authorize]
+@inject PortalApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Create Booking - Red Taxi Portal</PageTitle>
+
+<div class="page-container">
+    <h1 class="page-title">Create Booking</h1>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success">@successMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">@errorMessage</div>
+    }
+
+    <div class="card">
+        <div class="form-group">
+            <label class="form-label">Time Type</label>
+            <div class="radio-toggle">
+                <button class="toggle-btn @(isArriveBy ? "" : "active")" @onclick="() => isArriveBy = false">Pickup Time</button>
+                <button class="toggle-btn @(isArriveBy ? "active" : "")" @onclick="() => isArriveBy = true">Arrive By</button>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" class="form-input" @bind="pickupDate" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Time</label>
+                <input type="time" class="form-input" @bind="pickupTime" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <button class="btn btn-outline" @onclick="ToggleRepeat">
+                @(showRepeat ? "Hide Repeat" : "Repeat Booking")
+            </button>
+            <div class="form-group form-group-inline">
+                <label class="form-label">Return Journey</label>
+                <input type="checkbox" class="form-checkbox" @bind="isReturn" />
+            </div>
+        </div>
+
+        @if (showRepeat)
+        {
+            <div class="card card-nested">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Repeat Every (days)</label>
+                        <input type="number" class="form-input" @bind="recurrenceFrequency" min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Until</label>
+                        <input type="date" class="form-input" @bind="recurrenceEndDate" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Days (comma-separated, e.g. Mon,Tue,Wed)</label>
+                    <input type="text" class="form-input" @bind="recurrenceDays" placeholder="Mon,Tue,Wed,Thu,Fri" />
+                </div>
+            </div>
+        }
+
+        @if (isReturn)
+        {
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Return Date</label>
+                    <input type="date" class="form-input" @bind="returnDate" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Return Time</label>
+                    <input type="time" class="form-input" @bind="returnTime" />
+                </div>
+            </div>
+        }
+
+        <div class="form-group">
+            <label class="form-label">Address Source</label>
+            <div class="radio-toggle">
+                <button class="toggle-btn @(useExistingPassenger ? "" : "active")" @onclick="() => useExistingPassenger = false">Manual Address</button>
+                <button class="toggle-btn @(useExistingPassenger ? "active" : "")" @onclick="SelectFromPassenger">Existing Passenger</button>
+            </div>
+        </div>
+
+        @if (useExistingPassenger)
+        {
+            <div class="form-group">
+                <label class="form-label">Select Passenger</label>
+                <select class="form-input" @onchange="OnPassengerSelected">
+                    <option value="">-- Select --</option>
+                    @foreach (var p in passengers)
+                    {
+                        <option value="@p.Id">@p.Name - @p.Address</option>
+                    }
+                </select>
+            </div>
+        }
+
+        <AddressInput Label="Pickup Address" Address="@pickupAddress" AddressChanged="v => pickupAddress = v"
+                      PostCode="@pickupPostCode" PostCodeChanged="v => pickupPostCode = v" />
+
+        <AddressInput Label="Destination Address" Address="@destinationAddress" AddressChanged="v => destinationAddress = v"
+                      PostCode="@destinationPostCode" PostCodeChanged="v => destinationPostCode = v" />
+
+        <div class="form-group">
+            <button class="btn btn-outline btn-sm" @onclick="SwapAddresses">Swap Addresses</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Details / Notes</label>
+            <textarea class="form-input form-textarea" @bind="details" placeholder="Additional details..."></textarea>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Passenger Name</label>
+                <input type="text" class="form-input" @bind="passengerName" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" @bind="email" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input type="tel" class="form-input" @bind="phone" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Passengers</label>
+                <select class="form-input" @bind="passengerCount">
+                    @for (int i = 1; i <= 8; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-ghost" @onclick="Cancel">Cancel</button>
+            <button class="btn btn-brand" @onclick="SubmitBooking" disabled="@isSubmitting">
+                @(isSubmitting ? "Sending..." : "Send Booking")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool isArriveBy;
+    private DateOnly pickupDate = DateOnly.FromDateTime(DateTime.Now);
+    private TimeOnly pickupTime = TimeOnly.FromDateTime(DateTime.Now.AddMinutes(30));
+    private bool showRepeat;
+    private bool isReturn;
+    private DateOnly returnDate = DateOnly.FromDateTime(DateTime.Now);
+    private TimeOnly returnTime = TimeOnly.FromDateTime(DateTime.Now.AddHours(2));
+    private int recurrenceFrequency = 1;
+    private string recurrenceDays = string.Empty;
+    private DateTime? recurrenceEndDate;
+
+    private bool useExistingPassenger;
+    private List<AccountPassengerDto> passengers = new();
+
+    private string? pickupAddress;
+    private string? pickupPostCode;
+    private string? destinationAddress;
+    private string? destinationPostCode;
+    private string? details;
+    private string? passengerName;
+    private string? email;
+    private string? phone;
+    private int passengerCount = 1;
+
+    private bool isSubmitting;
+    private string? successMessage;
+    private string? errorMessage;
+
+    private void ToggleRepeat() => showRepeat = !showRepeat;
+
+    private async Task SelectFromPassenger()
+    {
+        useExistingPassenger = true;
+        if (!passengers.Any())
+        {
+            try { passengers = await Api.GetPassengersAsync(); } catch { /* ignore */ }
+        }
+    }
+
+    private void OnPassengerSelected(ChangeEventArgs e)
+    {
+        var id = int.TryParse(e.Value?.ToString(), out var v) ? v : 0;
+        var passenger = passengers.FirstOrDefault(p => p.Id == id);
+        if (passenger is not null)
+        {
+            pickupAddress = passenger.Address;
+            pickupPostCode = passenger.PostCode;
+            passengerName = passenger.Name;
+            phone = passenger.Phone;
+            email = passenger.Email;
+        }
+    }
+
+    private void SwapAddresses()
+    {
+        (pickupAddress, destinationAddress) = (destinationAddress, pickupAddress);
+        (pickupPostCode, destinationPostCode) = (destinationPostCode, pickupPostCode);
+    }
+
+    private void Cancel() => Navigation.NavigateTo("/");
+
+    private async Task SubmitBooking()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isSubmitting = true;
+
+        try
+        {
+            var dt = pickupDate.ToDateTime(pickupTime);
+            var request = new WebBookingCreateRequest
+            {
+                PassengerName = passengerName,
+                PhoneNumber = phone,
+                Email = email,
+                PickupAddress = pickupAddress ?? string.Empty,
+                PickupPostCode = pickupPostCode,
+                DestinationAddress = destinationAddress,
+                DestinationPostCode = destinationPostCode,
+                PickupDateTime = isArriveBy ? dt : dt,
+                ArriveBy = isArriveBy ? dt : null,
+                Details = details,
+                Passengers = passengerCount,
+                IsReturn = isReturn,
+                ReturnPickupDateTime = isReturn ? returnDate.ToDateTime(returnTime) : null,
+                RecurrenceFrequency = showRepeat ? recurrenceFrequency : null,
+                RecurrenceDays = showRepeat ? recurrenceDays : null,
+                RecurrenceEndDate = showRepeat ? recurrenceEndDate : null,
+            };
+
+            await Api.CreateWebBookingAsync(request);
+            successMessage = "Booking submitted successfully! It will be reviewed shortly.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to submit booking: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

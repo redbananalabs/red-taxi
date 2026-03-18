@@ -1,0 +1,62 @@
+@namespace RedTaxi.WebPortal.Shared
+
+<div class="booking-card">
+    <div class="booking-card-header">
+        <span class="booking-id">#@Booking.Id</span>
+        <span class="booking-status status-@GetStatusClass()">@GetStatusText()</span>
+    </div>
+    <div class="booking-card-body">
+        <div class="booking-row">
+            <span class="label">Pickup</span>
+            <span class="value">@Booking.PickupAddress</span>
+        </div>
+        @if (!string.IsNullOrEmpty(Booking.DestinationAddress))
+        {
+            <div class="booking-row">
+                <span class="label">Destination</span>
+                <span class="value">@Booking.DestinationAddress</span>
+            </div>
+        }
+        <div class="booking-row">
+            <span class="label">When</span>
+            <span class="value">@Booking.PickupDateTime.ToString("dd MMM yyyy HH:mm")</span>
+        </div>
+        @if (!string.IsNullOrEmpty(Booking.PassengerName))
+        {
+            <div class="booking-row">
+                <span class="label">Passenger</span>
+                <span class="value">@Booking.PassengerName</span>
+            </div>
+        }
+    </div>
+    @if (ShowActions)
+    {
+        <div class="booking-card-actions">
+            @ChildContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public BookingDto Booking { get; set; } = default!;
+    [Parameter] public bool ShowActions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string GetStatusClass() => Booking.Status switch
+    {
+        0 => "pending",
+        1 => "accepted",
+        2 => "dispatched",
+        3 => "completed",
+        _ => Booking.Cancelled ? "cancelled" : "unknown"
+    };
+
+    private string GetStatusText() => Booking.Status switch
+    {
+        0 => "Pending",
+        1 => "Accepted",
+        2 => "Dispatched",
+        3 => "Completed",
+        _ => Booking.Cancelled ? "Cancelled" : "Unknown"
+    };
+}

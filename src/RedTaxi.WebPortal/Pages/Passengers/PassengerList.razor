@@ -1,0 +1,78 @@
+@page "/passengers"
+@attribute [Authorize]
+@inject PortalApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Passengers - Red Taxi Portal</PageTitle>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1 class="page-title">Passengers</h1>
+        <button class="btn btn-brand" @onclick="GoToAdd">Add Passenger</button>
+    </div>
+
+    <div class="form-group">
+        <input type="text" class="form-input" placeholder="Search passengers..." @bind="searchTerm" @bind:event="oninput" />
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="loading-indicator">Loading passengers...</div>
+    }
+    else if (!filtered.Any())
+    {
+        <div class="empty-state">No passengers found.</div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Address</th>
+                        <th>Postcode</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in filtered)
+                    {
+                        <tr>
+                            <td>@p.Name</td>
+                            <td>@(p.Address ?? "-")</td>
+                            <td>@(p.PostCode ?? "-")</td>
+                            <td>@(p.Phone ?? "-")</td>
+                            <td>@(p.Email ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<AccountPassengerDto> passengers = new();
+    private string searchTerm = string.Empty;
+    private bool isLoading = true;
+
+    private IEnumerable<AccountPassengerDto> filtered =>
+        string.IsNullOrWhiteSpace(searchTerm)
+            ? passengers
+            : passengers.Where(p =>
+                p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                (p.Address?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Phone?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (p.Email?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private void GoToAdd() => Navigation.NavigateTo("/passengers/add");
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { passengers = await Api.GetPassengersAsync(); }
+        catch { /* handle error */ }
+        finally { isLoading = false; }
+    }
+}

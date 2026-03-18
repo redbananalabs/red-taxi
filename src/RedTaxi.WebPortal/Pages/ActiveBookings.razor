@@ -1,0 +1,124 @@
+@page "/active-bookings"
+@attribute [Authorize]
+@inject PortalApiClient Api
+
+<PageTitle>Active Bookings - Red Taxi Portal</PageTitle>
+
+<div class="page-container">
+    <h1 class="page-title">Active Bookings</h1>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-success">@message</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="loading-indicator">Loading active bookings...</div>
+    }
+    else if (!bookings.Any())
+    {
+        <div class="empty-state">No active bookings.</div>
+    }
+    else
+    {
+        <div class="booking-list">
+            @foreach (var b in bookings)
+            {
+                <BookingCard Booking="b" ShowActions="true">
+                    <button class="btn btn-outline btn-sm" @onclick="() => ShowAmendForm(b)">Amend</button>
+                    <button class="btn btn-danger btn-sm" @onclick="() => RequestCancel(b.Id)">Cancel</button>
+                </BookingCard>
+            }
+        </div>
+
+        @if (amendingBooking is not null)
+        {
+            <div class="modal-backdrop" @onclick="CloseAmend">
+                <div class="modal-card" @onclick:stopPropagation="true">
+                    <h3>Amend Booking #@amendingBooking.Id</h3>
+                    <div class="form-group">
+                        <label class="form-label">Pickup Address</label>
+                        <input type="text" class="form-input" @bind="amendRequest.PickupAddress" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Destination</label>
+                        <input type="text" class="form-input" @bind="amendRequest.DestinationAddress" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Pickup Date/Time</label>
+                        <input type="datetime-local" class="form-input" @bind="amendDateTime" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Details</label>
+                        <textarea class="form-input form-textarea" @bind="amendRequest.Details"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-ghost" @onclick="CloseAmend">Cancel</button>
+                        <button class="btn btn-brand" @onclick="SubmitAmend">Submit Amendment</button>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<BookingDto> bookings = new();
+    private bool isLoading = true;
+    private string? message;
+    private BookingDto? amendingBooking;
+    private BookingAmendRequest amendRequest = new();
+    private DateTime amendDateTime = DateTime.Now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { bookings = await Api.GetActiveBookingsAsync(); }
+        catch { /* handle error */ }
+        finally { isLoading = false; }
+    }
+
+    private void ShowAmendForm(BookingDto booking)
+    {
+        amendingBooking = booking;
+        amendRequest = new BookingAmendRequest
+        {
+            PickupAddress = booking.PickupAddress,
+            DestinationAddress = booking.DestinationAddress,
+            Details = booking.Details,
+        };
+        amendDateTime = booking.PickupDateTime;
+    }
+
+    private void CloseAmend() => amendingBooking = null;
+
+    private async Task SubmitAmend()
+    {
+        if (amendingBooking is null) return;
+        try
+        {
+            amendRequest.PickupDateTime = amendDateTime;
+            await Api.RequestAmendBookingAsync(amendingBooking.Id, amendRequest);
+            message = $"Amendment request for booking #{amendingBooking.Id} submitted.";
+            amendingBooking = null;
+        }
+        catch (Exception ex)
+        {
+            message = $"Failed: {ex.Message}";
+        }
+    }
+
+    private async Task RequestCancel(int bookingId)
+    {
+        try
+        {
+            await Api.RequestCancelBookingAsync(bookingId);
+            message = $"Cancellation request for booking #{bookingId} submitted.";
+            bookings = bookings.Where(b => b.Id != bookingId).ToList();
+        }
+        catch (Exception ex)
+        {
+            message = $"Failed: {ex.Message}";
+        }
+    }
+}

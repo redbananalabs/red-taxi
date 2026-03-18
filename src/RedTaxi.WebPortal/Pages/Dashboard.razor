@@ -1,0 +1,31 @@
+@page "/"
+@attribute [Authorize]
+
+<PageTitle>Dashboard - Red Taxi Portal</PageTitle>
+
+<div class="dashboard-page">
+    <h1 class="page-title">Dashboard</h1>
+
+    <div class="dashboard-grid">
+        <a href="/create-booking" class="dashboard-tile">
+            <div class="tile-icon">+</div>
+            <div class="tile-label">Create Booking</div>
+        </a>
+        <a href="/booking-history" class="dashboard-tile">
+            <div class="tile-icon">H</div>
+            <div class="tile-label">Booking History</div>
+        </a>
+        <a href="/active-bookings" class="dashboard-tile">
+            <div class="tile-icon">A</div>
+            <div class="tile-label">Active Bookings</div>
+        </a>
+        <a href="/passengers/add" class="dashboard-tile">
+            <div class="tile-icon">P+</div>
+            <div class="tile-label">Add Passenger</div>
+        </a>
+        <a href="/passengers" class="dashboard-tile">
+            <div class="tile-icon">P</div>
+            <div class="tile-label">Existing Passengers</div>
+        </a>
+    </div>
+</div>

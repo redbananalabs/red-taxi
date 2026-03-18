@@ -1,0 +1,29 @@
+@namespace RedTaxi.WebPortal.Shared
+
+<div class="address-input-group">
+    <label class="form-label">@Label</label>
+    <input type="text" class="form-input" placeholder="Address" value="@Address"
+           @oninput="OnAddressInput" />
+    <input type="text" class="form-input form-input-sm" placeholder="Postcode" value="@PostCode"
+           @oninput="OnPostCodeInput" />
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Address";
+    [Parameter] public string? Address { get; set; }
+    [Parameter] public EventCallback<string?> AddressChanged { get; set; }
+    [Parameter] public string? PostCode { get; set; }
+    [Parameter] public EventCallback<string?> PostCodeChanged { get; set; }
+
+    private async Task OnAddressInput(ChangeEventArgs e)
+    {
+        Address = e.Value?.ToString();
+        await AddressChanged.InvokeAsync(Address);
+    }
+
+    private async Task OnPostCodeInput(ChangeEventArgs e)
+    {
+        PostCode = e.Value?.ToString();
+        await PostCodeChanged.InvokeAsync(PostCode);
+    }
+}

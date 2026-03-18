@@ -1,0 +1,88 @@
+@page "/booking-history"
+@attribute [Authorize]
+@inject PortalApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Booking History - Red Taxi Portal</PageTitle>
+
+<div class="page-container">
+    <h1 class="page-title">Booking History</h1>
+
+    @if (isLoading)
+    {
+        <div class="loading-indicator">Loading bookings...</div>
+    }
+    else if (!bookings.Any())
+    {
+        <div class="empty-state">No bookings found.</div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>Pickup</th>
+                        <th>Destination</th>
+                        <th>Passenger</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var b in bookings)
+                    {
+                        <tr>
+                            <td>#@b.Id</td>
+                            <td>@b.PickupDateTime.ToString("dd/MM/yy HH:mm")</td>
+                            <td>@b.PickupAddress</td>
+                            <td>@(b.DestinationAddress ?? "-")</td>
+                            <td>@(b.PassengerName ?? "-")</td>
+                            <td><span class="status-badge status-@GetStatusClass(b)">@GetStatusText(b)</span></td>
+                            <td>
+                                <button class="btn btn-outline btn-sm" @onclick="() => DuplicateBooking(b)">Duplicate</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<BookingDto> bookings = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { bookings = await Api.GetBookingHistoryAsync(); }
+        catch { /* handle error */ }
+        finally { isLoading = false; }
+    }
+
+    private void DuplicateBooking(BookingDto booking)
+    {
+        Navigation.NavigateTo($"/create-booking?duplicate={booking.Id}");
+    }
+
+    private string GetStatusClass(BookingDto b) => b.Cancelled ? "cancelled" : b.Status switch
+    {
+        0 => "pending",
+        1 => "accepted",
+        2 => "dispatched",
+        3 => "completed",
+        _ => "unknown"
+    };
+
+    private string GetStatusText(BookingDto b) => b.Cancelled ? "Cancelled" : b.Status switch
+    {
+        0 => "Pending",
+        1 => "Accepted",
+        2 => "Dispatched",
+        3 => "Completed",
+        _ => "Unknown"
+    };
+}

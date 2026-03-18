@@ -1,0 +1,80 @@
+@page "/passengers/add"
+@attribute [Authorize]
+@inject PortalApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>Add Passenger - Red Taxi Portal</PageTitle>
+
+<div class="page-container">
+    <h1 class="page-title">Add Passenger</h1>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-error">@errorMessage</div>
+    }
+
+    <div class="card">
+        <div class="form-group">
+            <label class="form-label">Name *</label>
+            <input type="text" class="form-input" @bind="model.Name" placeholder="Full name" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Description</label>
+            <input type="text" class="form-input" @bind="model.Description" placeholder="Optional description" />
+        </div>
+
+        <AddressInput Label="Address" Address="@model.Address" AddressChanged="v => model.Address = v"
+                      PostCode="@model.PostCode" PostCodeChanged="v => model.PostCode = v" />
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input type="tel" class="form-input" @bind="model.Phone" placeholder="Phone number" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" @bind="model.Email" placeholder="Email address" />
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-ghost" @onclick="GoBack">Cancel</button>
+            <button class="btn btn-brand" @onclick="Submit" disabled="@isSubmitting">
+                @(isSubmitting ? "Saving..." : "Add Passenger")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private AccountPassengerCreateRequest model = new();
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    private void GoBack() => Navigation.NavigateTo("/passengers");
+
+    private async Task Submit()
+    {
+        errorMessage = null;
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            errorMessage = "Name is required.";
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            await Api.CreatePassengerAsync(model);
+            GoBack();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to add passenger: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

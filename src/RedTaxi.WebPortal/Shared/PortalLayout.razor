@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+@inject PortalAuthProvider AuthProvider
+@inject NavigationManager Navigation
+
+<div class="portal-wrapper">
+    <AuthorizeView>
+        <Authorized>
+            <header class="portal-header">
+                <div class="header-left">
+                    <a href="/" class="header-logo">
+                        <span class="logo-red">RED</span><span class="logo-taxi">TAXI</span>
+                    </a>
+                </div>
+                <div class="header-right">
+                    <span class="account-name">@context.User.FindFirst("name")?.Value</span>
+                    <button class="btn btn-ghost" @onclick="LogoutAsync">Logout</button>
+                </div>
+            </header>
+        </Authorized>
+    </AuthorizeView>
+
+    <main class="portal-content">
+        @Body
+    </main>
+</div>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await AuthProvider.LogoutAsync();
+        Navigation.NavigateTo("/login", forceLoad: false);
+    }
+}
