@@ -7,18 +7,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddTransient<BearerTokenHandler>();
 builder.Services.AddScoped(sp =>
 {
-    var handler = new HttpClientHandler
+    var tokenHandler = sp.GetRequiredService<BearerTokenHandler>();
+    tokenHandler.InnerHandler = new HttpClientHandler
     {
         ServerCertificateCustomValidationCallback = (_, _, _, _) => true
     };
-    var client = new HttpClient(handler)
+    return new HttpClient(tokenHandler)
     {
         BaseAddress = new Uri(builder.Configuration.GetValue<string>("ApiBaseUrl") ?? "https://localhost:5001")
     };
-    client.DefaultRequestHeaders.Add("X-Tenant-Slug", "ace");
-    return client;
 });
 
 builder.Services.AddSyncfusionBlazor();

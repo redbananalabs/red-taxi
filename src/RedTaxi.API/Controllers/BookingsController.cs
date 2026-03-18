@@ -26,7 +26,6 @@ public class BookingsController : ControllerBase
 
     /// <summary>GET api/bookings/today?date=2026-03-18</summary>
     [HttpGet("today")]
-    [AllowAnonymous]
     public async Task<ActionResult<List<BookingDto>>> GetToday([FromQuery] DateTime? date, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetBookingsTodayQuery(date), ct);

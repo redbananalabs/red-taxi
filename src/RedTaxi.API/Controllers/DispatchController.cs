@@ -18,7 +18,6 @@ public class DispatchController : ControllerBase
 
     /// <summary>GET api/dispatch/drivers?activeOnly=true</summary>
     [HttpGet("drivers")]
-    [AllowAnonymous]
     public async Task<ActionResult<List<DriverDto>>> GetDrivers(
         [FromQuery] bool activeOnly = true, CancellationToken ct = default)
     {

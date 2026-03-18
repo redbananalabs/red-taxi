@@ -40,7 +40,7 @@
         _error = null;
         try
         {
-            var result = await Api.LoginAsync(new LoginRequest(_model.Email, _model.Password, null));
+            var result = await Api.LoginAsync(new LoginRequest(_model.Email, _model.Password, "ace"));
             if (result is not null)
             {
                 await AuthState.MarkUserAsAuthenticated(result.AccessToken);
