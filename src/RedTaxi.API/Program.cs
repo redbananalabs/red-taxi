@@ -196,6 +196,11 @@ try
     builder.Services.AddHangfireServer();
 
     // -----------------------------------------------------------------------
+    // HttpClientFactory (used by payment, FCM, SMS, email services)
+    // -----------------------------------------------------------------------
+    builder.Services.AddHttpClient();
+
+    // -----------------------------------------------------------------------
     // Application services
     // -----------------------------------------------------------------------
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -203,6 +208,23 @@ try
     builder.Services.AddScoped<IPricingService, RedTaxi.Application.Pricing.Services.PricingService>();
     builder.Services.AddScoped<IDistanceMatrixService, RedTaxi.Infrastructure.ExternalServices.StubDistanceMatrixService>();
     builder.Services.AddScoped<RedTaxi.Application.Identity.Services.JwtTokenService>();
+
+    // Payment service (Stripe / Revolut)
+    builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+    // Push notifications (FCM)
+    builder.Services.AddScoped<IPushNotificationService, FcmService>();
+
+    // SMS (TextLocal)
+    builder.Services.AddScoped<IMessageService, TextLocalSmsService>();
+
+    // Email (SendGrid)
+    builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+
+    // Template rendering and message dispatching
+    builder.Services.AddScoped<RedTaxi.Application.Messaging.Services.TemplateRenderer>();
+    builder.Services.AddScoped<RedTaxi.Application.Messaging.Services.MessageDispatcher>();
+    builder.Services.AddScoped<RedTaxi.Application.Messaging.EventHandlers.NotificationDispatcher>();
 
     // -----------------------------------------------------------------------
     // Health checks

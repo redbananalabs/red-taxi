@@ -1,7 +1,8 @@
 @page "/"
 @inject DispatchState State
 @inject ApiService Api
-@implements IDisposable
+@inject SignalRService SignalR
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Dispatch Console - Red Taxi</PageTitle>
@@ -84,10 +85,13 @@
     protected override void OnInitialized()
     {
         State.OnChange += StateHasChanged;
+        SignalR.OnStateUpdated += HandleSignalRUpdate;
+        SignalR.OnConnectionChanged += StateHasChanged;
     }
 
     protected override async Task OnInitializedAsync()
     {
+        await SignalR.StartAsync();
         await LoadData();
     }
 
@@ -137,8 +141,20 @@
         }
     }
 
-    public void Dispose()
+    private async void HandleSignalRUpdate()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadData();
+            StateHasChanged();
+        });
+    }
+
+    public ValueTask DisposeAsync()
     {
         State.OnChange -= StateHasChanged;
+        SignalR.OnStateUpdated -= HandleSignalRUpdate;
+        SignalR.OnConnectionChanged -= StateHasChanged;
+        return ValueTask.CompletedTask;
     }
 }

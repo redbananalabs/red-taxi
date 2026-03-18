@@ -13,6 +13,7 @@ builder.Services.AddScoped(sp => new HttpClient
 
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<DispatchState>();
+builder.Services.AddScoped<SignalRService>();
 
 var app = builder.Build();
 
