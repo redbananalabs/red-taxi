@@ -5,11 +5,14 @@
 <div class="booking-form">
     <div class="panel-header">
         <h3 class="panel-title">New Booking</h3>
-        <button class="panel-close" @onclick="OnClose">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-        </button>
+        @if (OnClose.HasDelegate)
+        {
+            <button class="panel-close" @onclick="OnClose">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        }
     </div>
 
     <div class="panel-body">

@@ -7,8 +7,8 @@
 
 <PageTitle>Dispatch Console - Red Taxi</PageTitle>
 
-<div class="dispatch-view">
-    <!-- KPI strip -->
+<div class="dispatch-view-v2">
+    <!-- KPI strip at top -->
     <div class="kpi-strip">
         <div class="kpi-item">
             <span class="kpi-value font-mono">@_kpis.TodayBookings</span>
@@ -31,56 +31,70 @@
             <span class="kpi-label">Completed</span>
         </div>
         <div class="kpi-item">
-            <span class="kpi-value font-mono">@_kpis.TodayRevenue.ToString("C0")</span>
+            <span class="kpi-value font-mono">£@_kpis.TodayRevenue.ToString("N0")</span>
             <span class="kpi-label">Revenue</span>
         </div>
     </div>
 
-    <!-- Map area with floating panels -->
-    <div class="map-area">
-        <!-- The map -->
-        <MapView />
-
-        <!-- Booking form (left float) -->
-        <div class="panel-left @(State.IsBookingFormOpen ? "panel-open" : "")">
-            @if (State.IsBookingFormOpen)
-            {
-                <BookingForm OnClose="() => State.CloseBookingForm()"
+    <!-- Split panel: left = booking form, right = tabbed (scheduler/map) -->
+    <div class="split-panel">
+        <!-- LEFT: Booking form (always visible) -->
+        <div class="split-left" style="width: @(_leftWidthPercent)%; min-width: 320px;">
+            <div class="form-panel-scroll">
+                <BookingForm OnClose="@(() => {})"
                              OnBookingCreated="HandleBookingCreated" />
-            }
+            </div>
         </div>
 
-        <!-- Context panel (right slide) -->
-        <div class="panel-right @(State.IsBookingDetailOpen || State.IsDriverDetailOpen ? "panel-open" : "")">
-            @if (State.IsBookingDetailOpen && State.SelectedBooking != null)
-            {
-                <BookingDetailPanel Booking="State.SelectedBooking"
-                                    OnClose="() => State.CloseBookingDetail()"
-                                    OnAllocate="HandleAllocateRequest" />
-            }
-            else if (State.IsDriverDetailOpen && State.SelectedDriver != null)
-            {
-                <DriverDetailPanel Driver="State.SelectedDriver"
-                                   OnClose="() => State.CloseDriverDetail()" />
-            }
+        <!-- Draggable splitter handle -->
+        <div class="splitter-handle" @onmousedown="StartResize">
+            <div class="splitter-grip"></div>
         </div>
 
-        <!-- Driver selector modal -->
-        @if (State.IsDriverSelectorOpen && State.SelectedBooking != null)
-        {
-            <DriverSelector BookingId="State.SelectedBooking.Id"
-                            OnClose="() => State.CloseDriverSelector()"
-                            OnDriverSelected="HandleDriverAllocated" />
-        }
+        <!-- RIGHT: Tabbed (Scheduler / Map) -->
+        <div class="split-right" style="flex: 1;">
+            <!-- Tab bar -->
+            <div class="tab-bar">
+                <button class="tab-btn @(_activeTab == "scheduler" ? "tab-active" : "")"
+                        @onclick='() => _activeTab = "scheduler"'>
+                    <span>📋</span> Scheduler
+                </button>
+                <button class="tab-btn @(_activeTab == "map" ? "tab-active" : "")"
+                        @onclick='() => _activeTab = "map"'>
+                    <span>📍</span> Map
+                </button>
+            </div>
+
+            <!-- Tab content -->
+            <div class="tab-content">
+                @if (_activeTab == "scheduler")
+                {
+                    <Timeline />
+                }
+                else
+                {
+                    <div class="map-tab-wrapper">
+                        <MapView />
+                    </div>
+                }
+            </div>
+        </div>
     </div>
 
-    <!-- Timeline bar (bottom dock) -->
-    <Timeline />
+    <!-- Driver selector modal -->
+    @if (State.IsDriverSelectorOpen && State.SelectedBooking != null)
+    {
+        <DriverSelector BookingId="State.SelectedBooking.Id"
+                        OnClose="() => State.CloseDriverSelector()"
+                        OnDriverSelected="HandleDriverAllocated" />
+    }
 </div>
 
 @code {
     private DashboardKpiDto _kpis = new(0, 0, 0, 0m, 0, 0);
     private List<BookingDto> _bookings = new();
+    private string _activeTab = "scheduler"; // default to scheduler per §142
+    private int _leftWidthPercent = 35;
 
     protected override void OnInitialized()
     {
@@ -118,7 +132,6 @@
 
     private async Task HandleBookingCreated(BookingDto booking)
     {
-        State.CloseBookingForm();
         State.SelectBooking(booking);
         await LoadData();
     }
@@ -138,10 +151,7 @@
                 State.CloseDriverSelector();
                 await LoadData();
             }
-            catch
-            {
-                // Handle error
-            }
+            catch { }
         }
     }
 
@@ -152,6 +162,13 @@
             await LoadData();
             StateHasChanged();
         });
+    }
+
+    // Splitter drag
+    private void StartResize(MouseEventArgs e)
+    {
+        // JS interop would handle actual drag — for now, toggle between presets
+        _leftWidthPercent = _leftWidthPercent == 35 ? 25 : _leftWidthPercent == 25 ? 45 : 35;
     }
 
     public ValueTask DisposeAsync()
