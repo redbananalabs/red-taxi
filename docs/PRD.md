@@ -3547,3 +3547,103 @@ Source: Live admin panel screenshot, 18/03/2026.
 - **SMS HEARTBEAT** indicator (top right, green) — shows last heartbeat timestamp "18/03/2026 11:15:05"
 - **Notification bell** icon
 - **User avatar** icon
+
+---
+
+## 120. Statement Processing — Complete UI Specification (from Live Screenshots)
+
+Source: Live admin panel screenshots, 18/03/2026.
+
+### Overview
+Statement Processing is the driver-side equivalent of the Invoice Processor. It shows all uninvoiced/unstatement-ed bookings across all drivers.
+
+### Controls
+- **Last Date Included** — date picker (end date for the period)
+- **Driver** dropdown — select specific driver or "All"
+- **Scope** dropdown — filter by Cash/Account/Rank/Card or "All"
+- **"Show Jobs"** button — loads uninvoiced bookings
+- **"Post All Priced"** button (green) — batch-posts all priced jobs to driver statements
+
+### Table Layout (Flat List — NOT Grouped)
+Unlike the Invoice Processor which groups by passenger/route, Statement Processing is a **flat table** of all bookings sorted by date (most recent first).
+
+**Columns:**
+| Column | Description | Filter |
+|--------|-------------|--------|
+| # | Booking ID | No |
+| Date | Pickup date/time | No |
+| Acc # | Account number (9999 = Cash) | No |
+| Driver | Driver number | No |
+| Pickup | Pickup address | Yes (filter icon) |
+| Destination | Destination address | Yes (filter icon) |
+| Passenger | Passenger name | Yes (filter icon) |
+| Has Vias | Yes/No | No |
+| Waiting | Waiting time in minutes | No |
+| Waiting Charge | Calculated waiting charge (£) | No |
+| Actual Miles | GPS tracked miles | No |
+| Driver Price | Price paid to driver (£) | No |
+| Parking | Parking charge (£) | No |
+| Total | Calculated total (£) | No |
+| £ | Recalculate price (icon button) | Action |
+| Post | Post to statement (email icon) | Action |
+| Cancel | Cancel booking (trash icon) | Action |
+
+### Key Observations
+- **375 jobs** awaiting pricing in the current live data
+- Mix of Cash (9999) and Account jobs in the same view
+- Airport run visible: Heathrow Airport Terminal 4 → Warminster, £235.00
+- Filter icons on Destination and Passenger columns for searching specific jobs
+- Each row expandable (chevron on left) — presumably shows via details
+- "Post All Priced" processes ALL visible jobs into driver statements grouped by driver
+
+### Workflow
+1. Operator sets Last Date Included + optionally filters by Driver and Scope
+2. Clicks "Show Jobs" → flat list of all uninvoiced bookings
+3. Reviews prices — can recalculate (£ icon) or manually adjust individual rows
+4. Clicks "Post All Priced" → system groups jobs by driver, generates statements, emails PDFs
+
+### Difference from Invoice Processor
+| Aspect | Invoice Processor (Grp) | Statement Processing |
+|--------|------------------------|---------------------|
+| Purpose | Account invoicing | Driver settlement |
+| Grouping | 3-level (Passenger → Route → Booking) | Flat list |
+| Tabs | Singles + Shared | Single view |
+| Price columns | Driver + Account (dual pricing) | Driver Price only |
+| Output | Account invoice PDF | Driver statement PDF |
+| Posted to | AccountInvoice | DriverInvoiceStatement |
+
+---
+
+## 121. Updated Admin Sidebar Navigation (Complete)
+
+From latest screenshot — includes previously unseen items:
+
+```
+├── Dashboards
+├── Booking & Dispatch
+├── Tracking
+├── Availability
+├── Availability Logs
+├── Local POIs
+├── Bookings ▾
+├── Accounts
+├── Driver ▾
+├── Tariffs
+├── Account Tariffs
+├── Billing & Payments ▾
+│   ├── Driver ▾
+│   │   ├── Statement Processing
+│   │   └── Statement History
+│   ├── Account ▾
+│   │   ├── Invoice Processor
+│   │   ├── Invoice Processor (Grp)
+│   │   ├── Invoice History
+│   │   ├── Credit Invoice
+│   │   ├── Credit Journeys
+│   │   └── Credit Notes
+│   └── Vat Outputs
+├── Reports ▾
+├── Company Settings
+├── Message Settings
+└── Utilities ▾  ← NEW (not previously documented)
+```
