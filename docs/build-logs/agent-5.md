@@ -1,3 +1,5 @@
+# ⚠️ ARCHIVED — These are from the v1 rewrite approach (now deprecated)
+
 # Agent 5 Build Log
 Started: —
 Last Updated: —

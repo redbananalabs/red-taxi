@@ -1,0 +1,19 @@
+name: red_taxi_operator
+description: Red Taxi Operator Mobile App
+version: 1.0.0
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: '>=3.16.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  red_taxi_shared:
+    path: ../red_taxi_shared
+  provider: ^6.1.0
+  go_router: ^13.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
