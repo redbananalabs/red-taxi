@@ -1,26 +1,11 @@
-# Agent 8 Build Log
-Started: —
-Last Updated: —
-Status: Not Started
+# Agent 8 Build Log — Real-time + Payments + Messaging Integration
+Started: 2026-03-18
+Last Updated: 2026-03-18
+Status: Complete
 
-## Context
-- Working on: Real-time + Payments integration
-- PRD sections: §51, §81, §102, §137
-- Dependencies: Phase 1A+1B complete
-- Branch: agent/8-integration
-
-## Completed Work
-(No entries yet)
-
-## Current State
-- What works: Nothing yet
-- What's left: Everything
-- Blockers: None
-- Known bugs: None
-- Tech debt: None
-
-## Architecture Decisions
-(No entries yet)
-
-## Handoff Notes
-(No entries yet)
+## Completed: SignalR, Stripe webhooks, ride payments, FCM push, SMS/email (17 new files)
+- 7 SignalR event handlers + SignalRService with reconnection
+- StripeWebhookController handling 7 event types + tenant provisioning
+- Unified IPaymentService (Stripe/Revolut) + CreatePaymentLinkCommand
+- FcmService + NotificationDispatcher routing to Push/SMS/WhatsApp
+- TextLocalSmsService + SendGridEmailService + TemplateRenderer (11 variables)
