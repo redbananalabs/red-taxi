@@ -3408,3 +3408,142 @@ All 40 DbSet entities documented in §108 with field-level audit in §107.
 16. **Browser FCM (ChromeFCM)** — the driver profile has a `ChromeFCM` field and `CompanyConfig` has `BrowserFCMs`. Are browser push notifications used in the dispatch console? For what events?
 17. **AccountUserLink** — how exactly does the multi-booker login work? Does each booker have a separate AppUser account linked to the Account via AccountUserLink?
 18. **DriverAllocation entity** — separate from BookingChangeAudit. What additional data does this track beyond what the audit log captures?
+
+---
+
+## 118. Invoice Processor (Grp) — Complete UI Specification (from Live Screenshots)
+
+Source: Live admin panel screenshots, 18/03/2026.
+
+### Overview
+Two invoice processors exist:
+1. **Invoice Processor** — for normal single journey pricing (non-school)
+2. **Invoice Processor (Grp)** — for school runs / bulk account journeys
+
+The Grp processor has TWO tabs: **Singles** and **Shared**.
+
+### Controls
+- **Account dropdown:** select specific account or "All"
+- **Date range picker:** select invoicing period
+- **"Show Jobs" button:** loads uninvoiced bookings for the selected account + date range
+
+### Singles Tab (Individual Passenger Journeys)
+
+**3-level hierarchy:**
+1. **Level 1: Passenger Name** (expandable accordion) — groups all journeys by passenger
+2. **Level 2: Route** (bidirectional address pair, e.g. "37 Pinewood Rd ↔ Stratton Village Hall") — groups same-route journeys together. Each route has **"Price All"** (green) and **"Post All Priced"** (blue) buttons.
+3. **Level 3: Individual Booking** — one row per journey with editable fields
+
+**Singles Columns:**
+| Column | Description | Editable |
+|--------|-------------|---------|
+| Id # | Booking ID | No |
+| Date | Pickup date/time | No |
+| Acc # | Account number (9014) | No |
+| Driver # | Driver number | No |
+| Pax | Passenger count | No |
+| Vias | Via stops (or "-") | No |
+| Waiting | Waiting time in minutes | Yes (inline) |
+| Wait. Charge | Calculated waiting charge | No (auto-calculated) |
+| Actual Miles | GPS actual miles (0.0 if not tracked) | No |
+| Driver | Driver price (£) | Yes (inline, highlighted orange when editing) |
+| Journey Charge | Account price (£) | Yes (inline, highlighted orange when editing) |
+| Parking | Parking charge | Yes (inline) |
+| Total | Final total price | No (auto-calculated) |
+| Price | Recalculate price action (icon button) | Action |
+| Post | Post to invoice action (email icon) | Action |
+| Cancel | Cancel/delete booking (trash icon) | Action |
+
+**Editable row highlight:** when a row is selected for editing, the entire row turns orange and editable fields become input boxes.
+
+### Shared Tab (Merged Multi-Passenger Journeys)
+
+**2-level hierarchy:**
+1. **Level 1: Route** (bidirectional address pair) — groups by exact address match. Each route has "Price All" and "Post All Priced" buttons.
+2. **Level 2: Individual Merged Booking** — one row per shared journey
+
+**Shared Columns:**
+| Column | Description |
+|--------|-------------|
+| Id # | Booking ID |
+| Date | Pickup date/time |
+| Acc # | Account number |
+| Passengers | Comma-separated passenger names (e.g. "Ethan Collins, Kaitlin Dyer") |
+| PAX | Passenger count (matches number of names) |
+| Pickup | Pickup address |
+| Destination | Destination address |
+| Driver # | Driver number |
+| Vias | Via stop addresses (other passengers' pickups become vias when merged) |
+| Journey Miles | Calculated journey distance |
+| Vias Count | Number of via stops |
+| Driver | Driver price (£) |
+| Account Price | Account price (£) |
+| Cancel | Cancel booking (trash icon) |
+
+**Key difference:** Shared tab has NO Waiting, Wait. Charge, or Parking columns — these apply only to single journeys.
+
+### Pricing Workflow
+1. Operator selects account + date range → clicks "Show Jobs"
+2. Uninvoiced bookings appear grouped under Singles and Shared tabs
+3. **Price All** (per route) — system calculates driver price + account price for all unpriced bookings on that route using the account tariff
+4. Operator can manually edit Driver/Journey Charge/Parking on individual rows
+5. **Post All Priced** (per route) — marks all priced bookings as posted and adds them to the next invoice
+6. Once all routes are posted → operator generates the invoice (separate step on Invoice History page)
+
+### Data Quality Issue Observed
+Address format inconsistencies cause duplicate route groupings in Shared tab. Example:
+- "13 Caldwell Close, SP7 8GD ↔ Yarn Mills, Unit 21, Westbury, Sherborne, DT9 3RQ"
+- "13 Caldwell Close, SP7 8GD ↔ Unit 21 Yarn Mills, Westbury, Sherborne, DT9 3RQ"
+
+These are the same route but different address strings. Red Taxi should normalise addresses before grouping (strip unit numbers to end, standardise formatting).
+
+---
+
+## 119. Admin Panel — Complete Sidebar Navigation (from Live Screenshots)
+
+Source: Live admin panel screenshot, 18/03/2026.
+
+```
+├── Dashboards
+├── Booking & Dispatch
+├── Tracking
+├── Availability
+├── Availability Logs
+├── Local POIs
+├── Bookings ▾
+│   └── (submenu — not expanded in screenshot)
+├── Accounts
+├── Driver ▾
+│   └── (submenu — not expanded)
+├── Tariffs
+├── Account Tariffs
+├── Billing & Payments ▾
+│   ├── Driver ▾
+│   │   └── (Statement Processing, Statement History)
+│   ├── Account ▾
+│   │   ├── Invoice Processor
+│   │   ├── Invoice Processor (Grp)
+│   │   ├── Invoice History
+│   │   ├── Credit Invoice
+│   │   ├── Credit Journeys
+│   │   └── Credit Notes
+│   └── Vat Outputs
+├── Reports ▾
+│   └── (submenu — not expanded)
+├── Company Settings
+└── Message Settings
+```
+
+### Navigation Items NOT Previously Documented
+- **Availability Logs** — separate from Availability, shows audit trail of availability changes
+- **Credit Invoice** — separate page for creating credit invoices (distinct from Credit Notes)
+- **Credit Journeys** — page for viewing/managing credited journeys
+- **Vat Outputs** — VAT report page for HMRC MTD
+- **Message Settings** — separate top-level page for configuring message templates and channels
+
+### Top Bar Elements
+- **Direct Message** button (red) — send message to specific driver
+- **Global Message** button — send broadcast to all drivers
+- **SMS HEARTBEAT** indicator (top right, green) — shows last heartbeat timestamp "18/03/2026 11:15:05"
+- **Notification bell** icon
+- **User avatar** icon
