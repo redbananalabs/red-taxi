@@ -4322,3 +4322,226 @@ Four audio events in the dispatch console:
 | Notification sounds | §133 | ✅ Complete (NEW) |
 | SaaS / tenancy | §36-40, §83 | ✅ Complete |
 | Billing / pricing model | §38, saas-pricing.md | ✅ Complete |
+
+---
+
+## 136. Missing Entity Specs — Final Gap Close
+
+### DriverShiftLog
+Records every shift state change for audit and reporting:
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| UserId | int | Which driver |
+| TimeStamp | DateTime | When the state change happened |
+| EntryType | AppDriverShift | Start (1000), Finish (1001), OnBreak (1002), FinishBreak (1003) |
+
+Used for: shift duration reporting, break tracking, timesheet verification.
+
+### DriverLocationHistory
+GPS breadcrumb trail — every position update stored for route replay and actual miles calculation:
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| UserId | int | Which driver |
+| Longitude | decimal(10,7) | GPS longitude |
+| Latitude | decimal(9,7) | GPS latitude |
+| Heading | decimal(6,3) | Direction in degrees |
+| Speed | decimal(6,2) | Speed |
+| TimeStamp | DateTime | When captured |
+
+Used for: actual miles calculation (§59), route replay, driver tracking history, speed monitoring.
+
+### DriverMessage
+Operator-to-driver message history (direct and global messages):
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| UserId | int? | Target driver (null = global/broadcast message) |
+| Message | string | Message text |
+| Read | bool | Whether driver has read it |
+| DateCreated | DateTime | When sent |
+
+Used for: message history in driver app, read receipts, operator comms audit.
+
+### WebAmendmentRequest
+Account portal amendment requests pending operator approval:
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| BookingId | int | Which booking to amend |
+| Amendments | string? | JSON/text describing requested changes |
+| CancelBooking | bool | If true, this is a cancellation request not an amendment |
+| ApplyToBlock | bool | If true, apply amendment to entire block booking series |
+| Processed | bool | Has the operator reviewed this? |
+| RequestedOn | DateTime | When submitted |
+
+Used for: account portal amendment workflow (§130), cancellation request approval.
+
+### UrlMapping
+Short URL → long URL mapping with click tracking:
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| LongUrl | string | Full URL (payment link, tracking page, etc.) |
+| ShortCode | string | Short code (e.g. "abc123") |
+| Clicks | int | Click counter |
+
+Used for: payment links, tracking page URLs, QR code targets, marketing links.
+
+### BookingChangeAudit (Referenced but Not Specced)
+Every change to a booking logged as an audit entry:
+| Field | Type | Description |
+|-------|------|-------------|
+| EntityIdentifier | string | Booking ID |
+| UserFullName | string | Who made the change |
+| TimeStamp | DateTime | When |
+| PropertyName | string | Which field changed |
+| OldValue | string | Previous value |
+| NewValue | string | New value |
+| Action | string | "Created", "Amended", "Allocated", "Cancelled" |
+| EntityName | string | "Booking" |
+
+Used for: full audit trail (§62), dispute resolution, compliance.
+
+### GeoFence (Referenced but Not Specced as Entity)
+Geographic zone polygon for zone-based pricing and service areas:
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| Name | string | Zone name (e.g. "Gillingham", "Heathrow Airport") |
+| PolygonData | List<LatLong> | Array of lat/lng points defining the polygon |
+| Points | int | Number of vertices |
+| Area | string | Calculated area (e.g. "147.48 km²") |
+| CreatedOn | DateTime | When created |
+
+Used for: zone-to-zone pricing (§111, §126), service area definition (§57).
+
+---
+
+## 137. Final Gap Close — Dispatch & Driver Detail
+
+### Dispatch — Drag-and-Drop Allocation
+The scheduler supports drag-and-drop for allocation:
+- **Drag booking tile** onto a driver's row → allocates that driver
+- **Drag between drivers** → reallocates (old driver un-allocated, new driver allocated)
+- **Drag booking tile** to the school run merge zone → merges bookings (§9)
+- **Drag to unallocated area** → un-allocates the driver
+- Context menu (right-click on booking tile): Allocate, Edit, Complete, Cancel, Send Payment Link, View Details, Copy, Duplicate
+
+### Dispatch — Auto-Dispatch (Phase 2+)
+Auto-dispatch suggests the nearest available driver based on:
+1. GPS proximity to pickup location
+2. Driver availability for the time slot
+3. Vehicle type match (passenger count → vehicle capacity)
+4. Driver workload (not overloaded with back-to-back)
+5. Colour-coded scoring: green (ideal) → amber (possible) → red (not recommended)
+Operator always has final say — auto-dispatch suggests, human confirms.
+
+### Dispatch — Job Offer Timeout
+When a booking is allocated to a driver:
+1. Push notification sent to driver app
+2. Driver has X seconds to respond (configurable per tenant, default 120 seconds)
+3. If accepted → status = AcceptedJob, scheduler shows diagonal stripes
+4. If rejected → status = RejectedJob, `[R]` prefix on scheduler, booking returns to unallocated
+5. If timeout → status = RejectedJobTimeout, `[RT]` prefix, booking returns to unallocated
+6. Operator can re-allocate to another driver
+
+### Driver App — Online/Offline Toggle
+- Toggle at top of home screen
+- **Online** = driver is available for jobs, GPS tracking starts, shift logged (DriverShiftLog: Start=1000)
+- **Offline** = driver not available, GPS stops, shift logged (DriverShiftLog: Finish=1001)
+- **On Break** = temporary unavailability, GPS continues but driver won't receive offers (DriverShiftLog: OnBreak=1002, FinishBreak=1003)
+- Shift duration calculated from logs: online time - break time = actual shift hours
+
+### Driver App — Job Offer Screen
+Full-screen takeover (like incoming phone call):
+- Booking details: pickup address, destination, time, passenger, price
+- Map showing pickup + destination
+- Countdown timer (visual ring, seconds remaining)
+- Two large buttons: **Accept** (green, 56px) / **Reject** (red, 56px)
+- Sound alert + vibration on offer received
+- If driver doesn't respond → auto-reject on timeout
+
+### Driver App — Trip Detail Flow
+Driver taps through status progression:
+1. **Accept offer** → booking appears in Schedule tab
+2. **"On Route"** button → status = OnRoute (3003), operator sees driver moving toward pickup
+3. **"I've Arrived"** button → status = AtPickup (3004), customer SMS sent with driver/vehicle details
+4. **"Passenger Onboard"** → status = PassengerOnBoard (3005)
+5. **"Complete"** → completion form: waiting time (mins), parking charge (£), driver price (£), tip (£)
+6. Submit → status = Complete (3007), booking closed
+
+### Booking Complete — Backend Rules
+- Cannot complete before pickup time (system blocks)
+- If scope = Cash → PaymentStatus auto-set to Paid
+- Customer SMS sent on completion (Cash and Card only, not Account)
+- Account price only updatable by Admin role on completion
+- Removes booking from driver's ActiveBookingId on DriversOnShift
+- Auto-complete (Hangfire job): if configurable hours after pickup and still allocated = mark AutoCompleted
+
+### Charge From Base
+Boolean flag on booking. When true:
+- Dead mileage calculated FROM the company base postcode to pickup
+- Dead mileage FROM destination BACK to base
+- Total miles = (journey miles + dead miles) / 2 (averaged)
+When false:
+- No dead mileage added
+- Total miles = journey miles only
+This affects pricing — base-charging adds dead mileage cost to the fare.
+
+### PostedForInvoicing / PostedForStatement
+Two boolean flags on the Booking entity that prevent double-processing:
+- **PostedForInvoicing = true** → booking has been added to an AccountInvoice. Cannot be re-posted.
+- **PostedForStatement = true** → booking has been added to a DriverInvoiceStatement. Cannot be re-posted.
+Both are set when the "Post" action is clicked in the Invoice Processor or Statement Processing screens.
+
+### Domain Events (Architecture Pattern)
+Side-effects triggered via domain events, not direct calls:
+| Event | Triggers |
+|-------|---------|
+| BookingCreated | Audit log, notification (if web booking) |
+| BookingAllocated | Driver notification (Push/WhatsApp/SMS), customer notification, audit log |
+| BookingUnallocated | Driver notification, audit log |
+| BookingAmended | Driver notification (if allocated), customer notification (if configured), audit log |
+| BookingCancelled | Driver notification (if allocated), customer notification, audit log, COA handling |
+| BookingCompleted | Customer notification (Cash/Card), review request scheduling, audit log |
+| DriverShiftStarted | GPS tracking begins, shift log entry |
+| DriverShiftEnded | GPS tracking stops, shift log entry |
+| WebBookingSubmitted | Operator notification (browser push + SignalR + sound) |
+| PaymentReceived | Revolut webhook → booking payment status updated, receipt sent |
+| DocumentUploaded | UI notification for admin, expiry check |
+
+### Refresh Token Flow
+- JWT access token: short-lived (15 min)
+- Refresh token: stored in `AppRefreshToken` table, long-lived (30 days)
+- On 401: client sends refresh token → API issues new access + refresh pair
+- On logout: refresh token invalidated
+- Driver app: silent refresh in background, no re-login during shift
+- Dispatch console: same — operator stays logged in during shift
+
+### Health Checks
+API exposes `/health` endpoint:
+- Database connectivity (tenant DB + master DB)
+- Redis connectivity
+- Hangfire queue status
+- SMS gateway heartbeat (last successful send)
+- SignalR hub status
+- External API status (Google Maps, Revolut, SendGrid)
+Dashboard widget in tenant admin shows green/amber/red per service.
+
+---
+
+## 138. Build Strategy Reference
+
+The complete build strategy including parallel agent assignment, phase ordering, conflict prevention, build log format, and agent prompts is in a separate document:
+
+**→ `docs/build-strategy.md`**
+
+Key points:
+- **10 agents** across 4 phases (Foundation → Core API → All Frontends → Integration)
+- **Max 7 concurrent agents** during Phase 1B
+- **Critical path:** Foundation (1d) → Booking API (3d) → Dispatch Console (5d) → Integration (3d) = 12 days
+- **Total estimated:** ~3 weeks
+- **Build logs:** every agent writes to `docs/build-logs/agent-{N}.md` for full continuity
+- **Agent prompts:** copy-paste ready prompts for each agent in the strategy doc
