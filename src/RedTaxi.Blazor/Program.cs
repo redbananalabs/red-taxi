@@ -7,9 +7,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddScoped(sp => new HttpClient
+builder.Services.AddScoped(sp =>
 {
-    BaseAddress = new Uri(builder.Configuration.GetValue<string>("ApiBaseUrl") ?? "https://localhost:5001")
+    var handler = new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+    };
+    var client = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(builder.Configuration.GetValue<string>("ApiBaseUrl") ?? "https://localhost:5001")
+    };
+    client.DefaultRequestHeaders.Add("X-Tenant-Slug", "ace");
+    return client;
 });
 
 builder.Services.AddSyncfusionBlazor();

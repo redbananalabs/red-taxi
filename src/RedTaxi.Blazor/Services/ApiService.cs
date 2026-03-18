@@ -15,12 +15,8 @@ public class ApiService
     // ── Bookings ──────────────────────────────────────────────────
     public Task<List<BookingDto>?> GetBookingsAsync(DateTime? date = null, int? status = null)
     {
-        var url = "/api/bookings";
-        var query = new List<string>();
-        if (date.HasValue) query.Add($"date={date.Value:yyyy-MM-dd}");
-        if (status.HasValue) query.Add($"status={status.Value}");
-        if (query.Count > 0) url += "?" + string.Join("&", query);
-        return _http.GetFromJsonAsync<List<BookingDto>>(url);
+        var d = date ?? DateTime.Today;
+        return _http.GetFromJsonAsync<List<BookingDto>>($"/api/bookings/today?date={d:yyyy-MM-dd}");
     }
 
     public Task<BookingDto?> GetBookingAsync(int id)
@@ -96,7 +92,7 @@ public class ApiService
 
     // ── Drivers ───────────────────────────────────────────────────
     public Task<List<DriverDto>?> GetDriversAsync()
-        => _http.GetFromJsonAsync<List<DriverDto>>("/api/drivers");
+        => _http.GetFromJsonAsync<List<DriverDto>>("/api/dispatch/drivers");
 
     public Task<DriverDto?> GetDriverAsync(int id)
         => _http.GetFromJsonAsync<DriverDto>($"/api/drivers/{id}");

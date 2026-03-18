@@ -59,7 +59,7 @@ window.dispatchInterop = {
         // Check if Google Maps API is loaded
         if (typeof google !== 'undefined' && google.maps) {
             this._map = new google.maps.Map(mapEl, {
-                center: { lat: 51.5074, lng: -0.1278 }, // London default
+                center: { lat: 51.0478, lng: -2.2769 }, // Gillingham, Dorset
                 zoom: 12,
                 disableDefaultUI: true,
                 zoomControl: true,
