@@ -5,7 +5,7 @@
 
 @using Syncfusion.Blazor.Schedule
 
-<div class="timeline @(State.IsTimelineExpanded ? "timeline-expanded" : "") @(_isMergeMode ? "merge-mode-active" : "")">
+<div class="timeline @(FullHeight ? "timeline-fullheight" : "") @(State.IsTimelineExpanded ? "timeline-expanded" : "") @(_isMergeMode ? "merge-mode-active" : "")">
     <div class="timeline-header">
         <div class="timeline-header-left">
             <h3 class="timeline-title">Timeline</h3>
@@ -169,6 +169,9 @@
         public string Name { get; set; } = "";
         public string Color { get; set; } = "#6B7280";
     }
+
+    // ── Parameters ────────────────────────────────────────────────
+    [Parameter] public bool FullHeight { get; set; }
 
     // ── State ──────────────────────────────────────────────────────────
     private List<DriverDto> _drivers = new();
