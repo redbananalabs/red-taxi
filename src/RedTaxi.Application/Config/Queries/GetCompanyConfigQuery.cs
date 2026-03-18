@@ -27,6 +27,7 @@ public class GetCompanyConfigQueryHandler : IRequestHandler<GetCompanyConfigQuer
             config.AddVatOnCardPayments,
             config.DriverWaitingRatePerMinute, config.AccountWaitingRatePerMinute,
             config.JobOfferTimeoutSeconds, config.AutoDispatchEnabled,
-            config.LogoUrl, config.PrimaryColour, config.PaymentProcessor);
+            config.LogoUrl, config.PrimaryColour, config.PaymentProcessor,
+            config.MapCenterLatitude, config.MapCenterLongitude, config.MapDefaultZoom);
     }
 }

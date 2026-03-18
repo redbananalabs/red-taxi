@@ -18,6 +18,11 @@ public class CompanyConfig
     public decimal? AddressLookupLat { get; set; }
     public decimal? AddressLookupLng { get; set; }
 
+    // Map centre (operator-configurable per tenant)
+    public decimal MapCenterLatitude { get; set; } = 51.0478m;
+    public decimal MapCenterLongitude { get; set; } = -2.2769m;
+    public int MapDefaultZoom { get; set; } = 13;
+
     // Scheduler display
     public string? UnallocatedColour { get; set; }
 

@@ -118,6 +118,10 @@ public class ApiService
         return await _http.GetFromJsonAsync<PriceResultDto>(url);
     }
 
+    // ── Company Config ──────────────────────────────────────────────
+    public Task<CompanyConfigDto?> GetCompanyConfigAsync()
+        => _http.GetFromJsonAsync<CompanyConfigDto>("/api/config");
+
     // ── Dashboard KPIs ────────────────────────────────────────────
     public Task<DashboardKpiDto?> GetDashboardKpisAsync()
         => _http.GetFromJsonAsync<DashboardKpiDto>("/api/dashboard/kpis");

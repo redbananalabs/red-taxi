@@ -31,9 +31,25 @@
     {
         if (firstRender)
         {
+            // Load map centre from CompanyConfig
+            decimal lat = 51.0478m, lng = -2.2769m;
+            int zoom = 13;
             try
             {
-                _mapInitialized = await JS.InvokeAsync<bool>("dispatchInterop.initMap", "dispatch-map");
+                var config = await Api.GetCompanyConfigAsync();
+                if (config != null)
+                {
+                    lat = config.MapCenterLatitude;
+                    lng = config.MapCenterLongitude;
+                    zoom = config.MapDefaultZoom;
+                }
+            }
+            catch { }
+
+            try
+            {
+                _mapInitialized = await JS.InvokeAsync<bool>(
+                    "dispatchInterop.initMap", "dispatch-map", (double)lat, (double)lng, zoom);
                 StateHasChanged();
             }
             catch (Exception ex)

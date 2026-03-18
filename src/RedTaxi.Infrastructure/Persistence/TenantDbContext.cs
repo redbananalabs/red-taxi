@@ -211,6 +211,8 @@ public class TenantDbContext : DbContext
             e.Property(c => c.AccountWaitingRatePerMinute).HasColumnType("decimal(18,2)");
             e.Property(c => c.AddressLookupLat).HasColumnType("decimal(10,6)");
             e.Property(c => c.AddressLookupLng).HasColumnType("decimal(10,6)");
+            e.Property(c => c.MapCenterLatitude).HasColumnType("decimal(10,6)");
+            e.Property(c => c.MapCenterLongitude).HasColumnType("decimal(10,6)");
         });
 
         // LocalPOI

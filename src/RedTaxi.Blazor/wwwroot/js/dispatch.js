@@ -52,15 +52,15 @@ window.dispatchInterop = {
     },
 
     // Initialize Google Maps (stub — requires API key)
-    initMap: function (elementId) {
+    initMap: function (elementId, lat, lng, zoom) {
         var mapEl = document.getElementById(elementId);
         if (!mapEl) return false;
 
         if (typeof google === 'undefined' || !google.maps) return false;
 
         this._map = new google.maps.Map(mapEl, {
-            center: { lat: 51.0478, lng: -2.2769 },
-            zoom: 13,
+            center: { lat: lat || 51.0478, lng: lng || -2.2769 },
+            zoom: zoom || 13,
             mapId: 'DISPATCH_MAP',
             disableDefaultUI: true,
             zoomControl: true,
