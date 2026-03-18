@@ -3778,3 +3778,54 @@ All 18 questions from §117 have been answered. No remaining unknowns except:
 | Google Calendar | Active sync | Phase 2 (keep but deprioritise) |
 | Review requests | Active | Include as configurable post-journey action |
 | Zone pricing | In progress (incomplete) | Complete implementation with polygon UI |
+
+---
+
+## 126. Zone Pricing UI — Complete Specification (from Replit Polygon Maker)
+
+Source: Live Replit app (Polygon Maker), 18/03/2026.
+
+### Polygon Editor
+- **Draw Polygon** button — click points on the Google Map to define a zone boundary
+- **Edit Mode** — adjust existing polygon points
+- **Clear All** — remove all polygons
+- **Zone Pricing** — opens the pricing matrix
+- **Search** — location search to navigate the map
+
+### Saved Polygons
+Each polygon shows:
+- Name (e.g. "Gillingham", "Heathrow Airport")
+- Points count (e.g. 6 vertices)
+- Area in km² (e.g. 147.48 km², 23.98 km²)
+- Created date
+- Edit (pencil icon) and Delete (trash icon) actions
+
+### Zone Pricing Matrix
+A grid/matrix showing **bidirectional pricing between every pair of zones**:
+
+```
+From \ To       | Gillingham        | Heathrow Airport
+                | Cost    | Price   | Cost    | Price
+─────────────────────────────────────────────────────
+Gillingham      |   —     |   —     |  210    |  245
+Heathrow Airport|  225    |  265    |   —     |   —
+```
+
+**Key rules:**
+- **Cost** = driver price (what the company pays the driver)
+- **Price** = customer/account price (what the customer is charged)
+- **Diagonal cells disabled** — cannot set a price for same-zone-to-same-zone travel
+- **Bidirectional** — Gillingham→Heathrow can have a different price than Heathrow→Gillingham (distance/route may differ)
+- **Editable inline** — operator types prices directly into grid cells
+- **"Save All Changes"** button persists all updates
+
+### Implementation Notes for Red Taxi
+1. **Polygon drawing** — Google Maps Drawing Manager API. Points stored as `List<LatLong>` on GeoFence entity.
+2. **Zone matching** — when a booking's pickup lat/lng falls inside a polygon AND destination falls inside another polygon, use the zone price instead of tariff calculation.
+3. **Matrix grows with zones** — adding a 3rd zone makes it a 3×3 matrix (6 price pairs). N zones = N×(N-1) price pairs.
+4. **Integration with pricing priority:**
+   ```
+   Manual override → Zone-to-Zone price → Fixed route (postcode) → Account tariff → Standard tariff
+   ```
+5. **Admin UI:** include polygon editor + zone pricing matrix in Company Settings → Pricing → Zone Pricing.
+6. **Per-tenant:** each tenant draws their own zones and sets their own prices. Stored in tenant DB.
