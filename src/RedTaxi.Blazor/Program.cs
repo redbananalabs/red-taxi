@@ -21,6 +21,8 @@ builder.Services.AddScoped(sp =>
     };
 });
 
+Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(
+    builder.Configuration["Syncfusion:LicenseKey"] ?? "");
 builder.Services.AddSyncfusionBlazor();
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<DispatchState>();
