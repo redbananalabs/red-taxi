@@ -3719,3 +3719,62 @@ When a row is expanded in Statement Processing, it shows:
 - **Vias:** (comma-separated via addresses, or empty)
 - **Details:** (booking notes, or empty)
 - **Scope:** Cash / Account / Rank / Card
+
+---
+
+## 124. Q&A Answers — Batch 3 (Questions 10-18) — ALL QUESTIONS RESOLVED
+
+**Q10: Driver notification channel?**
+Operator assigns the channel per driver depending on usage:
+- If driver uses the app → Push (FCM)
+- If not → WhatsApp or SMS
+Stored as `CommsPlatform` on UserProfile (per-driver, operator-controlled, not driver-chosen).
+
+**Q11: Luggage field?**
+Count (number of bags). Integer field on CashWebBookingDto.
+
+**Q12: Pusher channels?**
+Just caller ID — the only Pusher channel. Red Taxi replaces with SignalR for all real-time events.
+
+**Q13: Document storage?**
+Configurable per tenant. Options: Dropbox, S3-compatible (Hetzner Object Storage), or other cloud storage. Tenant configures in Company Settings → Document Storage.
+
+**Q14: Google Calendar integration?**
+Keep it — provides a backup view of bookings synced to Google Calendar. Low priority but valuable. Phase 2 feature for Red Taxi.
+
+**Q15: ReviewRequest?**
+Yes — sends review request SMS/email after journey completion, directing customer to Google Reviews or TrustPilot. Helps tenants build their online reputation. Include in Red Taxi as a configurable post-journey action.
+
+**Q16: Browser push notifications?**
+Yes — operators get browser push notifications in the dispatch console for:
+- New web booking submitted
+- Driver events (accepted, rejected, completed)
+Red Taxi: replace with SignalR-based notifications (already specced in dispatch layout).
+
+**Q17: Multi-booker login?**
+One shared login per account — all bookers for an account use the same credentials. AccountUserLink exists but is used for linking AppUser to Account, not for separate booker logins.
+Red Taxi change: we specced separate booker logins (§79). This is an IMPROVEMENT over legacy. Keep the Red Taxi spec.
+
+**Q18: DriverAllocation entity?**
+Tracks delivery of WhatsApp allocation messages specifically. Records whether the WhatsApp message was sent, delivered, and read for each allocation. Separate from the general BookingChangeAudit.
+
+---
+
+## 125. All Questions Resolved — Summary
+
+All 18 questions from §117 have been answered. No remaining unknowns except:
+- **Zone-to-zone pricing screenshots** — Peter to send Replit UI screenshots
+- **Driver Status panel screenshot** — can capture from live dispatch console when available
+
+### Decisions That Changed from Legacy → Red Taxi
+
+| Area | Legacy | Red Taxi |
+|------|--------|----------|
+| Multi-booker login | One shared login per account | Separate logins per booker (improvement) |
+| Notification channel | Operator assigns per driver | Same — operator assigns per driver |
+| Document storage | Dropbox only | Configurable per tenant (Dropbox / S3 / other) |
+| Pusher for real-time | Pusher (caller ID only) | SignalR for ALL real-time (replacement) |
+| Browser push | FCM browser push | SignalR-based notifications (replacement) |
+| Google Calendar | Active sync | Phase 2 (keep but deprioritise) |
+| Review requests | Active | Include as configurable post-journey action |
+| Zone pricing | In progress (incomplete) | Complete implementation with polygon UI |
