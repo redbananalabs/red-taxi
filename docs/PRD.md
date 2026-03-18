@@ -3829,3 +3829,492 @@ Heathrow Airport|  225    |  265    |   —     |   —
    ```
 5. **Admin UI:** include polygon editor + zone pricing matrix in Company Settings → Pricing → Zone Pricing.
 6. **Per-tenant:** each tenant draws their own zones and sets their own prices. Stored in tenant DB.
+
+---
+
+## 127. Complete Application Inventory (7 Apps)
+
+Red Taxi is a multi-app platform. All apps share the same API and design system.
+
+| # | App | Tech | Platform | Users | Priority |
+|---|-----|------|----------|-------|----------|
+| 1 | **Dispatch Console** | Blazor Server + Syncfusion | Web (Desktop) | Operators | Phase 1A |
+| 2 | **Tenant Admin Portal** | Blazor WASM | Web | Tenant admins | Phase 1B |
+| 3 | **Customer Web Portal** | Blazor WASM | Web | Account bookers | Phase 1B |
+| 4 | **Driver App** | Flutter | iOS + Android | Drivers | Phase 1B |
+| 5 | **Customer App** | Flutter | iOS + Android | Public passengers | Phase 1B |
+| 6 | **Operator Mobile App** | Flutter | iOS + Android | Operators on-the-go | Phase 1B |
+| 7 | **Marketing Website** | Next.js | Web | Prospective tenants | Phase 2 |
+
+### Shared Code
+- **RedTaxi.Shared** (.NET) — DTOs, validation, API client. Shared by apps 1-3.
+- **Flutter shared package** — API client, models, auth, design tokens. Shared by apps 4-6.
+- **Design tokens** (`design-tokens.json`) — consumed by all apps for consistent branding.
+
+---
+
+## 128. Operator Mobile App (Flutter — Phase 1B)
+
+**Purpose:** Operators (dispatchers, owner-drivers) who need to take bookings and manage dispatch while away from the desktop. This is NOT the full dispatch console — it's a streamlined mobile-first interface for essential operations.
+
+**Target users:**
+- Rural operators / owner-drivers who answer calls while driving
+- Operators stepping away from the desk temporarily
+- Small companies where the operator IS the driver
+
+### Navigation: Bottom Tab Bar (4 Tabs)
+
+```
+┌─────────┬──────────┬──────────┬──────────┐
+│  📋     │  🔔      │  🗺️      │  ⚙️      │
+│ Bookings│  Alerts  │  Live Map│  More    │
+└─────────┴──────────┴──────────┴──────────┘
+```
+
+| Tab | Description |
+|-----|-------------|
+| Bookings | Today's bookings list (filterable: all, unallocated, allocated, completed). Create new booking. |
+| Alerts | Pending web bookings (accept/reject), driver events, notifications, callers. |
+| Live Map | Live driver positions on Google Maps. Tap pin → driver detail + allocate. |
+| More | Quick links: accounts, drivers, reports, settings, messaging. |
+
+### Tab 1: Bookings (Home)
+
+**Today's Bookings List:**
+- Chronological list of today's bookings
+- Each card shows: time, pickup → destination, passenger, driver (or "Unallocated"), status colour
+- Filter pills at top: All | Unallocated | Allocated | Completed
+- Pull to refresh
+- Tap booking → booking detail (view/edit/allocate/cancel)
+- **"+ New Booking" FAB** (floating action button, brand-red, bottom right)
+
+**New Booking (Simplified Mobile Form):**
+- Pickup address (Google Places autocomplete)
+- Destination address
+- Date/time (defaults to now)
+- Passenger name
+- Phone number (with lookup button → same caller popup as desktop)
+- Scope: Cash / Account / Card (dropdown)
+- Account selection (if scope = Account)
+- Price (auto-calculated, editable)
+- ASAP toggle
+- Passengers count
+- Save button → creates booking
+- No via management on mobile (use desktop for complex bookings)
+- No repeat booking on mobile (use desktop)
+
+**Booking Detail:**
+- Full booking info (same fields as desktop context panel §96)
+- Action buttons: Allocate, Edit, Complete, Cancel, Send Payment Link
+- Allocate → driver list (searchable, colour-coded, type driver number)
+
+### Tab 2: Alerts
+
+**Pending Web Bookings:**
+- List of unprocessed web bookings (from customer app and web portal)
+- Each shows: passenger, pickup, destination, time, account (if any)
+- Two action buttons per item: **Accept** (creates real booking) / **Reject** (declines with reason)
+- Badge count on tab icon
+
+**Driver Events:**
+- Driver accepted job
+- Driver rejected / timed out
+- Driver completed job
+- Driver went online/offline
+
+**Caller Queue:**
+- If 3CX/VoIP integrated: incoming call popup (same as desktop §98)
+- Tap caller → same Active/History tabs → confirm to pre-fill form
+
+### Tab 3: Live Map
+
+- Google Maps with live driver pins (GPS positions)
+- Pins colour-coded by driver colour
+- Tap pin → driver flyout: name, status, current job, vehicle
+- From flyout: "Allocate Next Job" or "Send Message"
+- Unallocated bookings shown as pulsing pins at pickup locations
+- Tap unallocated pin → quick allocate from nearby drivers
+
+### Tab 4: More
+
+Quick access menu:
+- Drivers (list, on-shift status)
+- Accounts (list, search)
+- Messages (direct + global)
+- Today's Stats (bookings, revenue, turn-downs)
+- CONF SA (confirm all soft allocates)
+- Settings
+- Switch to Desktop (opens dispatch console URL in browser)
+
+### Key Design Decisions
+- **No scheduler/diary view on mobile** — the timeline is too complex for small screens. Use the booking list instead.
+- **No merge mode** — school run merging requires drag-and-drop, desktop only.
+- **No invoice/statement processing** — billing is desktop-only.
+- **Push notifications** — same events as desktop browser push, via FCM.
+- **Works offline** — booking list cached, new bookings queued for sync.
+- **Same auth** — operator logs in with same credentials as desktop. JWT shared.
+
+---
+
+## 129. Customer App — Complete Screen-by-Screen Design
+
+Extending §46 with full screen inventory. Flutter, iOS + Android.
+
+### Screen 1: Splash / Tenant Selection
+- App opens → detect location via GPS
+- Show nearby taxi companies (tenants within service area)
+- Or: search by company name / area
+- Select company → app re-brands with tenant's logo + colours
+- "Remember my company" option for returning users
+
+### Screen 2: Login / Register
+- Phone number input
+- "Send OTP" → SMS/WhatsApp verification code
+- Enter 6-digit OTP
+- If new user: enter name → account created
+- If returning: auto-login with saved token
+
+### Screen 3: Home (Booking)
+- Map showing current location
+- "Where to?" search bar (Google Places autocomplete)
+- Recent addresses (home, work, favourites) as quick-select chips
+- Tap search → enter destination → see route + price
+
+### Screen 4: Booking Confirmation
+- Route shown on map (pickup → destination)
+- Vehicle type selector (Saloon, Estate, SUV, MPV, WAV) with prices
+- Passenger count selector (filters vehicle types by capacity)
+- Date/time: "Now" (ASAP, if tenant enables) or schedule for later
+- Payment method: saved card, Apple Pay, Google Pay, Revolut, cash
+- Upfront fixed quote displayed prominently
+- Via stops: "Add Stop" button (max 5)
+- Luggage count
+- Notes field (gate code, instructions)
+- "Confirm Booking" button → submits to API as pending web booking
+
+### Screen 5: Booking Submitted
+- "Your booking has been submitted" confirmation
+- "Waiting for confirmation" spinner
+- Estimated wait time
+- Cancel option
+- Push notification when operator accepts/rejects
+
+### Screen 6: Driver Allocated
+- Driver name, photo (if available), vehicle make/model/colour, registration
+- Driver rating (stars)
+- Live map showing driver position approaching pickup
+- ETA countdown (recalculated from GPS every 30 seconds)
+- In-app chat button → opens chat with driver (§58)
+- "Cancel Booking" option (cancellation policy applies)
+- Call driver button (opens phone dialler)
+
+### Screen 7: Driver Arriving
+- "Your driver is arriving" banner
+- Map zoomed to pickup area
+- Driver details prominent
+- Status: "X minutes away"
+
+### Screen 8: In Journey
+- Map showing route progress (driver moving along route)
+- ETA to destination
+- Trip status bar: Pickup → [current position] → Destination
+- In-app chat still available
+- "Share trip" button (sends tracking link to someone else)
+
+### Screen 9: Trip Complete
+- "You've arrived" confirmation
+- Trip summary: route, distance, duration
+- Price (final — may differ from quote if waiting time added)
+- Payment auto-processed (card) or "Pay driver" (cash)
+- Rate your driver (1-5 stars) → submit
+- Review request: "How was your experience with [Company]?" → link to Google Reviews / TrustPilot
+- "Book Again" shortcut → re-books same route
+- Receipt sent via push + email
+
+### Screen 10: Booking History
+- List of past trips: date, route, price, status
+- Tap → full trip detail (receipt, route map, driver)
+- "Re-book" button per trip
+- Filter by date range
+
+### Screen 11: Saved Places
+- Home, Work, Favourites
+- Add new saved place (search + name)
+- Edit / delete
+
+### Screen 12: Payment Methods
+- Saved cards (Stripe tokenised)
+- Add new card
+- Apple Pay / Google Pay toggle
+- Revolut linked account
+- Default payment method selection
+
+### Screen 13: Profile
+- Name, phone number, email
+- Edit profile
+- Notification preferences (push on/off, SMS on/off)
+- Language (English v1)
+- Delete account (GDPR)
+
+### Screen 14: Active Bookings
+- List of upcoming/scheduled bookings
+- Status indicator per booking
+- Tap → full detail + cancel option
+
+### Screen 15: Tracking Page (also accessible via URL)
+- Shared tracking URL can be opened in any browser
+- Shows live driver position on map
+- ETA
+- Driver details
+- No login required (public URL with short code)
+
+---
+
+## 130. Web Booking Accept/Reject Workflow
+
+When a booking is submitted from the customer app or account web portal, it does NOT become a real booking immediately. It becomes a **WebBooking** (pending) that the operator must review.
+
+### Flow
+1. Customer/account booker submits booking → `WebBooking` created in DB
+2. Operator notified via: browser push notification + in-app alert (toast) + sound
+3. WebBooking appears in the **Alerts tab** (operator mobile app) or **Pending Web Bookings** panel (dispatch console)
+4. Operator reviews the booking details
+5. **Accept:** system creates a real `Booking` from the WebBooking data, marks WebBooking as Accepted. Customer notified "Booking confirmed."
+6. **Reject:** system marks WebBooking as Rejected. Customer notified "Booking declined" with optional reason.
+
+### Accept Actions
+On accept, the system:
+- Creates a Booking entity with all details from WebBooking
+- Sets scope (Account for account bookings, Cash/Card for public)
+- Sends confirmation email/SMS to customer (if configured)
+- Booking appears on scheduler as unallocated
+- Operator can immediately allocate a driver
+
+### Reject Reasons
+Operator selects a reason (or types custom):
+- Outside service area
+- No drivers available at that time
+- Too short notice
+- Price dispute
+- Other (free text)
+
+### Amendment Requests (Account Portal)
+Account bookers can also submit amendment requests:
+1. Account booker changes time/address on an existing booking in the portal
+2. `WebAmendmentRequest` created (pending)
+3. Operator reviews → Approve (booking updated) or Reject (no change, booker notified)
+
+---
+
+## 131. Review Request System
+
+Post-journey review solicitation to help tenants build online reputation.
+
+### Flow
+1. Journey completed → configurable delay (e.g. 30 minutes after completion)
+2. System sends review request via SMS/email to customer
+3. Message contains: "Thank you for travelling with {CompanyName}. Rate your experience: {ReviewUrl}"
+4. ReviewUrl links to Google Reviews or TrustPilot (configurable per tenant)
+
+### Configuration (Company Settings)
+- **Enable/disable** review requests
+- **Delay** after completion (minutes, default 30)
+- **Channel:** SMS / Email / Both
+- **Review URL:** Google Reviews link or TrustPilot link (tenant enters their business page URL)
+- **Message template:** customisable with placeholders ({PassengerName}, {CompanyName}, {ReviewUrl})
+- **Frequency cap:** don't send to same customer more than once per X days (configurable, default 30)
+
+### ReviewRequest Entity
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | int | PK |
+| BookingId | int | Which booking triggered this |
+| CustomerId | string | Phone number or email |
+| SentAt | DateTime | When the request was sent |
+| Channel | enum | SMS / Email |
+| ReviewUrl | string | The URL sent to customer |
+
+---
+
+## 132. Fixed Route Pricing (Postcode-Based)
+
+Separate from zone-to-zone pricing (§111). Fixed routes use exact postcode prefix matching.
+
+### How It Works
+1. Tenant defines fixed-price routes in Company Settings → Pricing → Fixed Routes
+2. Each route: pickup postcode prefix + destination postcode prefix + driver price + account price
+3. When a booking's pickup postcode starts with the prefix AND destination starts with the prefix → fixed price applied instead of tariff calculation
+
+### Example
+| Pickup Prefix | Destination Prefix | Driver Price | Account Price |
+|--------------|-------------------|-------------|--------------|
+| SP8 | DT9 | £14.00 | £18.00 |
+| SP7 | DT9 | £19.00 | £25.00 |
+| SP8 | BA12 | £75.00 | £95.00 |
+
+### Pricing Priority (Final — Complete)
+```
+1. Manual override (operator edits price, ManuallyPriced = true)
+2. Zone-to-Zone price (pickup in Zone A, destination in Zone B)
+3. Fixed route (postcode prefix match)
+4. Account tariff (if booking is for an account with a tariff)
+5. Standard tariff (Day/Night/Holiday based on pickup time)
+```
+
+### CRUD
+- Add fixed route: pickup prefix, destination prefix, driver price, account price
+- Edit existing routes
+- Delete routes
+- Import/export as CSV
+- Bidirectional flag: optionally create the reverse route at the same time
+
+---
+
+## 133. Notification Sounds
+
+Four audio events in the dispatch console:
+
+| Event | Sound File | When |
+|-------|-----------|------|
+| New web booking | `new_web_booking.mp3` | Customer app or web portal booking submitted |
+| Driver event | `driver_audio.mp3` | Driver accepted, rejected, completed, timed out |
+| System alert | `system_audio.mp3` | System warnings, errors, connectivity issues |
+| General notification | `notification_ping.mp3` | Messages, reminders, non-urgent events |
+
+### Configuration
+- Each sound can be toggled on/off per tenant in Company Settings → Notifications
+- Volume control (0-100%) per sound type
+- Custom sounds: tenant can upload their own MP3 files to replace defaults
+- Browser audio permission: dispatch console requests audio permission on first load
+- Mobile apps (driver + operator): use device notification sound settings
+
+---
+
+## 134. Booking Lifecycle — Complete State Machine (Definitive)
+
+```
+                    ┌─────────────────────────────────────┐
+                    │           BOOKING CREATED            │
+                    │  (Unallocated, on scheduler)         │
+                    └──────┬────────────────┬──────────────┘
+                           │                │
+                    ┌──────▼──────┐  ┌──────▼──────┐
+                    │   SOFT      │  │   HARD      │
+                    │  ALLOCATED  │  │  ALLOCATED  │
+                    │  (dashed    │  │  (solid     │
+                    │   border)   │  │   colour)   │
+                    └──────┬──────┘  └──────┬──────┘
+                           │                │
+                    CONF SA│                │ Notification
+                    batch  │                │ sent to driver
+                           │                │
+                    ┌──────▼────────────────▼──────────────┐
+                    │          ALLOCATED                    │
+                    │  Status = None (waiting for driver)   │
+                    └──────┬────────────────┬──────────────┘
+                           │                │
+                    ┌──────▼──────┐  ┌──────▼──────┐
+                    │  ACCEPTED   │  │  REJECTED   │
+                    │  (diagonal  │  │  [R] prefix │
+                    │   stripes)  │  │  or [RT]    │
+                    └──────┬──────┘  │  timeout    │
+                           │         └─────────────┘
+                    ┌──────▼──────┐
+                    │  ON ROUTE   │  (driver heading to pickup)
+                    └──────┬──────┘
+                    ┌──────▼──────┐
+                    │  ARRIVED    │  (driver at pickup, customer SMS sent)
+                    └──────┬──────┬──────────────────┐
+                           │      │                  │
+                    ┌──────▼──┐  ┌▼─────────┐  ┌────▼────┐
+                    │PASSENGER│  │   COA     │  │ CANCEL  │
+                    │ONBOARD  │  │(no-show)  │  │         │
+                    └──────┬──┘  └───────────┘  └─────────┘
+                    ┌──────▼──────┐
+                    │  COMPLETED  │  (driver submits: waiting, parking, price)
+                    └─────────────┘
+
+    At ANY point before Completed:
+    → CANCEL (operator or customer cancels)
+    → REALLOCATE (transfer to different driver)
+    → AMEND (change time, address, details)
+    
+    After Completed:
+    → CAN be reopened for amendment (price, waiting, parking)
+    → Posted to invoice (account) or statement (driver)
+```
+
+### Status Enum Values (from code)
+| Status | Value | Scheduler Visual | Driver App |
+|--------|-------|-----------------|------------|
+| None | 0 | Solid driver colour | "Allocated" |
+| AcceptedJob | 1 | Diagonal stripes | "Accepted" |
+| RejectedJob | 2 | [R] prefix, greyed | — |
+| Complete | 3 | 30% opacity | "Completed" |
+| RejectedJobTimeout | 4 | [RT] prefix, greyed | — |
+
+### Driver App Status Flow (AppJobStatus)
+| Status | Value | Driver Action |
+|--------|-------|--------------|
+| OnRoute | 3003 | Driver tapped "On Route" |
+| AtPickup | 3004 | Driver tapped "I've Arrived" (or auto via GPS) |
+| PassengerOnBoard | 3005 | Driver tapped "Passenger Onboard" |
+| SoonToClear | 3006 | Approaching destination |
+| Clear | 3007 | Journey done, ready for completion form |
+| NoJob | 3008 | No active job |
+
+---
+
+## 135. PRD Completeness Verification
+
+### All Apps Documented
+| App | Spec Location | Status |
+|-----|--------------|--------|
+| Dispatch Console | §42, §95-100, design/dispatch-layout.md | ✅ Complete |
+| Tenant Admin Portal | §119, §121 (nav), §83 (settings) | ✅ Complete |
+| Customer Web Portal | §113, §79 | ✅ Complete |
+| Driver App (Flutter) | §78, §94, §109, §115, design/driver-app.md | ✅ Complete |
+| Customer App (Flutter) | §46, §129 | ✅ Complete |
+| Operator Mobile App (Flutter) | §128 | ✅ Complete (NEW) |
+| Marketing Website | §74 | ✅ Specced |
+
+### All Modules Documented
+| Module | Spec Sections | Status |
+|--------|--------------|--------|
+| Booking CRUD | §76, §84-85, §96, §99, §101 | ✅ Complete |
+| Booking lifecycle/state machine | §6, §134 | ✅ Complete |
+| Pricing (tariff) | §7, §102, §105 | ✅ Complete |
+| Pricing (account tariff) | §102, §107 | ✅ Complete |
+| Pricing (zone-to-zone) | §111, §126 | ✅ Complete |
+| Pricing (fixed route) | §132 | ✅ Complete (NEW) |
+| Dispatch / allocation | §50, §77, §92, §97, §102 | ✅ Complete |
+| Scheduler | §43, §95 | ✅ Complete |
+| Repeat bookings / block | §84, §85, §101, §103 | ✅ Complete |
+| School run merge/split | §9, §76, §102 | ✅ Complete |
+| Settlement / commission | §89, §105 | ✅ Complete |
+| Invoice processing | §79, §80, §118 | ✅ Complete |
+| Statement processing | §80, §105, §120 | ✅ Complete |
+| Driver management | §78, §52, §53, §107 | ✅ Complete |
+| Availability | §123, §110 | ✅ Complete |
+| Account management | §79, §107 | ✅ Complete |
+| Messaging / SMS / WhatsApp | §81, §103, §110 | ✅ Complete |
+| Telephony / caller ID | §98, §110 | ✅ Complete |
+| Payments (Revolut) | §102, §107 | ✅ Complete |
+| COA | §8, §95, §102 | ✅ Complete |
+| Web booking accept/reject | §130 | ✅ Complete (NEW) |
+| Customer tracking / ETA | §51, §129 | ✅ Complete |
+| In-app chat | §58 | ✅ Complete |
+| Ratings | §56, §129 | ✅ Complete |
+| Review requests | §131 | ✅ Complete (NEW) |
+| Documents / expiry | §52, §103, §110 | ✅ Complete |
+| Reporting | §82, §112 | ✅ Complete |
+| VAT | §54, §105 | ✅ Complete |
+| GDPR | §64, §67 | ✅ Complete |
+| Audit trail | §62, §110 | ✅ Complete |
+| RBAC / roles | §63, §101, §103 | ✅ Complete |
+| Local POIs | §87, §103 | ✅ Complete |
+| Airport runs | §88, §103 | ✅ Complete |
+| Service area | §57 | ✅ Complete |
+| Notification sounds | §133 | ✅ Complete (NEW) |
+| SaaS / tenancy | §36-40, §83 | ✅ Complete |
+| Billing / pricing model | §38, saas-pricing.md | ✅ Complete |
