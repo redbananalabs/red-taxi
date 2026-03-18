@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using RedTaxi.Domain.Entities;
+using RedTaxi.Domain.Interfaces;
 
 namespace RedTaxi.Infrastructure.Persistence;
 
@@ -328,5 +329,11 @@ public class TenantDbContext : DbContext
             e.HasKey(u => u.Id);
             e.HasIndex(u => u.ShortCode).IsUnique();
         });
+
+        // Soft delete global query filters
+        modelBuilder.Entity<Booking>().HasQueryFilter(b => !b.IsDeleted);
+        modelBuilder.Entity<Account>().HasQueryFilter(a => !a.IsDeleted);
+        modelBuilder.Entity<UserProfile>().HasQueryFilter(u => !u.IsDeleted);
+        modelBuilder.Entity<Customer>().HasQueryFilter(c => !c.IsDeleted);
     }
 }

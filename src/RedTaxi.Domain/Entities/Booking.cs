@@ -1,9 +1,13 @@
 using RedTaxi.Domain.Enums;
+using RedTaxi.Domain.Interfaces;
 
 namespace RedTaxi.Domain.Entities;
 
-public class Booking
+public class Booking : ISoftDeletable
 {
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+
     public int Id { get; set; }
 
     // Pickup

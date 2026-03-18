@@ -1,9 +1,13 @@
 using RedTaxi.Domain.Enums;
+using RedTaxi.Domain.Interfaces;
 
 namespace RedTaxi.Domain.Entities;
 
-public class Account
+public class Account : ISoftDeletable
 {
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+
     public int Id { get; set; }
     public int AccountNumber { get; set; }
     public string CompanyName { get; set; } = string.Empty;

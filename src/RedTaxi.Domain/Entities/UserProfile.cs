@@ -1,9 +1,13 @@
 using RedTaxi.Domain.Enums;
+using RedTaxi.Domain.Interfaces;
 
 namespace RedTaxi.Domain.Entities;
 
-public class UserProfile
+public class UserProfile : ISoftDeletable
 {
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+
     public int Id { get; set; }
 
     /// <summary>FK to ASP.NET Identity user.</summary>

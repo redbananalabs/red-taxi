@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
 using RedTaxi.Domain.Enums;
+using RedTaxi.Domain.Interfaces;
 
 namespace RedTaxi.Domain.Entities;
 
-public class Customer
+public class Customer : ISoftDeletable
 {
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;

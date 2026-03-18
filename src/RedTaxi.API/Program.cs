@@ -1,17 +1,23 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using Hangfire;
 using Hangfire.SqlServer;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using RedTaxi.Application.Common.Behaviours;
 using RedTaxi.Application.Hubs;
 using RedTaxi.API.Middleware;
 using RedTaxi.API.Services;
 using RedTaxi.Application;
 using RedTaxi.Domain.Interfaces;
 using RedTaxi.Infrastructure.ExternalServices;
+using RedTaxi.Application.Jobs;
 using RedTaxi.Infrastructure.Persistence;
+using RedTaxi.Infrastructure.Redis;
 using RedTaxi.Infrastructure.Tenancy;
 using Serilog;
 using StackExchange.Redis;
@@ -34,7 +40,13 @@ try
         cfg.ReadFrom.Configuration(ctx.Configuration)
            .ReadFrom.Services(services)
            .Enrich.FromLogContext()
-           .WriteTo.Console());
+           .WriteTo.Console()
+           .WriteTo.Seq(ctx.Configuration["Seq:Url"] ?? "http://localhost:5341"));
+
+    // -----------------------------------------------------------------------
+    // Sentry
+    // -----------------------------------------------------------------------
+    builder.WebHost.UseSentry(o => { o.Dsn = builder.Configuration["Sentry:Dsn"] ?? ""; });
 
     // -----------------------------------------------------------------------
     // DbContexts
@@ -61,7 +73,11 @@ try
     // MediatR
     // -----------------------------------------------------------------------
     builder.Services.AddMediatR(cfg =>
-        cfg.RegisterServicesFromAssembly(typeof(IApplicationMarker).Assembly));
+    {
+        cfg.RegisterServicesFromAssembly(typeof(IApplicationMarker).Assembly);
+        cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(LoggingBehaviour<,>));
+        cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
+    });
 
     // -----------------------------------------------------------------------
     // FluentValidation
@@ -107,7 +123,13 @@ try
             };
         });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+        options.AddPolicy("DispatcherOrAdmin", policy => policy.RequireRole("Admin", "User"));
+        options.AddPolicy("DriverOnly", policy => policy.RequireRole("Driver"));
+        options.AddPolicy("AccountOnly", policy => policy.RequireRole("Account"));
+    });
 
     // -----------------------------------------------------------------------
     // CORS — allow localhost dev origins
@@ -174,6 +196,7 @@ try
         config.AbortOnConnectFail = false;
         return ConnectionMultiplexer.Connect(config);
     });
+    builder.Services.AddSingleton<ICacheService, RedisCacheService>();
 
     // -----------------------------------------------------------------------
     // Hangfire
@@ -229,6 +252,9 @@ try
     // Google Places
     builder.Services.AddScoped<GooglePlacesService>();
 
+    // PDF generation (QuestPDF)
+    builder.Services.AddScoped<PdfService>();
+
     // Template rendering and message dispatching
     builder.Services.AddScoped<RedTaxi.Application.Messaging.Services.TemplateRenderer>();
     builder.Services.AddScoped<RedTaxi.Application.Messaging.Services.MessageDispatcher>();
@@ -246,6 +272,21 @@ try
             redisConnectionString,
             name: "redis",
             tags: ["cache", "redis"]);
+
+    // -----------------------------------------------------------------------
+    // Rate Limiting
+    // -----------------------------------------------------------------------
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.User?.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 100,
+                    Window = TimeSpan.FromMinutes(1)
+                }));
+    });
 
     // -----------------------------------------------------------------------
     // MVC controllers
@@ -298,6 +339,7 @@ try
 
     app.UseHttpsRedirection();
     app.UseCors("LocalDev");
+    app.UseRateLimiter();
 
     app.UseAuthentication();
     app.UseAuthorization();
@@ -312,6 +354,12 @@ try
     app.MapHangfireDashboard(
         builder.Configuration["Hangfire:DashboardPath"] ?? "/hangfire");
     app.MapHealthChecks("/health");
+
+    // -----------------------------------------------------------------------
+    // Hangfire recurring jobs
+    // -----------------------------------------------------------------------
+    RecurringJob.AddOrUpdate<AutoCompleteBookingsJob>("auto-complete-bookings",
+        job => job.ExecuteAsync(), Cron.Hourly);
 
     app.Run();
 }

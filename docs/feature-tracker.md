@@ -17,18 +17,18 @@ Last Updated: 2026-03-18
 | B03 | Master DB (RedTaxi_Platform) — tenants, Stripe | §36 | ✅ | 4 tables, Stripe products seeded |
 | B04 | Tenant DB (RedTaxi_ace) — all business entities | §36 | ✅ | 45 tables, 10 seed bookings confirmed |
 | B05 | JWT authentication + refresh tokens | §63 | ✅ | Login returns JWT, bookings/today works with token |
-| B06 | Role-based access (Admin/Dispatcher/Viewer/Accountant/Restricted) | §63, §103 | 🔴 | Roles defined in enum, RBAC middleware not verified |
-| B07 | EF Core global query filters (soft deletes) | §36 | 🔴 | Not verified |
-| B08 | MediatR pipeline (validation, logging) | §44 | 🟡 | Handlers exist, pipeline behaviours not verified |
+| B06 | Role-based access (Admin/Dispatcher/Viewer/Accountant/Restricted) | §63, §103 | ✅ | 4 policies: AdminOnly, DispatcherOrAdmin, DriverOnly, AccountOnly |
+| B07 | EF Core global query filters (soft deletes) | §36 | ✅ | Booking, Account, UserProfile, Customer implement ISoftDeletable |
+| B08 | MediatR pipeline (validation, logging) | §44 | ✅ | ValidationBehaviour + LoggingBehaviour registered |
 | B09 | Domain events infrastructure | §137 | 🟡 | Event handlers exist, verify publishing works |
-| B10 | Redis cache integration | §35 | 🔴 | Not verified — is Redis actually used? |
-| B11 | Hangfire job scheduler | §35 | 🔴 | Not verified — auto-complete, recurring jobs |
+| B10 | Redis cache integration | §35 | ✅ | ICacheService + RedisCacheService for driver GPS/shift state |
+| B11 | Hangfire job scheduler | §35 | ✅ | AutoCompleteBookingsJob runs hourly |
 | B12 | SignalR hub infrastructure | §137 | 🟡 | Hub exists, end-to-end not tested |
-| B13 | Sentry error monitoring | §65 | 🔴 | Not implemented |
-| B14 | Seq structured logging | §65 | 🔴 | Not implemented |
-| B15 | Health check endpoint (/health) | §137 | 🔴 | Not implemented |
-| B16 | API rate limiting | §72 | 🔴 | Not implemented |
-| B17 | CORS configuration | — | 🔴 | Not verified |
+| B13 | Sentry error monitoring | §65 | ✅ | Sentry.AspNetCore configured, reads Sentry:Dsn |
+| B14 | Seq structured logging | §65 | ✅ | Serilog.Sinks.Seq configured, reads Seq:Url |
+| B15 | Health check endpoint (/health) | §137 | ✅ | Verified — SQL + Redis health checks mapped |
+| B16 | API rate limiting | §72 | ✅ | Fixed window: 100 req/min per user/IP |
+| B17 | CORS configuration | — | ✅ | LocalDev policy verified with 5 dev origins |
 
 ---
 
