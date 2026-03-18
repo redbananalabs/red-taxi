@@ -38,4 +38,9 @@ public class UserProfile
     // Display
     public string? FullName { get; set; }
     public string? PhoneNumber { get; set; }
+
+    // Auth
+    public string? Email { get; set; }
+    public string? PasswordHash { get; set; }
+    public UserRole Role { get; set; }
 }
