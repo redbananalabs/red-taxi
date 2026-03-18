@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 using RedTaxi.Application.Fleet.Commands;
 using RedTaxi.Application.Fleet.Queries;
 using RedTaxi.Shared.DTOs;
+using DriverDocumentDto = RedTaxi.Shared.DTOs.DriverDocumentDto;
+using ExpenseDto = RedTaxi.Application.Fleet.Queries.ExpenseDto;
 
 namespace RedTaxi.API.Controllers;
 
@@ -100,5 +102,24 @@ public class DriversController : ControllerBase
 
         var id = await _mediator.Send(command);
         return CreatedAtAction(nameof(GetDocuments), new { userId }, new { id });
+    }
+
+    // ---- Expenses ----
+
+    [HttpGet("{userId:int}/expenses")]
+    public async Task<ActionResult<List<ExpenseDto>>> GetExpenses(int userId)
+    {
+        var result = await _mediator.Send(new GetExpensesQuery(userId));
+        return Ok(result);
+    }
+
+    [HttpPost("{userId:int}/expenses")]
+    public async Task<ActionResult<int>> AddExpense(int userId, [FromBody] AddExpenseCommand command)
+    {
+        if (userId != command.UserId)
+            return BadRequest(new { message = "UserId mismatch." });
+
+        var id = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetExpenses), new { userId }, new { id });
     }
 }

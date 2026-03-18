@@ -34,15 +34,20 @@ public class CompleteBookingCommandHandler : IRequestHandler<CompleteBookingComm
         booking.Status = BookingStatus.Complete;
         booking.DateUpdated = DateTime.UtcNow;
 
+        var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+
         // PR14: Waiting time pricing — calculate charges when driver recorded waiting time
-        if (booking.WaitingTimeMinutes > 0)
+        if (booking.WaitingTimeMinutes > 0 && config != null)
         {
-            var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
-            if (config != null)
-            {
-                booking.WaitingTimePriceDriver = booking.WaitingTimeMinutes * config.DriverWaitingRatePerMinute;
-                booking.WaitingTimePriceAccount = booking.WaitingTimeMinutes * config.AccountWaitingRatePerMinute;
-            }
+            booking.WaitingTimePriceDriver = booking.WaitingTimeMinutes * config.DriverWaitingRatePerMinute;
+            booking.WaitingTimePriceAccount = booking.WaitingTimeMinutes * config.AccountWaitingRatePerMinute;
+        }
+
+        // PM10: VAT on card payments
+        if (booking.Scope == BookingScope.Card && config != null
+            && config.AddVatOnCardPayments && booking.Price > 0)
+        {
+            booking.VatAmountAdded = booking.Price - (booking.Price / 1.2m);
         }
 
         // Edge case: if Scope == Cash, auto-set PaymentStatus to Paid

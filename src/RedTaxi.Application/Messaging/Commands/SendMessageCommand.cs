@@ -1,5 +1,7 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using RedTaxi.Domain.Entities;
+using RedTaxi.Domain.Enums;
 using RedTaxi.Infrastructure.Persistence;
 
 namespace RedTaxi.Application.Messaging.Commands;
@@ -19,17 +21,55 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, int
 
     public async Task<int> Handle(SendMessageCommand request, CancellationToken cancellationToken)
     {
-        var message = new DriverMessage
+        if (request.DriverUserId.HasValue)
         {
-            UserId = request.DriverUserId,
-            Message = request.MessageText,
-            Read = false,
-            DateCreated = DateTime.UtcNow,
-        };
+            // MS09: Direct message to specific driver
+            var message = new DriverMessage
+            {
+                UserId = request.DriverUserId,
+                Message = request.MessageText,
+                Read = false,
+                DateCreated = DateTime.UtcNow,
+            };
 
-        _db.DriverMessages.Add(message);
-        await _db.SaveChangesAsync(cancellationToken);
+            _db.DriverMessages.Add(message);
+            await _db.SaveChangesAsync(cancellationToken);
+            return message.Id;
+        }
+        else
+        {
+            // MS10: Broadcast to all active drivers
+            var activeDriverIds = await _db.UserProfiles
+                .AsNoTracking()
+                .Where(u => u.IsActive && u.Role == UserRole.Driver)
+                .Select(u => u.UserId)
+                .ToListAsync(cancellationToken);
 
-        return message.Id;
+            var firstId = 0;
+            foreach (var driverId in activeDriverIds)
+            {
+                var message = new DriverMessage
+                {
+                    UserId = driverId,
+                    Message = request.MessageText,
+                    Read = false,
+                    DateCreated = DateTime.UtcNow,
+                };
+                _db.DriverMessages.Add(message);
+            }
+
+            // Also add a broadcast record with null UserId for audit
+            var broadcastMessage = new DriverMessage
+            {
+                UserId = null,
+                Message = request.MessageText,
+                Read = false,
+                DateCreated = DateTime.UtcNow,
+            };
+            _db.DriverMessages.Add(broadcastMessage);
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return broadcastMessage.Id;
+        }
     }
 }

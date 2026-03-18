@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hangfire;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,7 +7,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using RedTaxi.Application.Payments.Commands;
 using RedTaxi.Domain.Enums;
+using RedTaxi.Domain.Events;
 using RedTaxi.Domain.Interfaces;
+using RedTaxi.Infrastructure.ExternalServices;
 using RedTaxi.Infrastructure.Persistence;
 using Stripe;
 
@@ -20,17 +23,20 @@ public class PaymentsController : ControllerBase
     private readonly IPaymentService _paymentService;
     private readonly TenantDbContext _db;
     private readonly ILogger<PaymentsController> _logger;
+    private readonly IPublisher _publisher;
 
     public PaymentsController(
         IMediator mediator,
         IPaymentService paymentService,
         TenantDbContext db,
-        ILogger<PaymentsController> logger)
+        ILogger<PaymentsController> logger,
+        IPublisher publisher)
     {
         _mediator = mediator;
         _paymentService = paymentService;
         _db = db;
         _logger = logger;
+        _publisher = publisher;
     }
 
     /// <summary>Creates a payment link for a booking and optionally sends it to the customer.</summary>
@@ -95,6 +101,13 @@ public class PaymentsController : ControllerBase
                     await _db.SaveChangesAsync();
                     _logger.LogInformation("Booking {BookingId} marked as paid via Revolut order {OrderId}.",
                         booking.Id, orderId);
+
+                    // PM09: Generate and send payment receipt
+                    if (!string.IsNullOrEmpty(booking.Email) && !booking.PaymentReceiptSent)
+                    {
+                        BackgroundJob.Enqueue<PaymentReceiptJob>(job =>
+                            job.SendAsync(booking.Id));
+                    }
                 }
             }
             else if (eventType == "ORDER_PAYMENT_FAILED" && !string.IsNullOrEmpty(orderId))
@@ -145,6 +158,13 @@ public class PaymentsController : ControllerBase
                         booking.PaymentStatus = PaymentStatus.Paid;
                         await _db.SaveChangesAsync();
                         _logger.LogInformation("Booking {BookingId} marked as paid via tenant Stripe.", bookingId);
+
+                        // PM09: Generate and send payment receipt
+                        if (!string.IsNullOrEmpty(booking.Email) && !booking.PaymentReceiptSent)
+                        {
+                            BackgroundJob.Enqueue<PaymentReceiptJob>(job =>
+                                job.SendAsync(booking.Id));
+                        }
                     }
                 }
             }
@@ -159,4 +179,44 @@ public class PaymentsController : ControllerBase
 
     public record CreatePaymentLinkRequest(int BookingId, string? Channel);
     public record RefundRequest(string OrderId, decimal Amount);
+}
+
+public class PaymentReceiptJob
+{
+    private readonly TenantDbContext _db;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<PaymentReceiptJob> _logger;
+
+    public PaymentReceiptJob(TenantDbContext db, IEmailService emailService, ILogger<PaymentReceiptJob> logger)
+    {
+        _db = db;
+        _emailService = emailService;
+        _logger = logger;
+    }
+
+    public async Task SendAsync(int bookingId)
+    {
+        var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.Id == bookingId);
+        if (booking == null || string.IsNullOrEmpty(booking.Email) || booking.PaymentReceiptSent)
+            return;
+
+        var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync();
+        var companyName = config?.CompanyName ?? "Red Taxi";
+
+        var html = $"<h2>Payment Receipt</h2>"
+            + $"<p>Thank you for your payment.</p>"
+            + $"<p><strong>Company:</strong> {companyName}</p>"
+            + $"<p><strong>Booking:</strong> #{booking.Id}</p>"
+            + $"<p><strong>Pickup:</strong> {booking.PickupAddress}</p>"
+            + $"<p><strong>Destination:</strong> {booking.DestinationAddress}</p>"
+            + $"<p><strong>Amount Paid:</strong> &pound;{booking.Price:F2}</p>"
+            + $"<p><strong>Date:</strong> {booking.PickupDateTime:dd/MM/yyyy HH:mm}</p>";
+
+        await _emailService.SendAsync(booking.Email, $"Payment Receipt - {companyName}", html);
+
+        booking.PaymentReceiptSent = true;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Payment receipt sent for booking {BookingId} to {Email}.", bookingId, booking.Email);
+    }
 }

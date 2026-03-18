@@ -1,7 +1,9 @@
+using Hangfire;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using RedTaxi.Domain.Entities;
 using RedTaxi.Domain.Enums;
+using RedTaxi.Infrastructure.ExternalServices;
 using RedTaxi.Infrastructure.Persistence;
 using RedTaxi.Shared.DTOs;
 
@@ -19,10 +21,14 @@ public record CreateInvoiceCommand(
 public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand, InvoiceDto>
 {
     private readonly TenantDbContext _db;
+    private readonly PdfService _pdfService;
+    private readonly IEmailService _emailService;
 
-    public CreateInvoiceCommandHandler(TenantDbContext db)
+    public CreateInvoiceCommandHandler(TenantDbContext db, PdfService pdfService, IEmailService emailService)
     {
         _db = db;
+        _pdfService = pdfService;
+        _emailService = emailService;
     }
 
     public async Task<InvoiceDto> Handle(CreateInvoiceCommand request, CancellationToken cancellationToken)
@@ -79,11 +85,55 @@ public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand,
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        // AB10: Send invoice email if account has ContactEmail
+        if (!string.IsNullOrEmpty(account.ContactEmail))
+        {
+            var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync(cancellationToken);
+            var companyName = config?.CompanyName ?? "Red Taxi";
+            var pdfData = new InvoicePdfData(
+                companyName,
+                invoice.InvoiceNumber.ToString(),
+                account.CompanyName,
+                account.AccountNumber.ToString(),
+                invoice.PeriodStart,
+                invoice.PeriodEnd,
+                jobs.Select(j => new InvoiceJobLine(
+                    j.PickupDateTime, j.PickupAddress, j.DestinationAddress ?? "",
+                    j.PassengerName ?? "", j.Mileage ?? 0, j.PriceAccount)).ToList(),
+                invoice.NetAmount, invoice.VatAmount, invoice.TotalAmount);
+            var contactEmail = account.ContactEmail;
+            var invoiceNumber = invoice.InvoiceNumber;
+
+            BackgroundJob.Enqueue<InvoiceEmailJob>(job =>
+                job.SendAsync(contactEmail, companyName, invoiceNumber, pdfData));
+        }
+
         return new InvoiceDto(
             invoice.Id, invoice.AccountId, invoice.AccountNumber, account.CompanyName,
             invoice.InvoiceNumber, invoice.InvoiceDate,
             invoice.PeriodStart, invoice.PeriodEnd,
             invoice.TotalAmount, invoice.VatAmount, invoice.NetAmount,
             invoice.IsPaid, invoice.PaidDate);
+    }
+}
+
+public class InvoiceEmailJob
+{
+    private readonly PdfService _pdfService;
+    private readonly IEmailService _emailService;
+
+    public InvoiceEmailJob(PdfService pdfService, IEmailService emailService)
+    {
+        _pdfService = pdfService;
+        _emailService = emailService;
+    }
+
+    public async Task SendAsync(string email, string companyName, int invoiceNumber, InvoicePdfData pdfData)
+    {
+        var pdfBytes = _pdfService.GenerateInvoicePdf(pdfData);
+        var base64 = Convert.ToBase64String(pdfBytes);
+        var html = $"<p>Please find attached Invoice #{invoiceNumber} from {companyName}.</p>"
+            + $"<p>Total: &pound;{pdfData.TotalAmount:F2}</p>";
+        await _emailService.SendAsync(email, $"Invoice #{invoiceNumber} from {companyName}", html);
     }
 }

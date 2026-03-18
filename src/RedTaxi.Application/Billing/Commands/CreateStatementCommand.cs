@@ -1,8 +1,10 @@
+using Hangfire;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using RedTaxi.Application.Billing.Services;
 using RedTaxi.Domain.Entities;
 using RedTaxi.Domain.Enums;
+using RedTaxi.Infrastructure.ExternalServices;
 using RedTaxi.Infrastructure.Persistence;
 using RedTaxi.Shared.DTOs;
 
@@ -20,10 +22,14 @@ public record CreateStatementCommand(
 public class CreateStatementCommandHandler : IRequestHandler<CreateStatementCommand, StatementDto>
 {
     private readonly TenantDbContext _db;
+    private readonly PdfService _pdfService;
+    private readonly IEmailService _emailService;
 
-    public CreateStatementCommandHandler(TenantDbContext db)
+    public CreateStatementCommandHandler(TenantDbContext db, PdfService pdfService, IEmailService emailService)
     {
         _db = db;
+        _pdfService = pdfService;
+        _emailService = emailService;
     }
 
     public async Task<StatementDto> Handle(CreateStatementCommand request, CancellationToken cancellationToken)
@@ -88,6 +94,29 @@ public class CreateStatementCommandHandler : IRequestHandler<CreateStatementComm
 
         await _db.SaveChangesAsync(cancellationToken);
 
+        // AB19: Send statement email to driver
+        if (!string.IsNullOrEmpty(driver.Email))
+        {
+            var companyName = config.CompanyName ?? "Red Taxi";
+            var driverName = driver.FullName ?? "Driver";
+            var statementPdfData = new StatementPdfData(
+                companyName, driverName,
+                statement.PeriodStart, statement.PeriodEnd,
+                statement.EarningsCash, statement.EarningsCard,
+                statement.EarningsAccount, statement.EarningsRank,
+                statement.TotalCommission, statement.CardFees,
+                statement.TotalExpenses, statement.NetPayable,
+                jobs.Select(j => new StatementJobLine(
+                    j.PickupDateTime,
+                    j.Scope?.ToString() ?? "N/A",
+                    j.Price,
+                    0m)).ToList());
+            var driverEmail = driver.Email;
+
+            BackgroundJob.Enqueue<StatementEmailJob>(job =>
+                job.SendAsync(driverEmail, companyName, driverName, statementPdfData));
+        }
+
         return new StatementDto(
             statement.Id, statement.UserId, driver.FullName,
             statement.StatementDate, statement.PeriodStart, statement.PeriodEnd,
@@ -96,5 +125,27 @@ public class CreateStatementCommandHandler : IRequestHandler<CreateStatementComm
             statement.TotalCommission, statement.CardFees,
             statement.TotalExpenses, statement.SubTotal, statement.NetPayable,
             statement.JobCount);
+    }
+}
+
+public class StatementEmailJob
+{
+    private readonly PdfService _pdfService;
+    private readonly IEmailService _emailService;
+
+    public StatementEmailJob(PdfService pdfService, IEmailService emailService)
+    {
+        _pdfService = pdfService;
+        _emailService = emailService;
+    }
+
+    public async Task SendAsync(string email, string companyName, string driverName, StatementPdfData pdfData)
+    {
+        var pdfBytes = _pdfService.GenerateStatementPdf(pdfData);
+        var base64 = Convert.ToBase64String(pdfBytes);
+        var html = $"<p>Dear {driverName},</p>"
+            + $"<p>Please find attached your driver statement from {companyName}.</p>"
+            + $"<p>Net Payable: &pound;{pdfData.NetPayable:F2}</p>";
+        await _emailService.SendAsync(email, $"Driver Statement from {companyName}", html);
     }
 }

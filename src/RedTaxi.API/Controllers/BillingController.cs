@@ -31,6 +31,16 @@ public class BillingController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("chargeable-grouped")]
+    public async Task<ActionResult<GroupedJobsResult>> GetGroupedChargeableJobs(
+        [FromQuery] int accountNumber,
+        [FromQuery] DateTime from,
+        [FromQuery] DateTime to)
+    {
+        var result = await _mediator.Send(new GetGroupedChargeableJobsQuery(accountNumber, from, to));
+        return Ok(result);
+    }
+
     [HttpPost("post-for-invoicing")]
     public async Task<ActionResult<int>> PostJobsForInvoicing([FromBody] PostJobsForInvoicingCommand command)
     {

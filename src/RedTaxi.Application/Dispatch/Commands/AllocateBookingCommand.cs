@@ -1,5 +1,7 @@
+using Hangfire;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using RedTaxi.Application.Jobs;
 using RedTaxi.Domain.Entities;
 using RedTaxi.Domain.Enums;
 using RedTaxi.Domain.Events;
@@ -38,6 +40,23 @@ public class AllocateBookingCommandHandler : IRequestHandler<AllocateBookingComm
 
         int? previousDriver = booking.UserId;
 
+        // DS02: Un-allocate previous driver first
+        if (previousDriver.HasValue)
+        {
+            var previousAllocation = await _db.DriverAllocations
+                .Where(a => a.BookingId == booking.Id && a.UserId == previousDriver.Value && a.UnallocatedAt == null)
+                .OrderByDescending(a => a.AllocatedAt)
+                .FirstOrDefaultAsync(ct);
+
+            if (previousAllocation != null)
+            {
+                previousAllocation.UnallocatedAt = DateTime.UtcNow;
+                previousAllocation.UnallocatedByName = _currentUser.UserName;
+            }
+
+            await _publisher.Publish(new BookingUnallocatedEvent(booking.Id, previousDriver.Value), ct);
+        }
+
         booking.UserId = request.DriverUserId;
         booking.SuggestedUserId = null; // clear soft allocate
         booking.AllocatedAt = DateTime.UtcNow;
@@ -56,7 +75,7 @@ public class AllocateBookingCommandHandler : IRequestHandler<AllocateBookingComm
 
         // Create job offer
         var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
-        _db.JobOffers.Add(new JobOffer
+        var jobOffer = new JobOffer
         {
             BookingId = booking.Id,
             UserId = request.DriverUserId,
@@ -64,9 +83,30 @@ public class AllocateBookingCommandHandler : IRequestHandler<AllocateBookingComm
             OfferedAt = DateTime.UtcNow,
             Channel = SendMessageOfType.Push,
             AttemptNumber = 1,
+        };
+        _db.JobOffers.Add(jobOffer);
+
+        // DS04: Audit log entry
+        _db.BookingChangeAudits.Add(new BookingChangeAudit
+        {
+            EntityIdentifier = booking.Id.ToString(),
+            UserFullName = "System",
+            TimeStamp = DateTime.UtcNow,
+            PropertyName = "UserId",
+            OldValue = previousDriver?.ToString(),
+            NewValue = request.DriverUserId.ToString(),
+            Action = "Allocated",
+            EntityName = "Booking"
         });
 
         await _db.SaveChangesAsync(ct);
+
+        // DS08/DS09: Schedule job offer timeout via Hangfire
+        var timeoutSeconds = config?.JobOfferTimeoutSeconds ?? 120;
+        BackgroundJob.Schedule<JobOfferTimeoutJob>(
+            job => job.CheckTimeout(jobOffer.OfferGuid),
+            TimeSpan.FromSeconds(timeoutSeconds));
+
         await _publisher.Publish(new BookingAllocatedEvent(booking.Id, request.DriverUserId, previousDriver), ct);
 
         return true;
