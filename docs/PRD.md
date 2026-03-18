@@ -4785,3 +4785,32 @@ The original §42 spec had a map-centric layout with floating panels (Uber-style
 
 ### Keyboard Shortcuts Still Apply (§23)
 All shortcuts from §23 still work. Cmd+K opens command palette, Tab cycles focus, etc.
+
+---
+
+## 143. STRATEGIC PIVOT — Wrap Legacy, Don't Rewrite
+
+### Decision
+The v1 "rewrite from scratch" approach produced 47K lines of scaffolded code that's ~40% working after a full day. The legacy system has 142K lines that ALL work and operators use daily.
+
+**New approach: wrap the legacy system with multi-tenancy + SaaS billing. Keep everything that works. Only build what's genuinely new.**
+
+### What This Means
+- Legacy backend (TaxiDispatch.API + Lib) becomes the core, wrapped in tenant middleware
+- Legacy React frontends (dispatcher, admin, web booker) stay in production
+- Legacy Flutter driver app stays in production
+- NEW: multi-tenancy layer, SaaS billing, customer app, operator mobile app, marketing site
+- Hardcoded Ace-specific values extracted to CompanyConfig (configurable per tenant)
+- Full strategy: `docs/build-strategy-v2.md`
+
+### What We Keep from the New Build
+- Per-tenant DB resolver (TenantConnectionResolver)
+- Stripe integration (StripeSeedService, StripeWebhookController)
+- Payment service (dual Stripe/Revolut)
+- Google Distance Matrix + Places services
+- Flutter shared package (for customer + operator apps)
+- All 142 PRD sections (requirements still valid)
+- Feature tracker (235 features — update to track legacy + new)
+- Design tokens
+
+### Estimated Timeline: ~15 working days (vs weeks for v1)
