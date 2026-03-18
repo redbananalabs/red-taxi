@@ -418,15 +418,25 @@ body {
     overflow: hidden;
 }
 
+.map-area {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .map-container {
     width: 100%;
     height: 100%;
-    position: relative;
+    position: absolute;
+    inset: 0;
 }
 
 .map-element {
     width: 100%;
     height: 100%;
+    position: absolute;
+    inset: 0;
 }
 
 .map-placeholder {

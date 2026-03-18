@@ -54,24 +54,26 @@ window.dispatchInterop = {
     // Initialize Google Maps (stub — requires API key)
     initMap: function (elementId) {
         var mapEl = document.getElementById(elementId);
-        if (!mapEl) return;
+        if (!mapEl) return false;
 
-        // Check if Google Maps API is loaded
-        if (typeof google !== 'undefined' && google.maps) {
-            this._map = new google.maps.Map(mapEl, {
-                center: { lat: 51.0478, lng: -2.2769 }, // Gillingham, Dorset
-                zoom: 12,
-                disableDefaultUI: true,
-                zoomControl: true,
-                styles: this._darkMapStyles
-            });
+        if (typeof google === 'undefined' || !google.maps) return false;
 
-            // Hide placeholder when map loads
-            var placeholder = mapEl.parentElement.querySelector('.map-placeholder');
-            if (placeholder) {
-                placeholder.style.display = 'none';
-            }
-        }
+        this._map = new google.maps.Map(mapEl, {
+            center: { lat: 51.0478, lng: -2.2769 },
+            zoom: 13,
+            mapId: 'DISPATCH_MAP',
+            disableDefaultUI: true,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            colorScheme: 'DARK'
+        });
+
+        var placeholder = mapEl.parentElement ? mapEl.parentElement.querySelector('.map-placeholder') : null;
+        if (placeholder) placeholder.style.display = 'none';
+
+        return true;
     },
 
     // DC02: Update driver marker on map with status colours

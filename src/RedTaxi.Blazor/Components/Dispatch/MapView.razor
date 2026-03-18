@@ -33,12 +33,12 @@
         {
             try
             {
-                await JS.InvokeVoidAsync("dispatchInterop.initMap", "dispatch-map");
-                _mapInitialized = true;
+                _mapInitialized = await JS.InvokeAsync<bool>("dispatchInterop.initMap", "dispatch-map");
+                StateHasChanged();
             }
-            catch
+            catch (Exception ex)
             {
-                // Map JS not loaded yet or API key not configured
+                Console.WriteLine($"Map init failed: {ex.Message}");
             }
 
             await LoadDriverLocations();
