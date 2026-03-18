@@ -27,8 +27,19 @@ public class CompleteBookingCommandHandler : IRequestHandler<CompleteBookingComm
         if (booking.Status == BookingStatus.Complete)
             return false;
 
+        // Edge case: cannot complete before PickupDateTime
+        if (DateTime.UtcNow < booking.PickupDateTime)
+            throw new InvalidOperationException("Cannot complete a booking before its pickup date/time.");
+
         booking.Status = BookingStatus.Complete;
         booking.DateUpdated = DateTime.UtcNow;
+
+        // Edge case: if Scope == Cash, auto-set PaymentStatus to Paid
+        if (booking.Scope == BookingScope.Cash)
+        {
+            booking.PaymentStatus = PaymentStatus.Paid;
+        }
+        // If Scope == Card, don't change PaymentStatus — handled by payment webhook
 
         await _db.SaveChangesAsync(ct);
         await _publisher.Publish(new BookingCompletedEvent(booking.Id), ct);

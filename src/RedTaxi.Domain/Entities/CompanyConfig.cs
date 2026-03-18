@@ -35,6 +35,9 @@ public class CompanyConfig
     public int DefaultBlockBookingMonths { get; set; } = 6;
     public int MinimumJourneyMinutes { get; set; } = 15;
 
+    /// <summary>Hours after PickupDateTime before a forgotten booking is auto-completed. Default 24.</summary>
+    public int AutoCompleteHours { get; set; } = 24;
+
     // Auto-dispatch settings
     public bool AutoDispatchEnabled { get; set; }
     public int JobOfferTimeoutSeconds { get; set; } = 120;

@@ -109,4 +109,53 @@ public class BookingsController : ControllerBase
         var result = await _mediator.Send(new DuplicateBookingCommand(id, newPickupDateTime), ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
+
+    /// <summary>POST api/bookings/merge — Merge two school run bookings</summary>
+    [HttpPost("merge")]
+    public async Task<ActionResult<BookingDto>> MergeSchoolRuns(
+        [FromBody] MergeSchoolRunsRequest request, CancellationToken ct)
+    {
+        var result = await _mediator.Send(
+            new MergeSchoolRunsCommand(request.SourceBookingId, request.TargetBookingId), ct);
+        return Ok(result);
+    }
+
+    /// <summary>POST api/bookings/{id}/generate-block — Generate individual bookings from recurrence rules</summary>
+    [HttpPost("{id:int}/generate-block")]
+    public async Task<ActionResult<List<BookingDto>>> GenerateBlock(int id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GenerateBlockBookingsCommand(id), ct);
+        return Ok(result);
+    }
+
+    /// <summary>POST api/bookings/{id}/return — Create a return booking with reversed addresses</summary>
+    [HttpPost("{id:int}/return")]
+    public async Task<ActionResult<BookingDto>> CreateReturn(
+        int id, [FromQuery] DateTime returnPickupDateTime, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new CreateReturnBookingCommand(id, returnPickupDateTime), ct);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    /// <summary>POST api/bookings/auto-complete — Hangfire job endpoint to auto-complete forgotten bookings</summary>
+    [HttpPost("auto-complete")]
+    public async Task<ActionResult<int>> AutoComplete(CancellationToken ct)
+    {
+        var count = await _mediator.Send(new AutoCompleteBookingsCommand(), ct);
+        return Ok(count);
+    }
+
+    /// <summary>POST api/bookings/cancel-range — Cancel a range of block bookings</summary>
+    [HttpPost("cancel-range")]
+    public async Task<ActionResult<int>> CancelRange(
+        [FromBody] CancelBookingRangeRequest request, CancellationToken ct)
+    {
+        var count = await _mediator.Send(
+            new CancelBookingRangeCommand(request.BookingId, request.CancelAll, request.CancelFromDate), ct);
+        return Ok(count);
+    }
 }
+
+// ── Request DTOs for controller endpoints ───────────────────────────────────
+public record MergeSchoolRunsRequest(int SourceBookingId, int TargetBookingId);
+public record CancelBookingRangeRequest(int BookingId, bool CancelAll, DateTime? CancelFromDate);

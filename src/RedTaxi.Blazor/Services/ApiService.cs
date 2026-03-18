@@ -46,6 +46,44 @@ public class ApiService
     public Task CompleteBookingAsync(int id)
         => _http.PostAsync($"/api/bookings/{id}/complete", null);
 
+    public async Task<BookingDto?> MergeSchoolRunsAsync(int sourceBookingId, int targetBookingId)
+    {
+        var response = await _http.PostAsJsonAsync("/api/bookings/merge",
+            new { SourceBookingId = sourceBookingId, TargetBookingId = targetBookingId });
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<BookingDto>();
+    }
+
+    public async Task<List<BookingDto>?> GenerateBlockBookingsAsync(int parentBookingId)
+    {
+        var response = await _http.PostAsync($"/api/bookings/{parentBookingId}/generate-block", null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<BookingDto>>();
+    }
+
+    public async Task<BookingDto?> CreateReturnBookingAsync(int originalBookingId, DateTime returnPickupDateTime)
+    {
+        var response = await _http.PostAsync(
+            $"/api/bookings/{originalBookingId}/return?returnPickupDateTime={returnPickupDateTime:o}", null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<BookingDto>();
+    }
+
+    public async Task<int> AutoCompleteBookingsAsync()
+    {
+        var response = await _http.PostAsync("/api/bookings/auto-complete", null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>();
+    }
+
+    public async Task<int> CancelBookingRangeAsync(int bookingId, bool cancelAll, DateTime? cancelFromDate)
+    {
+        var response = await _http.PostAsJsonAsync("/api/bookings/cancel-range",
+            new { BookingId = bookingId, CancelAll = cancelAll, CancelFromDate = cancelFromDate });
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<int>();
+    }
+
     // ── Dispatch ──────────────────────────────────────────────────
     public Task AllocateDriverAsync(int bookingId, int driverUserId)
         => _http.PostAsJsonAsync($"/api/dispatch/allocate", new { BookingId = bookingId, DriverUserId = driverUserId });

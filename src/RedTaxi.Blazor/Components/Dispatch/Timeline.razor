@@ -1,14 +1,18 @@
 @inject DispatchState State
 @inject ApiService Api
-@implements IDisposable
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
-<div class="timeline @(State.IsTimelineExpanded ? "timeline-expanded" : "")">
+<div class="timeline @(State.IsTimelineExpanded ? "timeline-expanded" : "") @(_isMergeMode ? "merge-mode-active" : "")">
     <div class="timeline-header">
         <div class="timeline-header-left">
             <h3 class="timeline-title">Timeline</h3>
             <span class="timeline-date font-mono">@State.SelectedDate.ToString("ddd dd MMM yyyy")</span>
         </div>
         <div class="timeline-header-right">
+            <button class="merge-mode-btn @(_isMergeMode ? "active" : "")" @onclick="ToggleMergeMode" title="Toggle merge mode — drop booking onto another to merge school runs">
+                MERGE MODE
+            </button>
             <button class="timeline-nav-btn" @onclick="PrevDay" title="Previous day">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
@@ -30,6 +34,14 @@
     </div>
 
     <div class="timeline-body">
+        <!-- Unallocated drop zone -->
+        <div class="unallocated-drop-zone"
+             ondragover="window.timelineDragDrop.onDragOver(event)"
+             ondragleave="window.timelineDragDrop.onDragLeave(event)"
+             ondrop="window.timelineDragDrop.onDropUnallocated(event)">
+            Drop here to unallocate
+        </div>
+
         <!-- Time columns header -->
         <div class="timeline-grid">
             <div class="timeline-driver-col timeline-header-cell">Driver</div>
@@ -47,7 +59,12 @@
         {
             @foreach (var driver in _drivers)
             {
-                <div class="timeline-row" @onclick="() => State.SelectDriver(driver)">
+                var driverUserId = driver.UserId;
+                <div class="timeline-row"
+                     @onclick="() => State.SelectDriver(driver)"
+                     ondragover="window.timelineDragDrop.onDragOver(event)"
+                     ondragleave="window.timelineDragDrop.onDragLeave(event)"
+                     ondrop="window.timelineDragDrop.onDrop(event, @driverUserId)">
                     <div class="timeline-driver-col">
                         <span class="timeline-driver-dot" style="background-color: @(driver.ColorCodeRGB ?? "#6B7280")"></span>
                         <span class="timeline-driver-name">@driver.FullName</span>
@@ -63,12 +80,34 @@
                         <div class="timeline-hour-col timeline-cell @(hour == DateTime.Now.Hour && State.SelectedDate == DateTime.Today ? "timeline-current-hour" : "")">
                             @foreach (var booking in bookingsInHour)
                             {
-                                <div class="timeline-block @GetStatusClass(booking.Status)"
-                                     title="@booking.PickupAddress → @booking.DestinationAddress"
-                                     @onclick:stopPropagation="true"
-                                     @onclick="() => State.SelectBooking(booking)">
-                                    <span class="font-mono">@booking.PickupDateTime.ToString("HH:mm")</span>
-                                </div>
+                                var bid = booking.Id;
+                                if (_isMergeMode)
+                                {
+                                    <div class="timeline-block @GetStatusClass(booking.Status)"
+                                         draggable="true"
+                                         title="@booking.PickupAddress → @booking.DestinationAddress"
+                                         ondragstart="window.timelineDragDrop.onDragStart(event, @bid)"
+                                         ondragend="window.timelineDragDrop.onDragEnd(event)"
+                                         ondragover="window.timelineDragDrop.onDragOverBooking(event)"
+                                         ondragleave="window.timelineDragDrop.onDragLeave(event)"
+                                         ondrop="window.timelineDragDrop.onDropOnBooking(event, @bid)"
+                                         @onclick:stopPropagation="true"
+                                         @onclick="() => State.SelectBooking(booking)">
+                                        <span class="font-mono">@booking.PickupDateTime.ToString("HH:mm")</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="timeline-block @GetStatusClass(booking.Status)"
+                                         draggable="true"
+                                         title="@booking.PickupAddress → @booking.DestinationAddress"
+                                         ondragstart="window.timelineDragDrop.onDragStart(event, @bid)"
+                                         ondragend="window.timelineDragDrop.onDragEnd(event)"
+                                         @onclick:stopPropagation="true"
+                                         @onclick="() => State.SelectBooking(booking)">
+                                        <span class="font-mono">@booking.PickupDateTime.ToString("HH:mm")</span>
+                                    </div>
+                                }
                             }
                         </div>
                     }
@@ -90,9 +129,52 @@
     </div>
 </div>
 
+<!-- Merge confirmation dialog -->
+@if (_showMergeDialog && _mergeSource != null && _mergeTarget != null)
+{
+    <div class="modal-overlay" @onclick="CancelMerge">
+        <div class="merge-dialog" @onclick:stopPropagation="true">
+            <div class="merge-dialog-header">
+                <span class="merge-dialog-title">Merge School Runs</span>
+                <button class="panel-close" @onclick="CancelMerge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                </button>
+            </div>
+            <div class="merge-dialog-body">
+                <div class="merge-dialog-pair">
+                    <div class="merge-dialog-booking">
+                        <div class="merge-dialog-booking-label">Source (will be cancelled)</div>
+                        <div class="merge-dialog-booking-id">#@_mergeSource.Id</div>
+                        <div class="merge-dialog-booking-route">@_mergeSource.PickupAddress → @_mergeSource.DestinationAddress</div>
+                    </div>
+                    <span class="merge-dialog-arrow">→</span>
+                    <div class="merge-dialog-booking">
+                        <div class="merge-dialog-booking-label">Target (will be updated)</div>
+                        <div class="merge-dialog-booking-id">#@_mergeTarget.Id</div>
+                        <div class="merge-dialog-booking-route">@_mergeTarget.PickupAddress → @_mergeTarget.DestinationAddress</div>
+                    </div>
+                </div>
+                <p style="font-size: 12px; color: var(--text-muted);">
+                    The source booking will be cancelled and its pickup/destination merged as a via on the target.
+                    Passenger names and counts will be combined.
+                </p>
+            </div>
+            <div class="merge-dialog-actions">
+                <button class="btn-outline" @onclick="CancelMerge">Cancel</button>
+                <button class="btn-primary" @onclick="ConfirmMerge">Merge Bookings</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<DriverDto> _drivers = new();
     private List<BookingDto> _bookings = new();
+    private bool _isMergeMode;
+    private bool _showMergeDialog;
+    private BookingDto? _mergeSource;
+    private BookingDto? _mergeTarget;
+    private DotNetObjectReference<Timeline>? _dotNetRef;
 
     protected override void OnInitialized()
     {
@@ -102,6 +184,15 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("timelineDragDrop.init", _dotNetRef);
+        }
     }
 
     private async void HandleStateChange()
@@ -133,6 +224,87 @@
     private void Today() => State.SetDate(DateTime.Today);
     private void NextDay() => State.SetDate(State.SelectedDate.AddDays(1));
 
+    private void ToggleMergeMode()
+    {
+        _isMergeMode = !_isMergeMode;
+    }
+
+    // ── Drag-and-drop callbacks invoked from JS ─────────────────────
+
+    [JSInvokable]
+    public async Task OnBookingDroppedOnDriver(int bookingId, int targetDriverUserId)
+    {
+        try
+        {
+            await Api.AllocateDriverAsync(bookingId, targetDriverUserId);
+            await LoadData();
+            StateHasChanged();
+        }
+        catch
+        {
+            // Allocation failed — swallow silently for now
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnBookingDroppedOnUnallocated(int bookingId)
+    {
+        try
+        {
+            await Api.UnallocateBookingAsync(bookingId);
+            await LoadData();
+            StateHasChanged();
+        }
+        catch
+        {
+            // Unallocation failed
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnBookingDroppedOnBooking(int sourceBookingId, int targetBookingId)
+    {
+        if (!_isMergeMode) return;
+
+        _mergeSource = _bookings.FirstOrDefault(b => b.Id == sourceBookingId);
+        _mergeTarget = _bookings.FirstOrDefault(b => b.Id == targetBookingId);
+
+        if (_mergeSource != null && _mergeTarget != null)
+        {
+            _showMergeDialog = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ConfirmMerge()
+    {
+        if (_mergeSource == null || _mergeTarget == null) return;
+
+        try
+        {
+            await Api.MergeSchoolRunsAsync(_mergeSource.Id, _mergeTarget.Id);
+            await LoadData();
+        }
+        catch
+        {
+            // Merge failed
+        }
+        finally
+        {
+            _showMergeDialog = false;
+            _mergeSource = null;
+            _mergeTarget = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelMerge()
+    {
+        _showMergeDialog = false;
+        _mergeSource = null;
+        _mergeTarget = null;
+    }
+
     private static string GetStatusClass(int? status) => status switch
     {
         0 => "block-unallocated",
@@ -145,8 +317,20 @@
         _ => "block-unallocated"
     };
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         State.OnChange -= HandleStateChange;
+        if (_dotNetRef != null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("timelineDragDrop.dispose");
+            }
+            catch
+            {
+                // JSRuntime may be unavailable during disposal
+            }
+            _dotNetRef.Dispose();
+        }
     }
 }
