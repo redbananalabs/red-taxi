@@ -1,0 +1,45 @@
+@inject NavigationManager Nav
+
+<a class="nav-item @(IsActive ? "active" : "")" href="@Href" title="@Label">
+    <span class="nav-icon">@IconChar</span>
+    @if (!Collapsed)
+    {
+        <span class="nav-label">@Label</span>
+    }
+</a>
+
+@code {
+    [Parameter] public string Href { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "circle";
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public bool Collapsed { get; set; }
+
+    private bool IsActive => Nav.Uri.Contains(Href, StringComparison.OrdinalIgnoreCase)
+                             && Href != "admin" || Nav.Uri.EndsWith(Href, StringComparison.OrdinalIgnoreCase);
+
+    private string IconChar => Icon switch
+    {
+        "grid" => "\u2630",
+        "book-open" => "\u2637",
+        "users" => "\u263A",
+        "truck" => "\u26DF",
+        "tag" => "\u2606",
+        "layers" => "\u2261",
+        "file-text" => "\u2637",
+        "archive" => "\u2610",
+        "file" => "\u2610",
+        "clipboard" => "\u2611",
+        "minus-circle" => "\u2296",
+        "percent" => "%",
+        "calendar" => "\u2612",
+        "map-pin" => "\u2690",
+        "dollar-sign" => "$",
+        "bar-chart" => "\u2584",
+        "trending-up" => "\u2197",
+        "award" => "\u2605",
+        "settings" => "\u2699",
+        "message-square" => "\u2709",
+        "map" => "\u2691",
+        _ => "\u25CF"
+    };
+}

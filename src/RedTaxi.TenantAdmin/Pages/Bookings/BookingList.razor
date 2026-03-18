@@ -1,0 +1,70 @@
+@page "/admin/bookings"
+@attribute [Authorize]
+@inject AdminApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Bookings - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Bookings</h1>
+</div>
+
+<DataTable TItem="BookingDto" Items="_bookings" Loading="_loading"
+           OnRowClick="ViewBooking" OnSearch="SearchBookings">
+    <HeaderTemplate>
+        <th>ID</th>
+        <th>Pickup</th>
+        <th>Destination</th>
+        <th>Passenger</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Price</th>
+    </HeaderTemplate>
+    <RowTemplate Context="b">
+        <td>@b.Id</td>
+        <td>@Truncate(b.PickupAddress, 30)</td>
+        <td>@Truncate(b.DestinationAddress, 30)</td>
+        <td>@b.PassengerName</td>
+        <td>@b.PickupDateTime.ToString("dd/MM/yyyy HH:mm")</td>
+        <td><StatusBadge Status="@GetStatusText(b.Status)" /></td>
+        <td>&pound;@b.Price.ToString("N2")</td>
+    </RowTemplate>
+</DataTable>
+
+@code {
+    private List<BookingDto> _bookings = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _bookings = await Api.FindBookingsAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private async Task SearchBookings(string search)
+    {
+        _loading = true;
+        try { _bookings = await Api.FindBookingsAsync(search); }
+        catch { }
+        finally { _loading = false; StateHasChanged(); }
+    }
+
+    private void ViewBooking(BookingDto b) => Nav.NavigateTo($"admin/bookings/{b.Id}");
+
+    private static string Truncate(string? s, int max) =>
+        string.IsNullOrEmpty(s) ? "-" : (s.Length <= max ? s : s[..max] + "...");
+
+    private static string GetStatusText(int? status) => status switch
+    {
+        0 => "Unallocated",
+        1 => "Allocated",
+        2 => "Accepted",
+        3 => "On Route",
+        4 => "Arrived",
+        5 => "In Progress",
+        6 => "Completed",
+        7 => "Cancelled",
+        _ => "Unknown"
+    };
+}

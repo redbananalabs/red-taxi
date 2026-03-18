@@ -1,0 +1,37 @@
+@page "/admin/reports/driver-earnings"
+@attribute [Authorize]
+
+<PageTitle>Driver Earnings - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Driver Earnings</h1>
+</div>
+
+<FormCard Title="Period">
+    <div class="form-row">
+        <div class="form-group">
+            <label>From</label>
+            <InputDate class="form-input" @bind-Value="_dateFrom" />
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <InputDate class="form-input" @bind-Value="_dateTo" />
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="() => _generated = true">Generate</button>
+        </div>
+    </div>
+</FormCard>
+
+@if (_generated)
+{
+    <FormCard Title="Earnings Summary">
+        <div class="table-empty">Driver earnings data will appear here when connected to the reporting API.</div>
+    </FormCard>
+}
+
+@code {
+    private DateTime _dateFrom = DateTime.Today.AddMonths(-1);
+    private DateTime _dateTo = DateTime.Today;
+    private bool _generated;
+}

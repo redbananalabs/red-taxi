@@ -1,0 +1,26 @@
+<span class="status-badge @CssClass">@DisplayText</span>
+
+@code {
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public bool? IsActive { get; set; }
+
+    private string DisplayText => IsActive.HasValue
+        ? (IsActive.Value ? "Active" : "Inactive")
+        : (Status ?? "Unknown");
+
+    private string CssClass
+    {
+        get
+        {
+            if (IsActive.HasValue) return IsActive.Value ? "badge-success" : "badge-danger";
+            return (Status?.ToLowerInvariant()) switch
+            {
+                "active" or "completed" or "paid" or "online" => "badge-success",
+                "pending" or "allocated" or "processing" => "badge-warning",
+                "cancelled" or "inactive" or "offline" => "badge-danger",
+                "draft" or "unallocated" => "badge-info",
+                _ => "badge-default"
+            };
+        }
+    }
+}

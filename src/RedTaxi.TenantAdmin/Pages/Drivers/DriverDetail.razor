@@ -1,0 +1,73 @@
+@page "/admin/drivers/{Id:int}"
+@attribute [Authorize]
+@inject AdminApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Driver - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("admin/drivers")'>Back</button>
+    <h1>Driver: @(_driver?.FullName ?? "...")</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else if (_driver is null)
+{
+    <div class="table-empty">Driver not found.</div>
+}
+else
+{
+    <div class="detail-grid">
+        <FormCard Title="Profile">
+            <div class="form-row">
+                <div class="form-group"><label>Full Name</label><div class="form-static">@_driver.FullName</div></div>
+                <div class="form-group"><label>Phone</label><div class="form-static">@_driver.PhoneNumber</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Colour</label>
+                    <div class="form-static">
+                        @if (!string.IsNullOrEmpty(_driver.ColorCodeRGB))
+                        {
+                            <span class="driver-color-lg" style="background:@_driver.ColorCodeRGB"></span>
+                            @_driver.ColorCodeRGB
+                        }
+                        else { <span>-</span> }
+                    </div>
+                </div>
+                <div class="form-group"><label>Status</label><StatusBadge IsActive="@_driver.IsActive" /></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Commission Rate</label><div class="form-static">@(_driver.CommissionRate?.ToString("P1") ?? "Default")</div></div>
+                <div class="form-group"><label>Substitute</label><div class="form-static">@(_driver.IsSubstitute ? "Yes" : "No")</div></div>
+            </div>
+        </FormCard>
+
+        <FormCard Title="Vehicle">
+            <div class="form-row">
+                <div class="form-group"><label>Registration</label><div class="form-static">@_driver.RegNo</div></div>
+                <div class="form-group"><label>Make</label><div class="form-static">@_driver.VehicleMake</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Model</label><div class="form-static">@_driver.VehicleModel</div></div>
+                <div class="form-group"><label>Colour</label><div class="form-static">@_driver.VehicleColour</div></div>
+            </div>
+        </FormCard>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private DriverDto? _driver;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _driver = await Api.GetDriverAsync(Id); }
+        catch { }
+        finally { _loading = false; }
+    }
+}

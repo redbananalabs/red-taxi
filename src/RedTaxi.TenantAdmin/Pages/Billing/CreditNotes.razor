@@ -1,0 +1,53 @@
+@page "/admin/billing/credit-notes"
+@attribute [Authorize]
+
+<PageTitle>Credit Notes - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Credit Notes</h1>
+    <p class="text-secondary">Manage credit notes issued against invoices.</p>
+</div>
+
+<FormCard Title="Credit Notes">
+    <div class="toolbar">
+        <button class="btn btn-primary" @onclick="() => _showCreate = true">New Credit Note</button>
+    </div>
+
+    @if (_creditNotes.Any())
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>ID</th><th>Invoice</th><th>Amount</th><th>Reason</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var cn in _creditNotes)
+                {
+                    <tr>
+                        <td>@cn.Id</td>
+                        <td>@cn.InvoiceRef</td>
+                        <td>&pound;@cn.Amount.ToString("N2")</td>
+                        <td>@cn.Reason</td>
+                        <td>@cn.Date.ToString("dd/MM/yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="table-empty">No credit notes found.</div>
+    }
+</FormCard>
+
+@if (_showCreate)
+{
+    <ConfirmDialog Visible="true" Title="New Credit Note" Message="Credit note creation form coming soon."
+                   ConfirmText="OK" OnConfirm="() => _showCreate = false" OnCancel="() => _showCreate = false" />
+}
+
+@code {
+    private bool _showCreate;
+    private List<CreditNoteItem> _creditNotes = new();
+
+    private record CreditNoteItem(int Id, string InvoiceRef, decimal Amount, string Reason, DateTime Date);
+}

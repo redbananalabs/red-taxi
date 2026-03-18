@@ -1,0 +1,26 @@
+@page "/admin/zone-pricing"
+@attribute [Authorize]
+
+<PageTitle>Zone Pricing - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Zone Pricing</h1>
+    <p class="text-secondary">Configure fixed-price zones for common routes.</p>
+</div>
+
+<FormCard Title="Zone Configuration">
+    <div class="toolbar">
+        <button class="btn btn-primary" @onclick="() => _showAdd = true">Add Zone</button>
+    </div>
+    <div class="table-empty">No zone pricing rules configured. Connect to the API to manage zones.</div>
+</FormCard>
+
+@if (_showAdd)
+{
+    <ConfirmDialog Visible="true" Title="Add Zone" Message="Zone pricing form coming soon."
+                   ConfirmText="OK" OnConfirm="() => _showAdd = false" OnCancel="() => _showAdd = false" />
+}
+
+@code {
+    private bool _showAdd;
+}

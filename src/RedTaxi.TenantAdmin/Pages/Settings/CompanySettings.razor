@@ -1,0 +1,180 @@
+@page "/admin/settings/company"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Company Settings - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Company Settings</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else if (_config is null)
+{
+    <div class="table-empty">Unable to load configuration.</div>
+}
+else
+{
+    <EditForm Model="@_model" OnValidSubmit="SaveConfig">
+        <div class="detail-grid">
+            <FormCard Title="General">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Company Name</label>
+                        <InputText class="form-input" @bind-Value="_model.CompanyName" />
+                    </div>
+                    <div class="form-group">
+                        <label>Base Postcode</label>
+                        <InputText class="form-input" @bind-Value="_model.BasePostcode" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Logo URL</label>
+                        <InputText class="form-input" @bind-Value="_model.LogoUrl" />
+                    </div>
+                    <div class="form-group">
+                        <label>Primary Colour</label>
+                        <InputText class="form-input" @bind-Value="_model.PrimaryColour" />
+                    </div>
+                </div>
+            </FormCard>
+
+            <FormCard Title="Commission Rates">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cash Commission %</label>
+                        <InputNumber class="form-input" @bind-Value="_model.CashCommissionRate" />
+                    </div>
+                    <div class="form-group">
+                        <label>Rank Commission %</label>
+                        <InputNumber class="form-input" @bind-Value="_model.RankCommissionRate" />
+                    </div>
+                    <div class="form-group">
+                        <label>Card Topup Rate %</label>
+                        <InputNumber class="form-input" @bind-Value="_model.CardTopupRate" />
+                    </div>
+                </div>
+            </FormCard>
+
+            <FormCard Title="Waiting & Dispatch">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Driver Waiting Rate / min</label>
+                        <InputNumber class="form-input" @bind-Value="_model.DriverWaitingRatePerMinute" />
+                    </div>
+                    <div class="form-group">
+                        <label>Account Waiting Rate / min</label>
+                        <InputNumber class="form-input" @bind-Value="_model.AccountWaitingRatePerMinute" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Job Offer Timeout (sec)</label>
+                        <InputNumber class="form-input" @bind-Value="_model.JobOfferTimeoutSeconds" />
+                    </div>
+                    <div class="form-group">
+                        <label>Auto Dispatch Enabled</label>
+                        <InputCheckbox @bind-Value="_model.AutoDispatchEnabled" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Add VAT on Card Payments</label>
+                        <InputCheckbox @bind-Value="_model.AddVatOnCardPayments" />
+                    </div>
+                    <div class="form-group">
+                        <label>Payment Processor</label>
+                        <InputText class="form-input" @bind-Value="_model.PaymentProcessor" />
+                    </div>
+                </div>
+            </FormCard>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                @if (_saving) { <span class="spinner-sm"></span> } else { <span>Save Changes</span> }
+            </button>
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <span class="form-success">@_message</span>
+            }
+        </div>
+    </EditForm>
+}
+
+@code {
+    private CompanyConfigDto? _config;
+    private ConfigModel _model = new();
+    private bool _loading = true;
+    private bool _saving;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _config = await Api.GetConfigAsync();
+            if (_config is not null)
+            {
+                _model = new ConfigModel
+                {
+                    CompanyName = _config.CompanyName ?? "",
+                    BasePostcode = _config.BasePostcode ?? "",
+                    CashCommissionRate = _config.CashCommissionRate,
+                    RankCommissionRate = _config.RankCommissionRate,
+                    CardTopupRate = _config.CardTopupRate,
+                    AddVatOnCardPayments = _config.AddVatOnCardPayments,
+                    DriverWaitingRatePerMinute = _config.DriverWaitingRatePerMinute,
+                    AccountWaitingRatePerMinute = _config.AccountWaitingRatePerMinute,
+                    JobOfferTimeoutSeconds = _config.JobOfferTimeoutSeconds,
+                    AutoDispatchEnabled = _config.AutoDispatchEnabled,
+                    LogoUrl = _config.LogoUrl ?? "",
+                    PrimaryColour = _config.PrimaryColour ?? "",
+                    PaymentProcessor = _config.PaymentProcessor ?? ""
+                };
+            }
+        }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveConfig()
+    {
+        _saving = true;
+        _message = null;
+        try
+        {
+            var dto = new CompanyConfigDto(
+                _config!.Id, _model.CompanyName, _model.BasePostcode,
+                _model.CashCommissionRate, _model.RankCommissionRate, _model.CardTopupRate,
+                _model.AddVatOnCardPayments, _model.DriverWaitingRatePerMinute, _model.AccountWaitingRatePerMinute,
+                _model.JobOfferTimeoutSeconds, _model.AutoDispatchEnabled,
+                _model.LogoUrl, _model.PrimaryColour, _model.PaymentProcessor);
+            await Api.UpdateConfigAsync(dto);
+            _message = "Settings saved successfully.";
+        }
+        catch { _message = "Failed to save settings."; }
+        finally { _saving = false; }
+    }
+
+    private class ConfigModel
+    {
+        public string CompanyName { get; set; } = "";
+        public string BasePostcode { get; set; } = "";
+        public decimal CashCommissionRate { get; set; }
+        public decimal RankCommissionRate { get; set; }
+        public decimal CardTopupRate { get; set; }
+        public bool AddVatOnCardPayments { get; set; }
+        public decimal DriverWaitingRatePerMinute { get; set; }
+        public decimal AccountWaitingRatePerMinute { get; set; }
+        public int JobOfferTimeoutSeconds { get; set; }
+        public bool AutoDispatchEnabled { get; set; }
+        public string LogoUrl { get; set; } = "";
+        public string PrimaryColour { get; set; } = "";
+        public string PaymentProcessor { get; set; } = "";
+    }
+}

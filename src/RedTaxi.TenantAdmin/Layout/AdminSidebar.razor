@@ -1,0 +1,78 @@
+@inject NavigationManager Nav
+
+<aside class="sidebar @(Collapsed ? "collapsed" : "")">
+    <div class="sidebar-brand">
+        @if (!Collapsed)
+        {
+            <span class="brand-text">Red<span class="brand-accent">Taxi</span></span>
+        }
+        else
+        {
+            <span class="brand-accent">RT</span>
+        }
+    </div>
+
+    <nav class="sidebar-nav">
+        <NavItem Href="admin" Icon="grid" Label="Dashboard" Collapsed="@Collapsed" />
+        <NavItem Href="admin/bookings" Icon="book-open" Label="Bookings" Collapsed="@Collapsed" />
+        <NavItem Href="admin/accounts" Icon="users" Label="Accounts" Collapsed="@Collapsed" />
+        <NavItem Href="admin/drivers" Icon="truck" Label="Drivers" Collapsed="@Collapsed" />
+        <NavItem Href="admin/tariffs" Icon="tag" Label="Tariffs" Collapsed="@Collapsed" />
+        <NavItem Href="admin/account-tariffs" Icon="layers" Label="Account Tariffs" Collapsed="@Collapsed" />
+
+        <div class="nav-group">
+            <button class="nav-group-toggle" @onclick="() => _billingOpen = !_billingOpen">
+                <span class="nav-icon">&#x1F4B0;</span>
+                @if (!Collapsed) {
+                    <span class="nav-label">Billing &amp; Payments</span>
+                    <span class="nav-chevron @(_billingOpen ? "open" : "")">&#9662;</span>
+                }
+            </button>
+            @if (_billingOpen && !Collapsed)
+            {
+                <div class="nav-group-items">
+                    <NavItem Href="admin/billing/statements" Icon="file-text" Label="Statement Processing" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/billing/statement-history" Icon="archive" Label="Statement History" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/billing/invoices" Icon="file" Label="Invoice Processor" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/billing/invoice-history" Icon="clipboard" Label="Invoice History" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/billing/credit-notes" Icon="minus-circle" Label="Credit Notes" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/billing/vat" Icon="percent" Label="VAT Outputs" Collapsed="@Collapsed" />
+                </div>
+            }
+        </div>
+
+        <NavItem Href="admin/availability" Icon="calendar" Label="Availability" Collapsed="@Collapsed" />
+        <NavItem Href="admin/pois" Icon="map-pin" Label="Local POIs" Collapsed="@Collapsed" />
+
+        <div class="nav-group">
+            <button class="nav-group-toggle" @onclick="() => _reportsOpen = !_reportsOpen">
+                <span class="nav-icon">&#x1F4CA;</span>
+                @if (!Collapsed) {
+                    <span class="nav-label">Reports</span>
+                    <span class="nav-chevron @(_reportsOpen ? "open" : "")">&#9662;</span>
+                }
+            </button>
+            @if (_reportsOpen && !Collapsed)
+            {
+                <div class="nav-group-items">
+                    <NavItem Href="admin/reports/revenue" Icon="dollar-sign" Label="Revenue" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/reports/bookings" Icon="bar-chart" Label="Booking Breakdown" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/reports/driver-earnings" Icon="trending-up" Label="Driver Earnings" Collapsed="@Collapsed" />
+                    <NavItem Href="admin/reports/top-customers" Icon="award" Label="Top Customers" Collapsed="@Collapsed" />
+                </div>
+            }
+        </div>
+
+        <NavItem Href="admin/settings/company" Icon="settings" Label="Company Settings" Collapsed="@Collapsed" />
+        <NavItem Href="admin/settings/messages" Icon="message-square" Label="Message Settings" Collapsed="@Collapsed" />
+        <NavItem Href="admin/zone-pricing" Icon="map" Label="Zone Pricing" Collapsed="@Collapsed" />
+    </nav>
+</aside>
+
+@code {
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public EventCallback OnToggle { get; set; }
+
+    private bool _billingOpen;
+    private bool _reportsOpen;
+}

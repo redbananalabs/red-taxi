@@ -1,0 +1,34 @@
+@inject AuthStateProvider AuthState
+@inject NavigationManager Nav
+
+<header class="topbar">
+    <button class="topbar-toggle" @onclick="OnToggleSidebar">&#9776;</button>
+    <div class="topbar-title">
+        <AuthorizeView>
+            <Authorized>
+                <span class="company-name">Tenant Admin Portal</span>
+            </Authorized>
+            <NotAuthorized>
+                <span class="company-name">Red Taxi Admin</span>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+    <div class="topbar-actions">
+        <AuthorizeView>
+            <Authorized>
+                <span class="user-greeting">@context.User.FindFirst("sub")?.Value</span>
+                <button class="btn-logout" @onclick="Logout">Logout</button>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</header>
+
+@code {
+    [Parameter] public EventCallback OnToggleSidebar { get; set; }
+
+    private async Task Logout()
+    {
+        await AuthState.MarkUserAsLoggedOut();
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+}

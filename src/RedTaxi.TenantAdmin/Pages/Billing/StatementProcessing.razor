@@ -1,0 +1,86 @@
+@page "/admin/billing/statements"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Statement Processing - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Statement Processing</h1>
+    <p class="text-secondary">Review uninvoiced driver jobs and create statements.</p>
+</div>
+
+<div class="toolbar">
+    <button class="btn btn-primary" @onclick="CreateStatement" disabled="@(!_selectedJobs.Any() || _processing)">
+        @if (_processing) { <span class="spinner-sm"></span> } else { <span>Create Statement</span> }
+    </button>
+    <span class="text-secondary">@_selectedJobs.Count job(s) selected</span>
+</div>
+
+<DataTable TItem="BookingDto" Items="_jobs" Loading="_loading" ShowSearch="false">
+    <HeaderTemplate>
+        <th style="width:40px;">
+            <input type="checkbox" @onchange="ToggleAll" />
+        </th>
+        <th>ID</th>
+        <th>Driver</th>
+        <th>Pickup</th>
+        <th>Date</th>
+        <th>Price</th>
+    </HeaderTemplate>
+    <RowTemplate Context="b">
+        <td><input type="checkbox" checked="@_selectedJobs.Contains(b.Id)" @onchange="() => ToggleJob(b.Id)" /></td>
+        <td>@b.Id</td>
+        <td>@(b.DriverName ?? "-")</td>
+        <td>@b.PickupAddress</td>
+        <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
+        <td>&pound;@b.Price.ToString("N2")</td>
+    </RowTemplate>
+</DataTable>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="form-success">@_message</div>
+}
+
+@code {
+    private List<BookingDto> _jobs = new();
+    private HashSet<int> _selectedJobs = new();
+    private bool _loading = true;
+    private bool _processing;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _jobs = await Api.GetUninvoicedDriverJobsAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private void ToggleJob(int id)
+    {
+        if (!_selectedJobs.Remove(id)) _selectedJobs.Add(id);
+    }
+
+    private void ToggleAll(ChangeEventArgs e)
+    {
+        if ((bool)(e.Value ?? false))
+            _selectedJobs = _jobs.Select(j => j.Id).ToHashSet();
+        else
+            _selectedJobs.Clear();
+    }
+
+    private async Task CreateStatement()
+    {
+        _processing = true;
+        _message = null;
+        try
+        {
+            await Api.PostStatementAsync(new { BookingIds = _selectedJobs.ToList() });
+            _message = $"Statement created for {_selectedJobs.Count} jobs.";
+            _selectedJobs.Clear();
+            _jobs = await Api.GetUninvoicedDriverJobsAsync();
+        }
+        catch { _message = "Failed to create statement."; }
+        finally { _processing = false; }
+    }
+}

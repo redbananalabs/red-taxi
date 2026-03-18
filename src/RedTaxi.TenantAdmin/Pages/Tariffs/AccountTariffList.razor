@@ -1,0 +1,50 @@
+@page "/admin/account-tariffs"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Account Tariffs - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Account Tariffs</h1>
+    <p class="text-secondary">Dual pricing tariffs for account customers (driver pay vs account charge).</p>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else
+{
+    <DataTable TItem="AccountTariffDto" Items="_tariffs" Loading="false" ShowSearch="false">
+        <HeaderTemplate>
+            <th>Name</th>
+            <th>Acc Initial</th>
+            <th>Driver Initial</th>
+            <th>Acc 1st Mile</th>
+            <th>Driver 1st Mile</th>
+            <th>Acc Add'l Mile</th>
+            <th>Driver Add'l Mile</th>
+        </HeaderTemplate>
+        <RowTemplate Context="t">
+            <td>@t.Name</td>
+            <td>&pound;@t.AccountInitialCharge.ToString("N2")</td>
+            <td>&pound;@t.DriverInitialCharge.ToString("N2")</td>
+            <td>&pound;@t.AccountFirstMileCharge.ToString("N2")</td>
+            <td>&pound;@t.DriverFirstMileCharge.ToString("N2")</td>
+            <td>&pound;@t.AccountAdditionalMileCharge.ToString("N2")</td>
+            <td>&pound;@t.DriverAdditionalMileCharge.ToString("N2")</td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@code {
+    private List<AccountTariffDto> _tariffs = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _tariffs = await Api.GetAccountTariffsAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+}

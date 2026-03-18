@@ -1,0 +1,48 @@
+@page "/admin/billing/statement-history"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Statement History - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Statement History</h1>
+</div>
+
+<DataTable TItem="StatementDto" Items="_statements" Loading="_loading" ShowSearch="false">
+    <HeaderTemplate>
+        <th>ID</th>
+        <th>Driver</th>
+        <th>Date</th>
+        <th>Period</th>
+        <th>Jobs</th>
+        <th>Cash</th>
+        <th>Card</th>
+        <th>Account</th>
+        <th>Commission</th>
+        <th>Net Payable</th>
+    </HeaderTemplate>
+    <RowTemplate Context="s">
+        <td>@s.Id</td>
+        <td>@(s.DriverName ?? "-")</td>
+        <td>@s.StatementDate.ToString("dd/MM/yyyy")</td>
+        <td>@s.PeriodStart.ToString("dd/MM") - @s.PeriodEnd.ToString("dd/MM/yyyy")</td>
+        <td>@s.JobCount</td>
+        <td>&pound;@s.EarningsCash.ToString("N2")</td>
+        <td>&pound;@s.EarningsCard.ToString("N2")</td>
+        <td>&pound;@s.EarningsAccount.ToString("N2")</td>
+        <td>&pound;@s.TotalCommission.ToString("N2")</td>
+        <td>&pound;@s.NetPayable.ToString("N2")</td>
+    </RowTemplate>
+</DataTable>
+
+@code {
+    private List<StatementDto> _statements = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _statements = await Api.GetStatementsAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+}

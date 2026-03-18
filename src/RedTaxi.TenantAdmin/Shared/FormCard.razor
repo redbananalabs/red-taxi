@@ -1,0 +1,21 @@
+<div class="form-card">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <div class="form-card-header">
+            <h3>@Title</h3>
+            @if (HeaderActions is not null)
+            {
+                <div class="form-card-actions">@HeaderActions</div>
+            }
+        </div>
+    }
+    <div class="form-card-body">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+}

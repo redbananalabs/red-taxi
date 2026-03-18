@@ -1,0 +1,77 @@
+@typeparam TItem
+
+<div class="data-table-wrapper">
+    @if (ShowSearch)
+    {
+        <div class="data-table-toolbar">
+            <input type="text" class="form-input" placeholder="Search..."
+                   value="@SearchText" @oninput="OnSearchInput" />
+        </div>
+    }
+
+    @if (Loading)
+    {
+        <div class="table-loading">
+            <div class="spinner"></div>
+            <span>Loading...</span>
+        </div>
+    }
+    else if (Items is null || !Items.Any())
+    {
+        <div class="table-empty">No records found.</div>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr>@HeaderTemplate</tr>
+            </thead>
+            <tbody>
+                @foreach (var item in PagedItems)
+                {
+                    <tr @onclick="() => OnRowClick.InvokeAsync(item)" class="table-row-clickable">
+                        @RowTemplate(item)
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (TotalPages > 1)
+        {
+            <div class="table-pagination">
+                <button class="btn-sm" disabled="@(CurrentPage <= 1)" @onclick="PrevPage">Prev</button>
+                <span class="page-info">Page @CurrentPage of @TotalPages</span>
+                <button class="btn-sm" disabled="@(CurrentPage >= TotalPages)" @onclick="NextPage">Next</button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<TItem>? Items { get; set; }
+    [Parameter] public RenderFragment? HeaderTemplate { get; set; }
+    [Parameter] public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool ShowSearch { get; set; } = true;
+    [Parameter] public int PageSize { get; set; } = 20;
+    [Parameter] public EventCallback<TItem> OnRowClick { get; set; }
+    [Parameter] public EventCallback<string> OnSearch { get; set; }
+
+    private string SearchText { get; set; } = "";
+    private int CurrentPage { get; set; } = 1;
+
+    private int TotalPages => Items is null ? 1 : (int)Math.Ceiling((double)Items.Count() / PageSize);
+
+    private IEnumerable<TItem> PagedItems =>
+        (Items ?? Enumerable.Empty<TItem>()).Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        SearchText = e.Value?.ToString() ?? "";
+        CurrentPage = 1;
+        await OnSearch.InvokeAsync(SearchText);
+    }
+
+    private void PrevPage() { if (CurrentPage > 1) CurrentPage--; }
+    private void NextPage() { if (CurrentPage < TotalPages) CurrentPage++; }
+}

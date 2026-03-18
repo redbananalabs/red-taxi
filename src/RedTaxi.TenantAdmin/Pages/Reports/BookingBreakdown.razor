@@ -1,0 +1,43 @@
+@page "/admin/reports/bookings"
+@attribute [Authorize]
+
+<PageTitle>Booking Breakdown - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Booking Breakdown</h1>
+</div>
+
+<FormCard Title="Period">
+    <div class="form-row">
+        <div class="form-group">
+            <label>From</label>
+            <InputDate class="form-input" @bind-Value="_dateFrom" />
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <InputDate class="form-input" @bind-Value="_dateTo" />
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="() => _generated = true">Generate</button>
+        </div>
+    </div>
+</FormCard>
+
+@if (_generated)
+{
+    <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-value">0</div><div class="kpi-label">Total Bookings</div></div>
+        <div class="kpi-card"><div class="kpi-value">0</div><div class="kpi-label">Completed</div></div>
+        <div class="kpi-card"><div class="kpi-value">0</div><div class="kpi-label">Cancelled</div></div>
+        <div class="kpi-card"><div class="kpi-value">0</div><div class="kpi-label">No-shows</div></div>
+    </div>
+    <FormCard Title="Breakdown by Type">
+        <div class="chart-placeholder">Booking breakdown chart placeholder - connect to reporting API</div>
+    </FormCard>
+}
+
+@code {
+    private DateTime _dateFrom = DateTime.Today.AddMonths(-1);
+    private DateTime _dateTo = DateTime.Today;
+    private bool _generated;
+}

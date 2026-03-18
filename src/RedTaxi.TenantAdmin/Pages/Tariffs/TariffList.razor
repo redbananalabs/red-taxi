@@ -1,0 +1,49 @@
+@page "/admin/tariffs"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Tariffs - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Tariffs</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else
+{
+    <div class="detail-grid">
+        @foreach (var tariff in _tariffs)
+        {
+            <FormCard Title="@($"{tariff.Name} (T{tariff.Type})")">
+                <div class="form-row">
+                    <div class="form-group"><label>Initial Charge</label><div class="form-static">&pound;@tariff.InitialCharge.ToString("N2")</div></div>
+                    <div class="form-group"><label>First Mile</label><div class="form-static">&pound;@tariff.FirstMileCharge.ToString("N2")</div></div>
+                    <div class="form-group"><label>Additional Mile</label><div class="form-static">&pound;@tariff.AdditionalMileCharge.ToString("N2")</div></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Description</label><div class="form-static">@(tariff.Description ?? "-")</div></div>
+                    <div class="form-group"><label>Status</label><StatusBadge IsActive="@tariff.IsActive" /></div>
+                </div>
+            </FormCard>
+        }
+        @if (!_tariffs.Any())
+        {
+            <div class="table-empty">No tariffs configured.</div>
+        }
+    </div>
+}
+
+@code {
+    private List<TariffDto> _tariffs = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _tariffs = await Api.GetTariffsAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+}

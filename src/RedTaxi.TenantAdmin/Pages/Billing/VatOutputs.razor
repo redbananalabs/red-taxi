@@ -1,0 +1,61 @@
+@page "/admin/billing/vat"
+@attribute [Authorize]
+
+<PageTitle>VAT Outputs - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>VAT Outputs</h1>
+    <p class="text-secondary">VAT output report for the selected period.</p>
+</div>
+
+<FormCard Title="Period Selection">
+    <div class="form-row">
+        <div class="form-group">
+            <label>From</label>
+            <InputDate class="form-input" @bind-Value="_dateFrom" />
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <InputDate class="form-input" @bind-Value="_dateTo" />
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="RunReport">Generate Report</button>
+        </div>
+    </div>
+</FormCard>
+
+@if (_generated)
+{
+    <FormCard Title="VAT Summary">
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-value">&pound;@_totalNet.ToString("N2")</div>
+                <div class="kpi-label">Net Total</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">&pound;@_totalVat.ToString("N2")</div>
+                <div class="kpi-label">VAT Total</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-value">&pound;@((_totalNet + _totalVat).ToString("N2"))</div>
+                <div class="kpi-label">Gross Total</div>
+            </div>
+        </div>
+        <div class="table-empty" style="margin-top:1rem;">Detailed VAT breakdown will appear here when connected to the API.</div>
+    </FormCard>
+}
+
+@code {
+    private DateTime _dateFrom = DateTime.Today.AddMonths(-1);
+    private DateTime _dateTo = DateTime.Today;
+    private bool _generated;
+    private decimal _totalNet;
+    private decimal _totalVat;
+
+    private void RunReport()
+    {
+        _generated = true;
+        _totalNet = 0;
+        _totalVat = 0;
+    }
+}

@@ -1,0 +1,61 @@
+@page "/admin/drivers"
+@attribute [Authorize]
+@inject AdminApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Drivers - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Drivers</h1>
+</div>
+
+<DataTable TItem="DriverDto" Items="_drivers" Loading="_loading"
+           OnRowClick="ViewDriver" ShowSearch="false">
+    <HeaderTemplate>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Reg No</th>
+        <th>Vehicle</th>
+        <th>Type</th>
+        <th>Commission</th>
+        <th>Status</th>
+    </HeaderTemplate>
+    <RowTemplate Context="d">
+        <td>
+            @if (!string.IsNullOrEmpty(d.ColorCodeRGB))
+            {
+                <span class="driver-color" style="background:@d.ColorCodeRGB"></span>
+            }
+            @d.FullName
+        </td>
+        <td>@d.PhoneNumber</td>
+        <td>@d.RegNo</td>
+        <td>@d.VehicleMake @d.VehicleModel</td>
+        <td>@GetVehicleType(d.VehicleType)</td>
+        <td>@(d.CommissionRate?.ToString("P0") ?? "-")</td>
+        <td><StatusBadge IsActive="@d.IsActive" /></td>
+    </RowTemplate>
+</DataTable>
+
+@code {
+    private List<DriverDto> _drivers = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _drivers = await Api.GetDriversAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private void ViewDriver(DriverDto d) => Nav.NavigateTo($"admin/drivers/{d.Id}");
+
+    private static string GetVehicleType(int type) => type switch
+    {
+        0 => "Saloon",
+        1 => "Estate",
+        2 => "MPV",
+        3 => "Executive",
+        _ => "Other"
+    };
+}

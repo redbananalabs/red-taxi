@@ -1,0 +1,44 @@
+@page "/admin/billing/invoice-history"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Invoice History - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Invoice History</h1>
+</div>
+
+<DataTable TItem="InvoiceDto" Items="_invoices" Loading="_loading" ShowSearch="false">
+    <HeaderTemplate>
+        <th>Invoice #</th>
+        <th>Account</th>
+        <th>Date</th>
+        <th>Period</th>
+        <th>Net</th>
+        <th>VAT</th>
+        <th>Total</th>
+        <th>Status</th>
+    </HeaderTemplate>
+    <RowTemplate Context="inv">
+        <td>@inv.InvoiceNumber</td>
+        <td>@(inv.AccountName ?? inv.AccountNumber.ToString())</td>
+        <td>@inv.InvoiceDate.ToString("dd/MM/yyyy")</td>
+        <td>@inv.PeriodStart.ToString("dd/MM") - @inv.PeriodEnd.ToString("dd/MM/yyyy")</td>
+        <td>&pound;@inv.NetAmount.ToString("N2")</td>
+        <td>&pound;@inv.VatAmount.ToString("N2")</td>
+        <td>&pound;@inv.TotalAmount.ToString("N2")</td>
+        <td><StatusBadge Status="@(inv.IsPaid ? "Paid" : "Pending")" /></td>
+    </RowTemplate>
+</DataTable>
+
+@code {
+    private List<InvoiceDto> _invoices = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _invoices = await Api.GetInvoicesAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+}

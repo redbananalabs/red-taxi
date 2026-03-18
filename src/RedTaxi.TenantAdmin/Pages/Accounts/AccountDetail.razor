@@ -1,0 +1,88 @@
+@page "/admin/accounts/{Id:int}"
+@attribute [Authorize]
+@inject AdminApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Account - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("admin/accounts")'>Back</button>
+    <h1>Account #@_account?.AccountNumber</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else if (_account is null)
+{
+    <div class="table-empty">Account not found.</div>
+}
+else
+{
+    <div class="detail-grid">
+        <FormCard Title="Account Details">
+            <div class="form-row">
+                <div class="form-group"><label>Company Name</label><div class="form-static">@_account.CompanyName</div></div>
+                <div class="form-group"><label>Account Number</label><div class="form-static">@_account.AccountNumber</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Contact Name</label><div class="form-static">@(_account.ContactName ?? "-")</div></div>
+                <div class="form-group"><label>Contact Phone</label><div class="form-static">@(_account.ContactPhone ?? "-")</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Email</label><div class="form-static">@(_account.ContactEmail ?? "-")</div></div>
+                <div class="form-group"><label>Tariff</label><div class="form-static">@(_account.AccountTariffName ?? "Standard")</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Status</label><StatusBadge IsActive="@_account.IsActive" /></div>
+            </div>
+        </FormCard>
+
+        <FormCard Title="Passengers">
+            @if (!_passengers.Any())
+            {
+                <div class="table-empty">No passengers configured.</div>
+            }
+            else
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Name</th><th>Phone</th><th>Email</th><th>Address</th><th>Active</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _passengers)
+                        {
+                            <tr>
+                                <td>@p.Name</td>
+                                <td>@p.Phone</td>
+                                <td>@p.Email</td>
+                                <td>@p.Address</td>
+                                <td><StatusBadge IsActive="@p.IsActive" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </FormCard>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private AccountDto? _account;
+    private List<AccountPassengerDto> _passengers = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _account = await Api.GetAccountAsync(Id);
+            if (_account is not null)
+                _passengers = await Api.GetAccountPassengersAsync(Id);
+        }
+        catch { }
+        finally { _loading = false; }
+    }
+}

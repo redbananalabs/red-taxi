@@ -1,0 +1,104 @@
+@page "/admin/settings/messages"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Message Settings - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Message Settings</h1>
+    <p class="text-secondary">Configure messaging channels and templates for each event type.</p>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else
+{
+    <div class="detail-grid">
+        @foreach (var eventGroup in _configs.GroupBy(c => c.EventType).OrderBy(g => g.Key))
+        {
+            <FormCard Title="@GetEventName(eventGroup.Key)">
+                <table class="data-table">
+                    <thead>
+                        <tr><th>Channel</th><th>Enabled</th><th>Template</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cfg in eventGroup)
+                        {
+                            <tr>
+                                <td>@GetChannelName(cfg.Channel)</td>
+                                <td>
+                                    <input type="checkbox" checked="@cfg.IsEnabled" disabled />
+                                </td>
+                                <td class="text-secondary">@(cfg.TemplateText ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </FormCard>
+        }
+    </div>
+
+    <div class="form-actions">
+        <button class="btn btn-primary" @onclick="SaveAll" disabled="@_saving">
+            @if (_saving) { <span class="spinner-sm"></span> } else { <span>Save All</span> }
+        </button>
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <span class="form-success">@_message</span>
+        }
+    </div>
+}
+
+@code {
+    private List<MessagingConfigDto> _configs = new();
+    private bool _loading = true;
+    private bool _saving;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _configs = await Api.GetMessagingConfigAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private async Task SaveAll()
+    {
+        _saving = true;
+        _message = null;
+        try
+        {
+            await Api.UpdateMessagingConfigAsync(_configs);
+            _message = "Messaging settings saved.";
+        }
+        catch { _message = "Failed to save."; }
+        finally { _saving = false; }
+    }
+
+    private static string GetEventName(int eventType) => eventType switch
+    {
+        1 => "Booking Confirmed",
+        2 => "Driver Allocated",
+        3 => "Driver On Route",
+        4 => "Driver Arrived",
+        5 => "Journey Complete",
+        6 => "Booking Cancelled",
+        7 => "Payment Receipt",
+        8 => "Invoice Ready",
+        9 => "Statement Ready",
+        10 => "Reminder",
+        11 => "Custom Notification",
+        _ => $"Event {eventType}"
+    };
+
+    private static string GetChannelName(int channel) => channel switch
+    {
+        0 => "SMS",
+        1 => "Email",
+        2 => "Push Notification",
+        3 => "WhatsApp",
+        _ => $"Channel {channel}"
+    };
+}

@@ -1,0 +1,54 @@
+@page "/admin/accounts"
+@attribute [Authorize]
+@inject AdminApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Accounts - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Accounts</h1>
+</div>
+
+<DataTable TItem="AccountDto" Items="_accounts" Loading="_loading"
+           OnRowClick="ViewAccount" OnSearch="SearchAccounts">
+    <HeaderTemplate>
+        <th>Acc #</th>
+        <th>Company</th>
+        <th>Contact</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th>Tariff</th>
+        <th>Status</th>
+    </HeaderTemplate>
+    <RowTemplate Context="a">
+        <td>@a.AccountNumber</td>
+        <td>@a.CompanyName</td>
+        <td>@a.ContactName</td>
+        <td>@a.ContactPhone</td>
+        <td>@a.ContactEmail</td>
+        <td>@(a.AccountTariffName ?? "Standard")</td>
+        <td><StatusBadge IsActive="@a.IsActive" /></td>
+    </RowTemplate>
+</DataTable>
+
+@code {
+    private List<AccountDto> _accounts = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _accounts = await Api.GetAccountsAsync(); }
+        catch { }
+        finally { _loading = false; }
+    }
+
+    private async Task SearchAccounts(string search)
+    {
+        _loading = true;
+        try { _accounts = await Api.GetAccountsAsync(search); }
+        catch { }
+        finally { _loading = false; StateHasChanged(); }
+    }
+
+    private void ViewAccount(AccountDto a) => Nav.NavigateTo($"admin/accounts/{a.Id}");
+}

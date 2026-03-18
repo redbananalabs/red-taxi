@@ -1,0 +1,111 @@
+@page "/admin/billing/invoices"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Invoice Processor - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Invoice Processor</h1>
+    <p class="text-secondary">Select an account and create invoices for uninvoiced jobs.</p>
+</div>
+
+<FormCard Title="Select Account">
+    <div class="form-row">
+        <div class="form-group">
+            <label>Account</label>
+            <select class="form-input" @onchange="OnAccountSelected">
+                <option value="">-- Select Account --</option>
+                @foreach (var a in _accounts)
+                {
+                    <option value="@a.Id">@a.CompanyName (@a.AccountNumber)</option>
+                }
+            </select>
+        </div>
+    </div>
+</FormCard>
+
+@if (_selectedAccountId > 0)
+{
+    <div class="toolbar">
+        <button class="btn btn-primary" @onclick="CreateInvoice" disabled="@(!_selectedJobs.Any() || _processing)">
+            @if (_processing) { <span class="spinner-sm"></span> } else { <span>Create Invoice</span> }
+        </button>
+        <span class="text-secondary">@_selectedJobs.Count job(s) selected</span>
+    </div>
+
+    <DataTable TItem="BookingDto" Items="_jobs" Loading="_loadingJobs" ShowSearch="false">
+        <HeaderTemplate>
+            <th style="width:40px;"><input type="checkbox" @onchange="ToggleAll" /></th>
+            <th>ID</th>
+            <th>Pickup</th>
+            <th>Destination</th>
+            <th>Date</th>
+            <th>Account Price</th>
+        </HeaderTemplate>
+        <RowTemplate Context="b">
+            <td><input type="checkbox" checked="@_selectedJobs.Contains(b.Id)" @onchange="() => ToggleJob(b.Id)" /></td>
+            <td>@b.Id</td>
+            <td>@b.PickupAddress</td>
+            <td>@b.DestinationAddress</td>
+            <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
+            <td>&pound;@b.PriceAccount.ToString("N2")</td>
+        </RowTemplate>
+    </DataTable>
+}
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="form-success">@_message</div>
+}
+
+@code {
+    private List<AccountDto> _accounts = new();
+    private List<BookingDto> _jobs = new();
+    private HashSet<int> _selectedJobs = new();
+    private int _selectedAccountId;
+    private bool _loadingJobs;
+    private bool _processing;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _accounts = await Api.GetAccountsAsync(); }
+        catch { }
+    }
+
+    private async Task OnAccountSelected(ChangeEventArgs e)
+    {
+        _selectedAccountId = int.TryParse(e.Value?.ToString(), out var id) ? id : 0;
+        _selectedJobs.Clear();
+        _message = null;
+        if (_selectedAccountId > 0)
+        {
+            _loadingJobs = true;
+            try { _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId); }
+            catch { }
+            finally { _loadingJobs = false; }
+        }
+    }
+
+    private void ToggleJob(int id) { if (!_selectedJobs.Remove(id)) _selectedJobs.Add(id); }
+    private void ToggleAll(ChangeEventArgs e)
+    {
+        if ((bool)(e.Value ?? false)) _selectedJobs = _jobs.Select(j => j.Id).ToHashSet();
+        else _selectedJobs.Clear();
+    }
+
+    private async Task CreateInvoice()
+    {
+        _processing = true;
+        _message = null;
+        try
+        {
+            await Api.PostInvoiceAsync(new { AccountId = _selectedAccountId, BookingIds = _selectedJobs.ToList() });
+            _message = $"Invoice created for {_selectedJobs.Count} jobs.";
+            _selectedJobs.Clear();
+            _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId);
+        }
+        catch { _message = "Failed to create invoice."; }
+        finally { _processing = false; }
+    }
+}

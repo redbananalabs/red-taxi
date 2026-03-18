@@ -1,0 +1,91 @@
+@page "/admin/bookings/{Id:int}"
+@attribute [Authorize]
+@inject AdminApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Booking #@Id - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("admin/bookings")'>Back</button>
+    <h1>Booking #@Id</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
+}
+else if (_booking is null)
+{
+    <div class="table-empty">Booking not found.</div>
+}
+else
+{
+    <div class="detail-grid">
+        <FormCard Title="Booking Details">
+            <div class="form-row">
+                <div class="form-group"><label>Pickup</label><div class="form-static">@_booking.PickupAddress</div></div>
+                <div class="form-group"><label>Destination</label><div class="form-static">@_booking.DestinationAddress</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Pickup Date</label><div class="form-static">@_booking.PickupDateTime.ToString("dd/MM/yyyy HH:mm")</div></div>
+                <div class="form-group"><label>ASAP</label><div class="form-static">@(_booking.IsASAP ? "Yes" : "No")</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Details</label><div class="form-static">@(_booking.Details ?? "-")</div></div>
+                <div class="form-group"><label>Passengers</label><div class="form-static">@_booking.Passengers</div></div>
+            </div>
+        </FormCard>
+
+        <FormCard Title="Passenger Info">
+            <div class="form-row">
+                <div class="form-group"><label>Name</label><div class="form-static">@(_booking.PassengerName ?? "-")</div></div>
+                <div class="form-group"><label>Phone</label><div class="form-static">@(_booking.PhoneNumber ?? "-")</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Email</label><div class="form-static">@(_booking.Email ?? "-")</div></div>
+                <div class="form-group"><label>Account</label><div class="form-static">@(_booking.AccountName ?? "Cash")</div></div>
+            </div>
+        </FormCard>
+
+        <FormCard Title="Pricing & Driver">
+            <div class="form-row">
+                <div class="form-group"><label>Driver Price</label><div class="form-static">&pound;@_booking.Price.ToString("N2")</div></div>
+                <div class="form-group"><label>Account Price</label><div class="form-static">&pound;@_booking.PriceAccount.ToString("N2")</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Driver</label><div class="form-static">@(_booking.DriverName ?? "Unassigned")</div></div>
+                <div class="form-group"><label>Mileage</label><div class="form-static">@(_booking.MileageText ?? "-")</div></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Tip</label><div class="form-static">&pound;@_booking.Tip.ToString("N2")</div></div>
+                <div class="form-group"><label>VAT</label><div class="form-static">&pound;@_booking.VatAmountAdded.ToString("N2")</div></div>
+            </div>
+        </FormCard>
+
+        @if (_booking.Vias is not null && _booking.Vias.Any())
+        {
+            <FormCard Title="Via Points">
+                @foreach (var via in _booking.Vias.OrderBy(v => v.ViaSequence))
+                {
+                    <div class="form-group">
+                        <label>Via @via.ViaSequence</label>
+                        <div class="form-static">@via.Address</div>
+                    </div>
+                }
+            </FormCard>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private BookingDto? _booking;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _booking = await Api.GetBookingAsync(Id); }
+        catch { }
+        finally { _loading = false; }
+    }
+}

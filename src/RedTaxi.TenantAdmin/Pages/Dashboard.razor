@@ -1,0 +1,64 @@
+@page "/admin"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Dashboard - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Dashboard</h1>
+</div>
+
+@if (_loading)
+{
+    <div class="table-loading"><div class="spinner"></div><span>Loading dashboard...</span></div>
+}
+else
+{
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-value">@(_kpi?.TodayBookings ?? 0)</div>
+            <div class="kpi-label">Today's Bookings</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">&pound;@((_kpi?.TodayRevenue ?? 0).ToString("N2"))</div>
+            <div class="kpi-label">Today's Revenue</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">@(_kpi?.DriversOnline ?? 0)</div>
+            <div class="kpi-label">Drivers Online</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">@(_kpi?.UnallocatedBookings ?? 0)</div>
+            <div class="kpi-label">Unallocated</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">@(_kpi?.ActiveJobs ?? 0)</div>
+            <div class="kpi-label">Active Jobs</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">@(_kpi?.CompletedToday ?? 0)</div>
+            <div class="kpi-label">Completed Today</div>
+        </div>
+    </div>
+
+    <div class="dashboard-charts">
+        <FormCard Title="Booking Volume (Last 7 Days)">
+            <div class="chart-placeholder">Chart placeholder - integrate with a chart library</div>
+        </FormCard>
+        <FormCard Title="Revenue Trend">
+            <div class="chart-placeholder">Chart placeholder - integrate with a chart library</div>
+        </FormCard>
+    </div>
+}
+
+@code {
+    private DashboardKpiDto? _kpi;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _kpi = await Api.GetDashboardKpiAsync(); }
+        catch { /* API not available */ }
+        finally { _loading = false; }
+    }
+}

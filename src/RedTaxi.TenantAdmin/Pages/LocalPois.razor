@@ -1,0 +1,26 @@
+@page "/admin/pois"
+@attribute [Authorize]
+
+<PageTitle>Local POIs - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Local Points of Interest</h1>
+    <p class="text-secondary">Manage frequently-used pickup and drop-off locations.</p>
+</div>
+
+<FormCard Title="POI List">
+    <div class="toolbar">
+        <button class="btn btn-primary" @onclick="() => _showAdd = true">Add POI</button>
+    </div>
+    <div class="table-empty">No POIs configured. Connect to the API to load local points of interest.</div>
+</FormCard>
+
+@if (_showAdd)
+{
+    <ConfirmDialog Visible="true" Title="Add POI" Message="POI creation form coming soon."
+                   ConfirmText="OK" OnConfirm="() => _showAdd = false" OnCancel="() => _showAdd = false" />
+}
+
+@code {
+    private bool _showAdd;
+}
