@@ -3647,3 +3647,75 @@ From latest screenshot — includes previously unseen items:
 ├── Message Settings
 └── Utilities ▾  ← NEW (not previously documented)
 ```
+
+---
+
+## 122. Q&A Answers — Batch 2 (Questions 6-12)
+
+**Q6: ZoneToZonePrice actively used?**
+In progress — was being built. Needed feature. UI built with Replit using custom-drawn polygons. Screenshots to come.
+
+**Q7: GiveOrTake flag?**
+Driver is flexible and can extend beyond set times if needed. Displayed as "(+/-)" suffix on availability view.
+
+**Q8: ShowAllBookings / ShowHVSBookings?**
+- ShowAllBookings = driver sees ALL bookings on their schedule, not just their own allocated ones
+- ShowHVSBookings = driver sees school account (HVS) bookings specifically
+- A driver can have one or both flags enabled
+
+**Q9: NonAce flag?**
+Yes — marks substitute/external drivers from other companies. Same commission/settlement rules apply.
+
+---
+
+## 123. Availability Page — Complete UI Specification (from Live Screenshot)
+
+Source: Live admin panel screenshot, 18/03/2026.
+
+### Controls
+- **Date picker** (defaults to today)
+- **Driver dropdown** (All or specific driver)
+- **5 Preset buttons:**
+  | Button | Colour | Meaning |
+  |--------|--------|---------|
+  | Custom | Green | Operator sets custom time range |
+  | SR AM Only | Green | School Run AM only (typical: 07:30 - 09:30) |
+  | SR PM Only | Green | School Run PM only (typical: 14:30 - 16:15) |
+  | SR Only | Green | School Run AM + PM (creates two blocks) |
+  | UNAVAILABLE (ALL DAY) | Red | Marks driver unavailable for entire day |
+
+### Table
+| Column | Description |
+|--------|-------------|
+| Driver # | Driver number (sortable) |
+| Full Name | Driver name (sortable) |
+| Details | Time range + label (e.g. "07:30 - 09:30 (AM School Only)") |
+
+### Visual Design
+- **Each row is colour-coded with the driver's assigned colour** — the entire row background is the driver's personal colour
+- This makes it instantly visual which driver has availability
+- Multiple rows per driver when they have multiple blocks (e.g. Jean Williams: AM SR + PM SR = 2 rows)
+
+### Detail Labels Observed
+| Label | Meaning |
+|-------|---------|
+| `07:00 - 22:30` | Full day availability |
+| `07:30 - 09:30 (AM School Only)` | AM school run preset |
+| `14:30 - 16:15 (PM SR)` | PM school run preset |
+| `07:30 - 16:30 (Custom Set Manually)` | Custom time set by operator |
+| `07:00 - 17:00 (+/-)` | Available with GiveOrTake flexibility |
+| `07:00 - 09:00` + `14:00 - 16:00` | Split availability (2 blocks) |
+
+### GiveOrTake Visual
+The `(+/-)` suffix indicates the driver is flexible and can extend beyond the stated times. This maps to the `GiveOrTake` boolean on the DriverAvailability entity.
+
+### Pagination
+- 10 rows per page (configurable)
+- 14 entries across 2 pages for the current day
+
+### Statement Processing — Expanded Row Detail
+When a row is expanded in Statement Processing, it shows:
+- **Booking #:** (booking ID as link)
+- **Vias:** (comma-separated via addresses, or empty)
+- **Details:** (booking notes, or empty)
+- **Scope:** Cash / Account / Rank / Card
