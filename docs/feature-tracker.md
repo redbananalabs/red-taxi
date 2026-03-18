@@ -220,9 +220,9 @@ Last Updated: 2026-03-18
 | DC05 | Scheduler — driver rows on Y-axis | §95 | ✅ | SfSchedule ScheduleResource with driver resources |
 | DC06 | Scheduler — booking tiles with driver colours | §43, §95 | ✅ | Color from DriverDto.ColorCodeRGB |
 | DC07 | Scheduler — unallocated amber | §43 | ✅ | Default color #F59E0B for unallocated |
-| DC08 | Scheduler — accepted diagonal stripes | §43 | 🔴 | CSS pattern needed for accepted status |
-| DC09 | Scheduler — drag-and-drop allocation | §137 | 🟡 | HTML5 Drag API, not Syncfusion |
-| DC10 | Floating booking form (slides from left) | §42 | 🟡 | BookingForm.razor exists |
+| DC08 | Scheduler — accepted diagonal stripes | §43 | 🟡 | Day view has enriched tiles, stripe pattern pending |
+| DC09 | Scheduler — drag-and-drop allocation | §137 | ✅ | Syncfusion SfSchedule drag-drop between driver resources |
+| DC10 | Booking form (always visible, left panel) | §142 | ✅ | §142 revised: always visible, no sliding, AlwaysVisible param |
 | DC11 | Booking form — Google Places autocomplete | §49 | ✅ | Wired to /api/address/autocomplete endpoint |
 | DC12 | Booking form — all fields from §96 | §96 | ✅ | All fields: vias, ChargeFromBase, SchoolRun, vehicle type, scope |
 | DC13 | Booking form — auto-time-update (ticks every second) | §101 | ✅ | Timer ticks live clock when ASAP on |
