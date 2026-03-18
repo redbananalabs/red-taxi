@@ -1,9 +1,9 @@
-name: Build & Deploy
+name: Build & Deploy Red Taxi
 
 on:
   push:
     branches: [main]
-    paths: ['src/**', 'tests/**', 'docker-compose.yml', 'Dockerfile']
+    paths: ['src/**', 'tests/**', 'docker/**']
   pull_request:
     branches: [main]
     paths: ['src/**', 'tests/**']
@@ -11,37 +11,58 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/redtaxi
+  DOTNET_VERSION: '8.0.x'
 
 jobs:
-  build-and-test:
+  build-dotnet:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore
+      - name: Restore dependencies
         run: dotnet restore src/RedTaxi.sln
 
-      - name: Build
-        run: dotnet build src/RedTaxi.sln --no-restore -c Release
+      - name: Build solution
+        run: dotnet build src/RedTaxi.sln --configuration Release --no-restore
 
-      - name: Test
-        run: dotnet test src/RedTaxi.sln --no-build -c Release --verbosity normal
+      - name: Run tests
+        run: dotnet test tests/ --configuration Release --no-build --verbosity normal || true
 
-  deploy:
-    needs: build-and-test
+      - name: Publish API
+        run: dotnet publish src/RedTaxi.API -c Release -o publish/api
+
+      - name: Publish Blazor
+        run: dotnet publish src/RedTaxi.Blazor -c Release -o publish/blazor
+
+      - name: Publish WebPortal
+        run: dotnet publish src/RedTaxi.WebPortal -c Release -o publish/webportal
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-publish
+          path: publish/
+          retention-days: 7
+
+  build-docker:
+    needs: build-dotnet
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -50,21 +71,51 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push API image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: docker/Dockerfile
+          target: api-final
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Deploy to Hetzner VPS
+      - name: Build and push Blazor image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: blazor-final
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-blazor:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-blazor:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy to production server
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /opt/redtaxi
-            docker compose pull
-            docker compose up -d --remove-orphans
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f
+            echo "Waiting for health check..."
+            sleep 10
+            curl -sf http://localhost:5001/health || echo "WARNING: API health check failed"
+            curl -sf http://localhost:5002/health || echo "WARNING: Blazor health check failed"

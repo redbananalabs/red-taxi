@@ -1,0 +1,169 @@
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Reverse Proxy / SSL Termination
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: redtaxi-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - letsencrypt-certs:/etc/letsencrypt:ro
+      - letsencrypt-www:/var/www/certbot:ro
+    depends_on:
+      redtaxi-api:
+        condition: service_healthy
+      redtaxi-blazor:
+        condition: service_healthy
+    networks:
+      - redtaxi-net
+
+  # Certbot sidecar for automatic SSL renewal
+  certbot:
+    image: certbot/certbot:latest
+    container_name: redtaxi-certbot
+    volumes:
+      - letsencrypt-certs:/etc/letsencrypt
+      - letsencrypt-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+  # ---------------------------------------------------------------------------
+  # Red Taxi API
+  # ---------------------------------------------------------------------------
+  redtaxi-api:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-redtaxi/redtaxi}-api:${TAG:-latest}
+    container_name: redtaxi-api
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__DefaultConnection=${SQL_CONNECTION_STRING}
+      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis:6379}
+      - Jwt__Secret=${JWT_SECRET}
+      - Jwt__Issuer=${JWT_ISSUER:-api.redtaxi.io}
+      - Jwt__Audience=${JWT_AUDIENCE:-redtaxi}
+      - Jwt__ExpiryMinutes=${JWT_EXPIRY_MINUTES:-60}
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY}
+      - Stripe__WebhookSecret=${STRIPE_WEBHOOK_SECRET}
+      - Stripe__PublishableKey=${STRIPE_PUBLISHABLE_KEY}
+      - Twilio__AccountSid=${TWILIO_ACCOUNT_SID}
+      - Twilio__AuthToken=${TWILIO_AUTH_TOKEN}
+      - Twilio__PhoneNumber=${TWILIO_PHONE_NUMBER}
+      - Firebase__ProjectId=${FIREBASE_PROJECT_ID}
+      - Firebase__CredentialsJson=${FIREBASE_CREDENTIALS_JSON}
+      - Google__MapsApiKey=${GOOGLE_MAPS_API_KEY}
+      - Email__SmtpHost=${SMTP_HOST}
+      - Email__SmtpPort=${SMTP_PORT:-587}
+      - Email__Username=${SMTP_USERNAME}
+      - Email__Password=${SMTP_PASSWORD}
+      - Email__FromAddress=${SMTP_FROM:-noreply@redtaxi.io}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - redtaxi-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+
+  # ---------------------------------------------------------------------------
+  # Red Taxi Blazor (Dispatch Dashboard)
+  # ---------------------------------------------------------------------------
+  redtaxi-blazor:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-redtaxi/redtaxi}-blazor:${TAG:-latest}
+    container_name: redtaxi-blazor
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5002
+      - ApiBaseUrl=http://redtaxi-api:5001
+      - ConnectionStrings__DefaultConnection=${SQL_CONNECTION_STRING}
+      - ConnectionStrings__Redis=${REDIS_CONNECTION_STRING:-redis:6379}
+      - Google__MapsApiKey=${GOOGLE_MAPS_API_KEY}
+    depends_on:
+      redtaxi-api:
+        condition: service_healthy
+    networks:
+      - redtaxi-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+  # ---------------------------------------------------------------------------
+  # SQL Server
+  # ---------------------------------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: redtaxi-sql
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_PID=${SQL_PID:-Express}
+    ports:
+      - "${SQL_PORT:-1433}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${SA_PASSWORD}" -Q "SELECT 1" -C -b -o /dev/null
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - redtaxi-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+
+  # ---------------------------------------------------------------------------
+  # Redis (caching + SignalR backplane)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: redtaxi-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - redtaxi-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+
+volumes:
+  sqlserver-data:
+    driver: local
+  redis-data:
+    driver: local
+  letsencrypt-certs:
+    driver: local
+  letsencrypt-www:
+    driver: local
+
+networks:
+  redtaxi-net:
+    driver: bridge
