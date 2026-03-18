@@ -12,11 +12,11 @@ Last Updated: 2026-03-18
 
 | # | Feature | PRD § | Status | Notes |
 |---|---------|-------|--------|-------|
-| B01 | .NET 8 solution scaffold (8 projects) | §44 | 🟡 | Structure exists, check all compile |
-| B02 | Per-tenant database (ITenantConnectionResolver) | §36 | 🟡 | Resolver exists, needs end-to-end test |
-| B03 | Master DB (RedTaxi_Platform) — tenants, Stripe | §36 | 🟡 | Context exists, verify schema |
-| B04 | Tenant DB (RedTaxi_ace) — all business entities | §36 | 🟡 | Context exists, 45 tables claimed |
-| B05 | JWT authentication + refresh tokens | §63 | 🟡 | Login handler exists, verify refresh flow |
+| B01 | .NET 8 solution scaffold (8 projects) | §44 | ✅ | All 8 projects compile, 0 errors 0 warnings |
+| B02 | Per-tenant database (ITenantConnectionResolver) | §36 | ✅ | Resolver works — login + bookings tested end-to-end |
+| B03 | Master DB (RedTaxi_Platform) — tenants, Stripe | §36 | ✅ | 4 tables, Stripe products seeded |
+| B04 | Tenant DB (RedTaxi_ace) — all business entities | §36 | ✅ | 45 tables, 10 seed bookings confirmed |
+| B05 | JWT authentication + refresh tokens | §63 | ✅ | Login returns JWT, bookings/today works with token |
 | B06 | Role-based access (Admin/Dispatcher/Viewer/Accountant/Restricted) | §63, §103 | 🔴 | Roles defined in enum, RBAC middleware not verified |
 | B07 | EF Core global query filters (soft deletes) | §36 | 🔴 | Not verified |
 | B08 | MediatR pipeline (validation, logging) | §44 | 🟡 | Handlers exist, pipeline behaviours not verified |
@@ -40,8 +40,8 @@ Last Updated: 2026-03-18
 | BK02 | Create booking — phone standardisation | §102 | 🔴 | Trim spaces, format +44/044 |
 | BK03 | Create booking — postcode standardisation | §102 | 🔴 | Uppercase, format |
 | BK04 | Create booking — address normalisation | §102 | 🔴 | Remove extra spaces |
-| BK05 | Create booking — auto-price on create | §102 | 🟡 | Pricing called, but Distance Matrix was stubbed |
-| BK06 | Create booking — mileage calculated | §102 | 🔴 | Depends on real Distance Matrix |
+| BK05 | Create booking — auto-price on create | §102 | ✅ | Pricing calls real Google Distance Matrix API |
+| BK06 | Create booking — mileage calculated | §102 | ✅ | Real Distance Matrix, via segments, dead mileage |
 | BK07 | Create return booking (reversed addresses) | §102, §84 | 🟡 | Handler exists, verify reverse logic |
 | BK08 | Create block booking (recurrence rules) | §84, §103 | 🟡 | Handler exists, verify iCal parsing |
 | BK09 | Update booking | §76 | 🟡 | Handler exists |
@@ -76,20 +76,20 @@ Last Updated: 2026-03-18
 | # | Feature | PRD § | Status | Notes |
 |---|---------|-------|--------|-------|
 | PR01 | 5-level pricing priority chain | §102, §132 | 🟡 | Code exists in PricingService, logic looks correct |
-| PR02 | Google Distance Matrix integration | §102 | 🔴 | **CRITICAL** — StubDistanceMatrixService returns (0,0) |
-| PR03 | Dead mileage calculation (base → pickup + dest → base) | §102 | 🔴 | **CRITICAL** — hardcoded deadMiles: 0m |
-| PR04 | Total miles averaging: (journey + dead) / 2 | §102 | 🟡 | Formula in code, but deadMiles always 0 |
-| PR05 | Via segment calculation (multi-stop) | §102 | 🔴 | **CRITICAL** — not implemented |
+| PR02 | Google Distance Matrix integration | §102 | ✅ | GoogleDistanceMatrixService with real API, fallback on error |
+| PR03 | Dead mileage calculation (base → pickup + dest → base) | §102 | ✅ | Reads BasePostcode, calculates legA+legC, totalMiles=(journey+dead)/2 |
+| PR04 | Total miles averaging: (journey + dead) / 2 | §102 | ✅ | Formula correct, deadMiles now calculated from real API |
+| PR05 | Via segment calculation (multi-stop) | §102 | ✅ | Sums all segments pickup→via1→...→dest |
 | PR06 | Standard tariff: Day (T1) / Night (T2) / Holiday (T3) | §102 | 🟡 | DetermineTariffTypeAsync exists, logic looks correct |
 | PR07 | Tariff: InitialCharge + FirstMileCharge + (miles-1) × AdditionalMileCharge | §102 | 🟡 | Formula in code |
-| PR08 | Bank holiday detection (configurable list) | §102, §104 | 🔴 | IsBankHoliday returns false always |
+| PR08 | Bank holiday detection (configurable list) | §102, §104 | ✅ | Configurable JSON in CompanyConfig, seeded 2025-2027 UK dates |
 | PR09 | Account tariff (dual pricing: driver + account rates) | §102, §107 | 🟡 | TryAccountTariffPriceAsync exists |
 | PR10 | Zone-to-zone pricing (polygon matching) | §111, §126 | 🟡 | Name-matching only, no real point-in-polygon |
 | PR11 | Fixed route pricing (postcode prefix) | §132 | 🟡 | TryFixedPriceAsync exists |
 | PR12 | Auto-quote trigger (postcode ≥ 7 chars, scope=Cash, not manual) | §101 | 🔴 | Frontend behaviour |
 | PR13 | Account dual pricing (separate driver + account price) | §102 | 🟡 | In pricing service |
 | PR14 | Waiting time pricing (driver £0.33/min, account £0.42/min) | §105, §106 | 🔴 | Not found — must be configurable |
-| PR15 | Charge From Base toggle | §137 | 🟡 | Field exists, pricing uses it but deadMiles=0 |
+| PR15 | Charge From Base toggle | §137 | ✅ | Field exists, pricing uses real dead mileage when true |
 
 ---
 
@@ -187,7 +187,7 @@ Last Updated: 2026-03-18
 
 | # | Feature | PRD § | Status | Notes |
 |---|---------|-------|--------|-------|
-| OT01 | Google Places autocomplete | §49 | 🔴 | **CRITICAL** — not implemented |
+| OT01 | Google Places autocomplete | §49 | ✅ | GooglePlacesService + /api/address/autocomplete + /api/address/details |
 | OT02 | Ideal Postcodes integration | §49 | 🔴 | Not implemented |
 | OT03 | Address lookup API endpoint | §49 | 🔴 | Not implemented |
 | OT04 | Local POI CRUD | §87 | 🔴 | Entity exists, verify controller/handler |
@@ -216,14 +216,14 @@ Last Updated: 2026-03-18
 | DC01 | Map view (Google Maps JS API) | §42 | 🟡 | MapView.razor exists, needs Google API key wired |
 | DC02 | Map — driver position pins (live GPS) | §42, §31 | 🔴 | Not verified |
 | DC03 | Map — unallocated booking pins | §42 | 🔴 | Not implemented |
-| DC04 | Scheduler/timeline (Syncfusion SfSchedule) | §95 | 🔴 | Basic HTML timeline, NOT Syncfusion |
-| DC05 | Scheduler — driver rows on Y-axis | §95 | 🔴 | Not implemented |
-| DC06 | Scheduler — booking tiles with driver colours | §43, §95 | 🔴 | Not implemented |
-| DC07 | Scheduler — unallocated amber | §43 | 🔴 | Not implemented |
-| DC08 | Scheduler — accepted diagonal stripes | §43 | 🔴 | Not implemented |
+| DC04 | Scheduler/timeline (Syncfusion SfSchedule) | §95 | ✅ | SfSchedule TimelineDay, driver resources, drag-drop, Material Dark |
+| DC05 | Scheduler — driver rows on Y-axis | §95 | ✅ | SfSchedule ScheduleResource with driver resources |
+| DC06 | Scheduler — booking tiles with driver colours | §43, §95 | ✅ | Color from DriverDto.ColorCodeRGB |
+| DC07 | Scheduler — unallocated amber | §43 | ✅ | Default color #F59E0B for unallocated |
+| DC08 | Scheduler — accepted diagonal stripes | §43 | 🔴 | CSS pattern needed for accepted status |
 | DC09 | Scheduler — drag-and-drop allocation | §137 | 🟡 | HTML5 Drag API, not Syncfusion |
 | DC10 | Floating booking form (slides from left) | §42 | 🟡 | BookingForm.razor exists |
-| DC11 | Booking form — Google Places autocomplete | §49 | 🔴 | **CRITICAL** — not wired |
+| DC11 | Booking form — Google Places autocomplete | §49 | ✅ | Wired to /api/address/autocomplete endpoint |
 | DC12 | Booking form — all fields from §96 | §96 | 🔴 | Not verified against full field spec |
 | DC13 | Booking form — auto-time-update (ticks every second) | §101 | 🔴 | Not implemented |
 | DC14 | Booking form — ASAP toggle (current + 5 min) | §101 | 🔴 | Not verified |
@@ -247,7 +247,7 @@ Last Updated: 2026-03-18
 | DC32 | SignalR real-time updates (booking/driver events) | §137 | 🟡 | Hub wired, verify events update UI |
 | DC33 | Notification sounds (4 audio events) | §133 | 🔴 | Not implemented |
 | DC34 | Right-click context menu on bookings | §137 | 🔴 | Not implemented |
-| DC35 | Material Dark theme (Syncfusion) | §41 | 🔴 | Tailwind exists, Syncfusion theme not verified |
+| DC35 | Material Dark theme (Syncfusion) | §41 | ✅ | material-dark.css loaded, Tailwind + Syncfusion coexist |
 
 ---
 
@@ -356,7 +356,7 @@ Last Updated: 2026-03-18
 | CA01 | Tenant selection (nearby companies by GPS) | §129 | 🔴 | Not verified |
 | CA02 | Phone + OTP login | §129 | 🟡 | Screen exists |
 | CA03 | Home screen (map + "Where to?" search) | §129 | 🟡 | Screen exists |
-| CA04 | Google Places autocomplete in search | §129 | 🔴 | **CRITICAL** — not wired |
+| CA04 | Google Places autocomplete in search | §129 | 🟡 | Backend endpoint exists, Flutter wiring needed |
 | CA05 | Booking confirmation (vehicle type, price, payment) | §129 | 🟡 | Screen exists |
 | CA06 | Upfront fixed price quote | §46, §129 | 🔴 | Not verified |
 | CA07 | Via stops (Add Stop, max 5) | §129 | 🔴 | Not verified |
@@ -419,10 +419,10 @@ Last Updated: 2026-03-18
 | **Total features** | **~235** | |
 
 ### Critical Blockers (must fix first)
-1. 🔴 PR02 — Google Distance Matrix (all prices = £0)
-2. 🔴 PR03 — Dead mileage calculation
-3. 🔴 PR05 — Via segment calculation
-4. 🔴 OT01 — Google Places autocomplete (no address search)
-5. 🔴 DC04 — Syncfusion scheduler (dispatch console unusable without it)
-6. 🔴 DC11 — Booking form address search
-7. 🔴 PR08 — Bank holidays
+1. ✅ PR02 — Google Distance Matrix — FIXED: GoogleDistanceMatrixService with real API calls
+2. ✅ PR03 — Dead mileage — FIXED: reads BasePostcode, calculates legA+legC
+3. ✅ PR05 — Via segment — FIXED: sums all segments pickup→via1→...→dest
+4. ✅ OT01 — Google Places autocomplete — FIXED: GooglePlacesService + /api/address/*
+5. ✅ DC04 — Syncfusion scheduler — FIXED: SfSchedule TimelineDay with driver resources
+6. ✅ DC11 — Booking form address search — FIXED: wired to Places autocomplete
+7. ✅ PR08 — Bank holidays — FIXED: configurable JSON list, seeded 2025-2027
