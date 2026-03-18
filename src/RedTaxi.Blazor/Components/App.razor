@@ -16,7 +16,7 @@
 </head>
 
 <body class="bg-base text-primary font-sans antialiased overflow-hidden">
-    <Routes />
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
     <script src="js/dispatch.js"></script>
     <script src="js/dragdrop.js"></script>
