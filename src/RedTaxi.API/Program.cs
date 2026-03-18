@@ -201,6 +201,11 @@ try
     builder.Services.AddHttpClient();
 
     // -----------------------------------------------------------------------
+    // Tenant seed services
+    // -----------------------------------------------------------------------
+    builder.Services.AddScoped<RedTaxi.Infrastructure.Persistence.AceTaxisSeedService>();
+
+    // -----------------------------------------------------------------------
     // Application services
     // -----------------------------------------------------------------------
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -261,6 +266,20 @@ try
     catch (Exception ex)
     {
         Log.Warning(ex, "Stripe seed failed on startup — skipping. Check Stripe:SecretKey.");
+    }
+
+    // -----------------------------------------------------------------------
+    // Ace Taxis tenant seed on startup (idempotent)
+    // -----------------------------------------------------------------------
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var aceSeed = scope.ServiceProvider.GetRequiredService<RedTaxi.Infrastructure.Persistence.AceTaxisSeedService>();
+        await aceSeed.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Ace Taxis seed failed on startup — skipping. Ensure RedTaxi_ace database exists and migrations have run.");
     }
 
     // -----------------------------------------------------------------------
