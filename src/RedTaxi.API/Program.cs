@@ -142,6 +142,9 @@ try
                     "http://localhost:4200",
                     "http://localhost:5173",
                     "https://localhost:5001",
+                    "https://localhost:5002",
+                    "https://localhost:5003",
+                    "https://localhost:5004",
                     "http://localhost:5000")
                 .AllowAnyMethod()
                 .AllowAnyHeader()

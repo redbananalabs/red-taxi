@@ -1,3 +1,5 @@
+using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -26,8 +28,44 @@ public class SignalRService : IAsyncDisposable
         var apiBase = configuration.GetValue<string>("ApiBaseUrl") ?? "https://localhost:5001";
         var hubUrl = $"{apiBase.TrimEnd('/')}/hubs/dispatch";
 
+        // Get service credentials for hub authentication
+        var email = configuration["Dispatch:ServiceEmail"] ?? "admin@ace.test";
+        var password = configuration["Dispatch:ServicePassword"] ?? "Test123!";
+        var tenantSlug = configuration["Dispatch:TenantSlug"] ?? "ace";
+        string? _cachedToken = null;
+
         _hub = new HubConnectionBuilder()
-            .WithUrl(hubUrl)
+            .WithUrl(hubUrl, options =>
+            {
+                // Skip SSL validation for localhost dev
+                options.HttpMessageHandlerFactory = _ => new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                };
+                // Provide access token for hub auth
+                options.AccessTokenProvider = async () =>
+                {
+                    if (_cachedToken != null) return _cachedToken;
+                    try
+                    {
+                        using var client = new HttpClient(new HttpClientHandler
+                        {
+                            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+                        }) { BaseAddress = new Uri(apiBase) };
+                        client.DefaultRequestHeaders.Add("X-Tenant-Slug", tenantSlug);
+                        var resp = await client.PostAsJsonAsync("/api/auth/login",
+                            new { email, password, tenantSlug });
+                        if (resp.IsSuccessStatusCode)
+                        {
+                            var json = await resp.Content.ReadFromJsonAsync<JsonElement>();
+                            _cachedToken = json.GetProperty("accessToken").GetString();
+                            return _cachedToken;
+                        }
+                    }
+                    catch { }
+                    return null;
+                };
+            })
             .WithAutomaticReconnect(new[]
             {
                 TimeSpan.Zero,
