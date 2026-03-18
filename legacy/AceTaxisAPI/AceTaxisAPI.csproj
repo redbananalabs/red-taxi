@@ -20,7 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AceTaxis.Lib\AceTaxis.Lib.csproj" />
-    <ProjectReference Include="..\OSS\OSS.csproj" />
   </ItemGroup>
 
   <ItemGroup>

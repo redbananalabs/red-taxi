@@ -5,7 +5,7 @@ using AceTaxis.DTOs.Booking;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using OSS.Messaging;
+using AceTaxis.Modules.Messaging;
 
 
 namespace AceTaxis.Services

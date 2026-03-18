@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Newtonsoft.Json;
-using OSS.Messaging;
+using AceTaxis.Modules.Messaging;
 using RabbitMQ.Client;
 using SendGrid;
 using System.Net;

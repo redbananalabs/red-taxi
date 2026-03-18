@@ -7,7 +7,7 @@ using AceTaxis.DTOs.User.Responses;
 using AceTaxis.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using OSS.Membership;
+using AceTaxis.Modules.Membership;
 using System.Data;
 
 namespace AceTaxis.Areas.API.Controllers

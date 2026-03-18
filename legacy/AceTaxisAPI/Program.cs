@@ -21,13 +21,15 @@ namespace AceTaxisAPI
         public static void Main(string[] args)
         {
             var cultureInfo = new CultureInfo("en-GB");
-            cultureInfo.NumberFormat.CurrencySymbol = "£";
+            cultureInfo.NumberFormat.CurrencySymbol = "ï¿½";
 
             CultureInfo.DefaultThreadCurrentCulture = cultureInfo;
             CultureInfo.DefaultThreadCurrentUICulture = cultureInfo;
 
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
             var config = new ConfigurationBuilder()
                .AddJsonFile(@"appsettings.json", optional: false, reloadOnChange: true)
+               .AddJsonFile($"appsettings.{env}.json", optional: true, reloadOnChange: true)
                .Build();
 
             Config = config;

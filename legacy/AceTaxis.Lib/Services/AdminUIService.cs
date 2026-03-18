@@ -5,8 +5,8 @@ using AceTaxis.DTOs.Admin;
 using EllipticCurve.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using OSS.Messaging;
-using OSS.Messaging.Services;
+using AceTaxis.Modules.Messaging;
+using AceTaxis.Modules.Messaging.Services;
 
 namespace AceTaxis.Services
 {

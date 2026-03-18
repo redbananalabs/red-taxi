@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using OSS.Messaging.Services;
-using OSS.Messaging;
+using AceTaxis.Modules.Messaging.Services;
+using AceTaxis.Modules.Messaging;
 using System.Data.SqlClient;
 using System.Text;
 using WatchDog;
@@ -15,27 +15,17 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using SendGrid.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
 using Amazon.S3;
-using OSS.Modules.Storage;
+using AceTaxis.Integrations.Aws;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 
 public static partial class MiddlewareInitializer
 {
-    public static WebApplication UseOneSoft(this WebApplication app, 
+    public static WebApplication UseOneSoft(this WebApplication app,
         bool useWatchdog, bool serilogRequestLogging = false)
     {
-        //app.UseCors(options =>
-        //{
-        //    options.AllowAnyOrigin();
-        //    options.AllowAnyMethod();
-        //    options.AllowAnyHeader();
-        //});
-
         app.MapControllers();
         app.UseStaticFiles();
-
-        //if(serilogRequestLogging)
-        //    app.UseSerilogRequestLogging();
 
         app.UseRouting();
         app.UseAuthentication();
@@ -75,17 +65,6 @@ public static partial class ServiceInitializer
             .AddJsonFile($"appsettings.{env}.json", optional: true)
             .Build();
 
-        #region LOGGING
-        //Log.Logger = new LoggerConfiguration()
-        //    .ReadFrom.Configuration(configuration)
-        //    .CreateLogger();
-
-        //services.AddLogging(logging =>
-        //{
-        //    logging.AddSerilog(dispose: true);
-        //});
-        #endregion
-
         #region DATABASE CONTEXT
         services.AddDbContext<AppDbContext>(options =>
                options.UseSqlServer(configuration.GetConnectionString(name: @"DefaultConnection")));
@@ -93,7 +72,7 @@ public static partial class ServiceInitializer
         #endregion
 
         #region JWT AUTH
-        if (config.AddApiAuth) 
+        if (config.AddApiAuth)
         {
             services.AddDefaultIdentity<AppUser>(options =>
             {
@@ -135,12 +114,11 @@ public static partial class ServiceInitializer
             services.AddScoped<IUsersService, UsersService>();
             services.AddScoped<IAuthenticationService, AuthenticationService>();
         }
-     
+
 
         #endregion
 
         #region SWAGGER
-        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(c =>
         {
@@ -195,10 +173,9 @@ public static partial class ServiceInitializer
                          ?? throw new Exception("The 'SendGridApiKey' is not configured"));
             services.AddTransient<IEmailSender, MessageService>();
             services.AddScoped<IPushNotificationService, PushNotificationService>();
-            //services.AddScoped<IMessageService, MessageService>();
         }
-        
-        if(config.AddMemoryCache) 
+
+        if(config.AddMemoryCache)
         {
             services.AddMemoryCache();
         }
@@ -226,13 +203,13 @@ public static partial class ServiceInitializer
                 });
             }
             catch(SqlException ex)
-            { 
+            {
                 if(ex.ErrorCode == -2146232060)
                 {
                     // db not created yet
                 }
             }
-            
+
         }
         #endregion
 
@@ -249,7 +226,7 @@ public static partial class ServiceInitializer
     }
 }
 
-public class OneSoftConfig 
+public class OneSoftConfig
 {
     public bool AddJwt { get; set; }
     public bool AddApiAuth { get; set; }
@@ -259,4 +236,3 @@ public class OneSoftConfig
     public bool AddAWS { get; set; }
 
 }
-

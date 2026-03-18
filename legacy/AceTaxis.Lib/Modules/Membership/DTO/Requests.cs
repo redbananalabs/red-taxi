@@ -1,0 +1,56 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace AceTaxis.Modules.Membership
+{
+    public class RegisterUserRequestDto
+    {
+        public RegisterUserRequestDto()
+        {
+            RoleName = "User";
+        }
+
+        [Required(), MinLength(3), MaxLength(20)]
+        public string Username { get; set; }
+
+        public string? Fullname { get; set; }
+
+        [Required]
+        public string PhoneNumber { get; set; }
+
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; }
+
+        [Required]
+        public string Password { get; set; }
+
+        [Required]
+        public string RoleName { get; set; }
+    }
+
+
+    public class RefreshTokenRequest
+    {
+        [Required]
+        public string Token { get; set; }
+
+        [Required]
+        public string RefreshToken { get; set; }
+    }
+
+    public class AuthenticateRequest
+    {
+        [Required]
+        public string UserName
+        {
+            get;
+            set;
+        }
+        [Required]
+        public string Password
+        {
+            get;
+            set;
+        }
+    }
+}

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver.Linq;
-using OSS.Messaging.Services;
+using AceTaxis.Modules.Messaging.Services;
 using QuestPDF;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
