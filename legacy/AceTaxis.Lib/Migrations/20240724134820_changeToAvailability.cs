@@ -1,0 +1,63 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace AceTaxis.Migrations
+{
+    /// <inheritdoc />
+    public partial class changeToAvailability : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "EndTime",
+                table: "DriverAvailabilities");
+
+            migrationBuilder.DropColumn(
+                name: "StartTime",
+                table: "DriverAvailabilities");
+
+            migrationBuilder.AddColumn<TimeSpan>(
+                name: "FromTime",
+                table: "DriverAvailabilities",
+                type: "time",
+                nullable: false,
+                defaultValue: new TimeSpan(0, 0, 0, 0, 0));
+
+            migrationBuilder.AddColumn<TimeSpan>(
+                name: "ToTime",
+                table: "DriverAvailabilities",
+                type: "time",
+                nullable: false,
+                defaultValue: new TimeSpan(0, 0, 0, 0, 0));
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropColumn(
+                name: "FromTime",
+                table: "DriverAvailabilities");
+
+            migrationBuilder.DropColumn(
+                name: "ToTime",
+                table: "DriverAvailabilities");
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "EndTime",
+                table: "DriverAvailabilities",
+                type: "datetime2",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+
+            migrationBuilder.AddColumn<DateTime>(
+                name: "StartTime",
+                table: "DriverAvailabilities",
+                type: "datetime2",
+                nullable: false,
+                defaultValue: new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified));
+        }
+    }
+}

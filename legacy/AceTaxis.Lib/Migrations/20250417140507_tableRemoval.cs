@@ -1,0 +1,45 @@
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace AceTaxis.Migrations
+{
+    /// <inheritdoc />
+    public partial class tableRemoval : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropTable(
+                name: "SentMessagePackets");
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.CreateTable(
+                name: "SentMessagePackets",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    BookingId = table.Column<int>(type: "int", nullable: true),
+                    FcmOrPhoneNo = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    MessageData = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    MessageText = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    MessageType = table.Column<int>(type: "int", nullable: false),
+                    ResendCount = table.Column<int>(type: "int", nullable: false),
+                    Response = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    SentByType = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SentMessagePackets", x => x.Id);
+                });
+        }
+    }
+}
