@@ -20,54 +20,283 @@ else if (_driver is null)
 }
 else
 {
-    <div class="detail-grid">
-        <FormCard Title="Profile">
-            <div class="form-row">
-                <div class="form-group"><label>Full Name</label><div class="form-static">@_driver.FullName</div></div>
-                <div class="form-group"><label>Phone</label><div class="form-static">@_driver.PhoneNumber</div></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Colour</label>
-                    <div class="form-static">
-                        @if (!string.IsNullOrEmpty(_driver.ColorCodeRGB))
-                        {
-                            <span class="driver-color-lg" style="background:@_driver.ColorCodeRGB"></span>
-                            @_driver.ColorCodeRGB
-                        }
-                        else { <span>-</span> }
-                    </div>
-                </div>
-                <div class="form-group"><label>Status</label><StatusBadge IsActive="@_driver.IsActive" /></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group"><label>Commission Rate</label><div class="form-static">@(_driver.CommissionRate?.ToString("P1") ?? "Default")</div></div>
-                <div class="form-group"><label>Substitute</label><div class="form-static">@(_driver.IsSubstitute ? "Yes" : "No")</div></div>
-            </div>
-        </FormCard>
-
-        <FormCard Title="Vehicle">
-            <div class="form-row">
-                <div class="form-group"><label>Registration</label><div class="form-static">@_driver.RegNo</div></div>
-                <div class="form-group"><label>Make</label><div class="form-static">@_driver.VehicleMake</div></div>
-            </div>
-            <div class="form-row">
-                <div class="form-group"><label>Model</label><div class="form-static">@_driver.VehicleModel</div></div>
-                <div class="form-group"><label>Colour</label><div class="form-static">@_driver.VehicleColour</div></div>
-            </div>
-        </FormCard>
+    <div class="toolbar" style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn @(_activeTab == "profile" ? "btn-primary" : "btn-secondary")" @onclick='() => _activeTab = "profile"'>Profile</button>
+        <button class="btn @(_activeTab == "documents" ? "btn-primary" : "btn-secondary")" @onclick='() => _activeTab = "documents"'>Documents</button>
+        <button class="btn @(_activeTab == "expenses" ? "btn-primary" : "btn-secondary")" @onclick='() => _activeTab = "expenses"'>Expenses</button>
     </div>
+
+    @if (_activeTab == "profile")
+    {
+        <div class="detail-grid">
+            <FormCard Title="Profile">
+                <div class="form-row">
+                    <div class="form-group"><label>Full Name</label><div class="form-static">@_driver.FullName</div></div>
+                    <div class="form-group"><label>Phone</label><div class="form-static">@_driver.PhoneNumber</div></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Colour</label>
+                        <div class="form-static">
+                            @if (!string.IsNullOrEmpty(_driver.ColorCodeRGB))
+                            {
+                                <span class="driver-color-lg" style="background:@_driver.ColorCodeRGB"></span>
+                                @_driver.ColorCodeRGB
+                            }
+                            else { <span>-</span> }
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Status</label><StatusBadge IsActive="@_driver.IsActive" /></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Commission Rate</label><div class="form-static">@(_driver.CommissionRate?.ToString("P1") ?? "Default")</div></div>
+                    <div class="form-group"><label>Substitute</label><div class="form-static">@(_driver.IsSubstitute ? "Yes" : "No")</div></div>
+                </div>
+            </FormCard>
+
+            <FormCard Title="Vehicle">
+                <div class="form-row">
+                    <div class="form-group"><label>Registration</label><div class="form-static">@_driver.RegNo</div></div>
+                    <div class="form-group"><label>Make</label><div class="form-static">@_driver.VehicleMake</div></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Model</label><div class="form-static">@_driver.VehicleModel</div></div>
+                    <div class="form-group"><label>Colour</label><div class="form-static">@_driver.VehicleColour</div></div>
+                </div>
+            </FormCard>
+        </div>
+    }
+    else if (_activeTab == "documents")
+    {
+        <FormCard Title="Driver Documents">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Document Type</th>
+                        <th>Status</th>
+                        <th>Expiry Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in _documents)
+                    {
+                        <tr>
+                            <td>@doc.TypeName</td>
+                            <td>
+                                @if (doc.ExpiryDate is null)
+                                {
+                                    <span style="color:gray;">Missing</span>
+                                }
+                                else if (doc.ExpiryDate < DateTime.Today)
+                                {
+                                    <span style="color:red;font-weight:bold;">Expired</span>
+                                }
+                                else if (doc.ExpiryDate < DateTime.Today.AddDays(30))
+                                {
+                                    <span style="color:orange;font-weight:bold;">Expiring Soon</span>
+                                }
+                                else
+                                {
+                                    <span style="color:green;">Valid</span>
+                                }
+                            </td>
+                            <td>@(doc.ExpiryDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td>
+                                <button class="btn btn-sm btn-secondary" @onclick="() => UploadDocument(doc.TypeCode)">Upload</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </FormCard>
+    }
+    else if (_activeTab == "expenses")
+    {
+        <FormCard Title="Driver Expenses">
+            <HeaderActions>
+                <button class="btn btn-sm btn-primary" @onclick="ShowAddExpense">Add Expense</button>
+            </HeaderActions><ChildContent>
+                @if (_showExpenseForm)
+                {
+                    <div style="border:1px solid #ddd;padding:12px;margin-bottom:12px;border-radius:4px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Description</label>
+                                <input type="text" class="form-input" @bind="_newExpenseDescription" />
+                            </div>
+                            <div class="form-group">
+                                <label>Amount</label>
+                                <input type="number" step="0.01" class="form-input" @bind="_newExpenseAmount" />
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date</label>
+                                <InputDate class="form-input" @bind-Value="_newExpenseDate" />
+                            </div>
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select class="form-input" @bind="_newExpenseCategory">
+                                    <option value="Fuel">Fuel</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Insurance">Insurance</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-primary btn-sm" @onclick="SaveExpense">Save</button>
+                            <button class="btn btn-secondary btn-sm" @onclick="() => _showExpenseForm = false">Cancel</button>
+                        </div>
+                    </div>
+                }
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!_expenses.Any())
+                        {
+                            <tr><td colspan="4">No expenses recorded.</td></tr>
+                        }
+                        @foreach (var exp in _expenses)
+                        {
+                            <tr>
+                                <td>@exp.Date.ToString("dd/MM/yyyy")</td>
+                                <td>@exp.Category</td>
+                                <td>@exp.Description</td>
+                                <td>&pound;@exp.Amount.ToString("N2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </ChildContent>
+        </FormCard>
+    }
 }
 
 @code {
     [Parameter] public int Id { get; set; }
     private DriverDto? _driver;
     private bool _loading = true;
+    private string _activeTab = "profile";
+
+    // Documents
+    private List<DriverDocument> _documents = new();
+
+    // Expenses
+    private List<DriverExpenseDto> _expenses = new();
+    private bool _showExpenseForm;
+    private DateTime _newExpenseDate = DateTime.Today;
+    private string _newExpenseCategory = "Fuel";
+    private string _newExpenseDescription = string.Empty;
+    private decimal _newExpenseAmount;
 
     protected override async Task OnInitializedAsync()
     {
-        try { _driver = await Api.GetDriverAsync(Id); }
+        try
+        {
+            _driver = await Api.GetDriverAsync(Id);
+            InitializeDocuments();
+            await LoadExpenses();
+        }
         catch { }
         finally { _loading = false; }
+    }
+
+    private void InitializeDocuments()
+    {
+        _documents = new List<DriverDocument>
+        {
+            new() { TypeCode = "driving_licence", TypeName = "Driving Licence" },
+            new() { TypeCode = "private_hire_licence", TypeName = "Private Hire Driver Licence" },
+            new() { TypeCode = "vehicle_licence", TypeName = "Private Hire Vehicle Licence" },
+            new() { TypeCode = "insurance", TypeName = "Vehicle Insurance" },
+            new() { TypeCode = "mot", TypeName = "MOT Certificate" },
+            new() { TypeCode = "dbs", TypeName = "DBS Certificate" },
+            new() { TypeCode = "safeguarding", TypeName = "Safeguarding Certificate" },
+            new() { TypeCode = "medical", TypeName = "Medical Certificate" },
+        };
+
+        // Load stored document data from API
+        _ = LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        try
+        {
+            var docs = await Api.GetDriverDocumentsAsync(Id);
+            foreach (var stored in docs)
+            {
+                var local = _documents.FirstOrDefault(d => d.TypeCode == stored.TypeCode);
+                if (local is not null)
+                {
+                    local.ExpiryDate = stored.ExpiryDate;
+                    local.FileName = stored.FileName;
+                }
+            }
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task UploadDocument(string typeCode)
+    {
+        // Triggers file upload via API
+        try
+        {
+            await Api.UploadDriverDocumentAsync(Id, typeCode);
+            await LoadDocuments();
+        }
+        catch { }
+    }
+
+    private async Task LoadExpenses()
+    {
+        try { _expenses = await Api.GetDriverExpensesAsync(Id); }
+        catch { }
+    }
+
+    private void ShowAddExpense()
+    {
+        _newExpenseDate = DateTime.Today;
+        _newExpenseCategory = "Fuel";
+        _newExpenseDescription = string.Empty;
+        _newExpenseAmount = 0;
+        _showExpenseForm = true;
+    }
+
+    private async Task SaveExpense()
+    {
+        try
+        {
+            await Api.CreateDriverExpenseAsync(Id, new
+            {
+                Date = _newExpenseDate,
+                Category = _newExpenseCategory,
+                Description = _newExpenseDescription,
+                Amount = _newExpenseAmount
+            });
+            _showExpenseForm = false;
+            await LoadExpenses();
+        }
+        catch { }
+    }
+
+    // Local model classes
+    private class DriverDocument
+    {
+        public string TypeCode { get; set; } = string.Empty;
+        public string TypeName { get; set; } = string.Empty;
+        public DateTime? ExpiryDate { get; set; }
+        public string? FileName { get; set; }
     }
 }

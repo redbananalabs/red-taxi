@@ -9,6 +9,33 @@
     <p class="text-secondary">Review uninvoiced driver jobs and create statements.</p>
 </div>
 
+<FormCard Title="Filters">
+    <div class="form-row">
+        <div class="form-group">
+            <label>Driver</label>
+            <select class="form-input" @bind="_selectedDriverId">
+                <option value="0">-- All Drivers --</option>
+                @foreach (var d in _drivers)
+                {
+                    <option value="@d.UserId">@d.FullName</option>
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Scope</label>
+            <select class="form-input" @bind="_selectedScope">
+                <option value="-1">-- All Scopes --</option>
+                <option value="0">Cash</option>
+                <option value="1">Account</option>
+                <option value="2">Card</option>
+            </select>
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="ApplyFilters">Apply</button>
+        </div>
+    </div>
+</FormCard>
+
 <div class="toolbar">
     <button class="btn btn-primary" @onclick="CreateStatement" disabled="@(!_selectedJobs.Any() || _processing)">
         @if (_processing) { <span class="spinner-sm"></span> } else { <span>Create Statement</span> }
@@ -16,13 +43,14 @@
     <span class="text-secondary">@_selectedJobs.Count job(s) selected</span>
 </div>
 
-<DataTable TItem="BookingDto" Items="_jobs" Loading="_loading" ShowSearch="false">
+<DataTable TItem="BookingDto" Items="_filteredJobs" Loading="_loading" ShowSearch="false">
     <HeaderTemplate>
         <th style="width:40px;">
             <input type="checkbox" @onchange="ToggleAll" />
         </th>
         <th>ID</th>
         <th>Driver</th>
+        <th>Scope</th>
         <th>Pickup</th>
         <th>Date</th>
         <th>Price</th>
@@ -31,6 +59,7 @@
         <td><input type="checkbox" checked="@_selectedJobs.Contains(b.Id)" @onchange="() => ToggleJob(b.Id)" /></td>
         <td>@b.Id</td>
         <td>@(b.DriverName ?? "-")</td>
+        <td>@GetScopeLabel(b.Scope)</td>
         <td>@b.PickupAddress</td>
         <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
         <td>&pound;@b.Price.ToString("N2")</td>
@@ -44,16 +73,33 @@
 
 @code {
     private List<BookingDto> _jobs = new();
+    private List<DriverDto> _drivers = new();
     private HashSet<int> _selectedJobs = new();
     private bool _loading = true;
     private bool _processing;
     private string? _message;
+    private int _selectedDriverId;
+    private int _selectedScope = -1;
+
+    private IEnumerable<BookingDto> _filteredJobs => _jobs
+        .Where(j => _selectedDriverId == 0 || j.UserId == _selectedDriverId)
+        .Where(j => _selectedScope == -1 || j.Scope == _selectedScope);
 
     protected override async Task OnInitializedAsync()
     {
-        try { _jobs = await Api.GetUninvoicedDriverJobsAsync(); }
+        try
+        {
+            _drivers = await Api.GetDriversAsync();
+            _jobs = await Api.GetUninvoicedDriverJobsAsync();
+        }
         catch { }
         finally { _loading = false; }
+    }
+
+    private void ApplyFilters()
+    {
+        _selectedJobs.Clear();
+        StateHasChanged();
     }
 
     private void ToggleJob(int id)
@@ -64,7 +110,7 @@
     private void ToggleAll(ChangeEventArgs e)
     {
         if ((bool)(e.Value ?? false))
-            _selectedJobs = _jobs.Select(j => j.Id).ToHashSet();
+            _selectedJobs = _filteredJobs.Select(j => j.Id).ToHashSet();
         else
             _selectedJobs.Clear();
     }
@@ -83,4 +129,12 @@
         catch { _message = "Failed to create statement."; }
         finally { _processing = false; }
     }
+
+    private static string GetScopeLabel(int? scope) => scope switch
+    {
+        0 => "Cash",
+        1 => "Account",
+        2 => "Card",
+        _ => "-"
+    };
 }

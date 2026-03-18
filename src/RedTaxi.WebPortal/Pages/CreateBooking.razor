@@ -50,19 +50,29 @@
         @if (showRepeat)
         {
             <div class="card card-nested">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Repeat Every (days)</label>
-                        <input type="number" class="form-input" @bind="recurrenceFrequency" min="1" />
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Until</label>
-                        <input type="date" class="form-input" @bind="recurrenceEndDate" />
+                <div class="form-group">
+                    <label class="form-label">Frequency</label>
+                    <div class="radio-toggle">
+                        <button class="toggle-btn @(repeatFrequency == "Daily" ? "active" : "")" @onclick='() => SetRepeatFrequency("Daily")'>Daily</button>
+                        <button class="toggle-btn @(repeatFrequency == "Weekly" ? "active" : "")" @onclick='() => SetRepeatFrequency("Weekly")'>Weekly</button>
+                        <button class="toggle-btn @(repeatFrequency == "Fortnightly" ? "active" : "")" @onclick='() => SetRepeatFrequency("Fortnightly")'>Fortnightly</button>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Days (comma-separated, e.g. Mon,Tue,Wed)</label>
-                    <input type="text" class="form-input" @bind="recurrenceDays" placeholder="Mon,Tue,Wed,Thu,Fri" />
+                    <label class="form-label">Days</label>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        @foreach (var day in _allDays)
+                        {
+                            var isSelected = _selectedDays.Contains(day);
+                            <button type="button"
+                                    class="btn btn-sm @(isSelected ? "btn-brand" : "btn-outline")"
+                                    @onclick="() => ToggleDay(day)">@day</button>
+                        }
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Until</label>
+                    <input type="date" class="form-input" @bind="recurrenceEndDate" />
                 </div>
             </div>
         }
@@ -165,6 +175,9 @@
     private int recurrenceFrequency = 1;
     private string recurrenceDays = string.Empty;
     private DateTime? recurrenceEndDate;
+    private string repeatFrequency = "Weekly";
+    private static readonly string[] _allDays = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+    private HashSet<string> _selectedDays = new() { "Mon", "Tue", "Wed", "Thu", "Fri" };
 
     private bool useExistingPassenger;
     private List<AccountPassengerDto> passengers = new();
@@ -184,6 +197,24 @@
     private string? errorMessage;
 
     private void ToggleRepeat() => showRepeat = !showRepeat;
+
+    private void SetRepeatFrequency(string freq)
+    {
+        repeatFrequency = freq;
+        recurrenceFrequency = freq switch
+        {
+            "Daily" => 1,
+            "Weekly" => 7,
+            "Fortnightly" => 14,
+            _ => 7
+        };
+    }
+
+    private void ToggleDay(string day)
+    {
+        if (!_selectedDays.Remove(day)) _selectedDays.Add(day);
+        recurrenceDays = string.Join(",", _selectedDays);
+    }
 
     private async Task SelectFromPassenger()
     {
@@ -241,7 +272,7 @@
                 IsReturn = isReturn,
                 ReturnPickupDateTime = isReturn ? returnDate.ToDateTime(returnTime) : null,
                 RecurrenceFrequency = showRepeat ? recurrenceFrequency : null,
-                RecurrenceDays = showRepeat ? recurrenceDays : null,
+                RecurrenceDays = showRepeat ? string.Join(",", _selectedDays) : null,
                 RecurrenceEndDate = showRepeat ? recurrenceEndDate : null,
             };
 

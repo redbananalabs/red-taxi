@@ -1,0 +1,73 @@
+@page "/admin/billing/credit-invoice"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Credit Invoice - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Credit Invoice</h1>
+    <p class="text-secondary">Create credit invoices against existing invoices.</p>
+</div>
+
+<FormCard Title="Select Invoice">
+    <div class="form-row">
+        <div class="form-group">
+            <label>Invoice Number</label>
+            <input type="text" class="form-input" @bind="_invoiceSearch" placeholder="Search by invoice number..." />
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="SearchInvoice">Search</button>
+        </div>
+    </div>
+</FormCard>
+
+@if (_searched)
+{
+    <FormCard Title="Credit Details">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Credit Amount</label>
+                <input type="number" step="0.01" class="form-input" @bind="_creditAmount" />
+            </div>
+            <div class="form-group">
+                <label>Reason</label>
+                <input type="text" class="form-input" @bind="_reason" />
+            </div>
+        </div>
+        <button class="btn btn-primary" @onclick="CreateCreditInvoice" disabled="@_processing">
+            @(_processing ? "Processing..." : "Create Credit Invoice")
+        </button>
+    </FormCard>
+}
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="form-success">@_message</div>
+}
+
+@code {
+    private string _invoiceSearch = string.Empty;
+    private decimal _creditAmount;
+    private string _reason = string.Empty;
+    private bool _searched;
+    private bool _processing;
+    private string? _message;
+
+    private void SearchInvoice()
+    {
+        _searched = !string.IsNullOrWhiteSpace(_invoiceSearch);
+    }
+
+    private async Task CreateCreditInvoice()
+    {
+        _processing = true;
+        _message = null;
+        try
+        {
+            await Api.CreateCreditInvoiceAsync(new { InvoiceNumber = _invoiceSearch, Amount = _creditAmount, Reason = _reason });
+            _message = "Credit invoice created successfully.";
+        }
+        catch { _message = "Failed to create credit invoice."; }
+        finally { _processing = false; }
+    }
+}

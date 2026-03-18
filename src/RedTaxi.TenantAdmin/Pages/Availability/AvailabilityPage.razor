@@ -20,6 +20,54 @@
     </div>
 </FormCard>
 
+<FormCard Title="Quick Presets">
+    <div class="form-row" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn btn-secondary" @onclick="() => ApplyPreset(null, null)">Custom</button>
+        <button class="btn btn-secondary" @onclick='() => ApplyPreset(new TimeSpan(7,30,0), new TimeSpan(9,15,0))'>SR AM Only (07:30-09:15)</button>
+        <button class="btn btn-secondary" @onclick='() => ApplyPreset(new TimeSpan(14,30,0), new TimeSpan(16,15,0))'>SR PM Only (14:30-16:15)</button>
+        <button class="btn btn-secondary" @onclick="ApplySchoolRunOnly">SR Only (AM+PM)</button>
+        <button class="btn btn-secondary" style="background:#d32f2f;color:#fff;" @onclick="ApplyUnavailableAllDay">UNAVAILABLE ALL DAY</button>
+    </div>
+
+    @if (_showPresetForm)
+    {
+        <div style="margin-top:12px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Driver</label>
+                    <select class="form-input" @bind="_presetDriverId">
+                        <option value="0">-- Select Driver --</option>
+                        @foreach (var d in _drivers)
+                        {
+                            <option value="@d.UserId">@d.FullName</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Start</label>
+                    <input type="time" class="form-input" @bind="_presetStart" />
+                </div>
+                <div class="form-group">
+                    <label>End</label>
+                    <input type="time" class="form-input" @bind="_presetEnd" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select class="form-input" @bind="_presetType">
+                        <option value="0">Available</option>
+                        <option value="1">Unavailable</option>
+                    </select>
+                </div>
+                <div class="form-group" style="align-self:flex-end;">
+                    <button class="btn btn-primary" @onclick="SavePreset">Save Availability</button>
+                </div>
+            </div>
+        </div>
+    }
+</FormCard>
+
 @if (_loading)
 {
     <div class="table-loading"><div class="spinner"></div><span>Loading...</span></div>
@@ -46,12 +94,31 @@ else
     </DataTable>
 }
 
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="form-success">@_message</div>
+}
+
 @code {
     private DateTime _selectedDate = DateTime.Today;
     private List<DriverAvailabilityDto> _availability = new();
+    private List<DriverDto> _drivers = new();
     private bool _loading;
+    private string? _message;
 
-    protected override async Task OnInitializedAsync() => await LoadAvailability();
+    // Preset form
+    private bool _showPresetForm;
+    private int _presetDriverId;
+    private TimeOnly _presetStart = new(7, 30);
+    private TimeOnly _presetEnd = new(17, 0);
+    private int _presetType;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _drivers = await Api.GetDriversAsync(); }
+        catch { }
+        await LoadAvailability();
+    }
 
     private async Task LoadAvailability()
     {
@@ -59,6 +126,54 @@ else
         try { _availability = await Api.GetAvailabilityAsync(_selectedDate); }
         catch { }
         finally { _loading = false; }
+    }
+
+    private void ApplyPreset(TimeSpan? start, TimeSpan? end)
+    {
+        _showPresetForm = true;
+        if (start.HasValue && end.HasValue)
+        {
+            _presetStart = TimeOnly.FromTimeSpan(start.Value);
+            _presetEnd = TimeOnly.FromTimeSpan(end.Value);
+            _presetType = 0; // Available
+        }
+    }
+
+    private void ApplySchoolRunOnly()
+    {
+        // AM + PM school run: set AM slot as default, user can add PM separately
+        _showPresetForm = true;
+        _presetStart = new TimeOnly(7, 30);
+        _presetEnd = new TimeOnly(16, 15);
+        _presetType = 0;
+    }
+
+    private void ApplyUnavailableAllDay()
+    {
+        _showPresetForm = true;
+        _presetStart = new TimeOnly(0, 0);
+        _presetEnd = new TimeOnly(23, 59);
+        _presetType = 1; // Unavailable
+    }
+
+    private async Task SavePreset()
+    {
+        if (_presetDriverId == 0) { _message = "Please select a driver."; return; }
+        try
+        {
+            await Api.SetDriverAvailabilityAsync(new
+            {
+                UserId = _presetDriverId,
+                Date = _selectedDate,
+                StartTime = _presetStart.ToTimeSpan(),
+                EndTime = _presetEnd.ToTimeSpan(),
+                AvailabilityType = _presetType
+            });
+            _message = "Availability saved.";
+            _showPresetForm = false;
+            await LoadAvailability();
+        }
+        catch { _message = "Failed to save availability."; }
     }
 
     private static string GetAvailabilityType(int type) => type switch

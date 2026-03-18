@@ -1,0 +1,80 @@
+@page "/admin/tracking"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Tracking - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Live Tracking</h1>
+    <p class="text-secondary">View current driver positions on the map.</p>
+</div>
+
+<div class="toolbar" style="margin-bottom:12px;">
+    <button class="btn btn-primary" @onclick="RefreshPositions" disabled="@_loading">
+        @if (_loading) { <span class="spinner-sm"></span> } else { <span>Refresh</span> }
+    </button>
+    <span class="text-secondary">@_locations.Count driver(s) online</span>
+</div>
+
+<FormCard Title="Map">
+    <div style="width:100%;height:500px;background:#e8e8e8;border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+        <div style="color:#999;font-size:14px;position:absolute;top:10px;left:10px;">Google Maps - connect API key to activate</div>
+        @foreach (var loc in _locations)
+        {
+            var left = (int)((((double)loc.Longitude + 180.0) / 360.0) * 100);
+            var top = (int)((1.0 - ((double)loc.Latitude + 90.0) / 180.0) * 100);
+            <div style="position:absolute;left:@(left)%;top:@(top)%;transform:translate(-50%,-50%);" title="Driver @loc.UserId">
+                <div style="width:12px;height:12px;background:#d32f2f;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
+                <span style="font-size:10px;white-space:nowrap;background:rgba(255,255,255,0.8);padding:1px 3px;border-radius:2px;">@loc.UserId</span>
+            </div>
+        }
+    </div>
+</FormCard>
+
+<FormCard Title="Driver Positions">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Driver ID</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Speed</th>
+                <th>Last Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!_locations.Any())
+            {
+                <tr><td colspan="5" style="text-align:center;color:#999;">No driver locations available.</td></tr>
+            }
+            @foreach (var loc in _locations)
+            {
+                <tr>
+                    <td>@loc.UserId</td>
+                    <td>@loc.Latitude.ToString("F6")</td>
+                    <td>@loc.Longitude.ToString("F6")</td>
+                    <td>@(loc.Speed?.ToString("F1") ?? "-") mph</td>
+                    <td>@loc.TimeStamp.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</FormCard>
+
+@code {
+    private List<DriverLocationDto> _locations = new();
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshPositions();
+    }
+
+    private async Task RefreshPositions()
+    {
+        _loading = true;
+        try { _locations = await Api.GetDriverLocationsAsync(); }
+        catch { _locations = new(); }
+        finally { _loading = false; }
+    }
+}

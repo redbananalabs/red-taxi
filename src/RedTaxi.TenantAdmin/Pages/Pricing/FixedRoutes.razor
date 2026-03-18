@@ -1,0 +1,180 @@
+@page "/admin/fixed-routes"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Fixed Route Pricing - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Fixed Route Pricing</h1>
+    <p class="text-secondary">Manage fixed price routes based on postcode prefixes.</p>
+</div>
+
+<div class="toolbar" style="margin-bottom:12px;">
+    <button class="btn btn-primary" @onclick="ShowAdd">Add Fixed Route</button>
+</div>
+
+@if (_showForm)
+{
+    <FormCard Title="@(_editingId.HasValue ? "Edit Fixed Route" : "Add Fixed Route")">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Pickup Postcode Prefix</label>
+                <input type="text" class="form-input" @bind="_formPickup" placeholder="e.g. SW1" />
+            </div>
+            <div class="form-group">
+                <label>Destination Postcode Prefix</label>
+                <input type="text" class="form-input" @bind="_formDestination" placeholder="e.g. EC2" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Price</label>
+                <input type="number" step="0.01" class="form-input" @bind="_formPrice" />
+            </div>
+            <div class="form-group">
+                <label>Account Price</label>
+                <input type="number" step="0.01" class="form-input" @bind="_formAccountPrice" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" class="form-input" @bind="_formDescription" />
+            </div>
+            <div class="form-group">
+                <label>Active</label>
+                <input type="checkbox" class="form-checkbox" @bind="_formIsActive" />
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" @onclick="SaveRoute">Save</button>
+            <button class="btn btn-secondary" @onclick="CancelForm">Cancel</button>
+        </div>
+    </FormCard>
+}
+
+<DataTable TItem="FixedRouteDto" Items="_routes" Loading="_loading" ShowSearch="true">
+    <HeaderTemplate>
+        <th>Pickup Prefix</th>
+        <th>Destination Prefix</th>
+        <th>Price</th>
+        <th>Account Price</th>
+        <th>Description</th>
+        <th>Active</th>
+        <th>Actions</th>
+    </HeaderTemplate>
+    <RowTemplate Context="r">
+        <td>@r.PickupPostcodePrefix</td>
+        <td>@r.DestinationPostcodePrefix</td>
+        <td>&pound;@r.Price.ToString("N2")</td>
+        <td>&pound;@r.AccountPrice.ToString("N2")</td>
+        <td>@r.Description</td>
+        <td>@(r.IsActive ? "Yes" : "No")</td>
+        <td>
+            <button class="btn btn-sm btn-secondary" @onclick="() => EditRoute(r)">Edit</button>
+            <button class="btn btn-sm btn-danger" @onclick="() => DeleteRoute(r.Id)">Delete</button>
+        </td>
+    </RowTemplate>
+</DataTable>
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="form-success">@_message</div>
+}
+
+@code {
+    private List<FixedRouteDto> _routes = new();
+    private bool _loading = true;
+    private bool _showForm;
+    private int? _editingId;
+    private string? _message;
+
+    // Form fields
+    private string _formPickup = string.Empty;
+    private string _formDestination = string.Empty;
+    private decimal _formPrice;
+    private decimal _formAccountPrice;
+    private string _formDescription = string.Empty;
+    private bool _formIsActive = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRoutes();
+    }
+
+    private async Task LoadRoutes()
+    {
+        _loading = true;
+        try { _routes = await Api.GetFixedRoutesAsync(); }
+        catch { _routes = new(); }
+        finally { _loading = false; }
+    }
+
+    private void ShowAdd()
+    {
+        _editingId = null;
+        _formPickup = string.Empty;
+        _formDestination = string.Empty;
+        _formPrice = 0;
+        _formAccountPrice = 0;
+        _formDescription = string.Empty;
+        _formIsActive = true;
+        _showForm = true;
+    }
+
+    private void EditRoute(FixedRouteDto route)
+    {
+        _editingId = route.Id;
+        _formPickup = route.PickupPostcodePrefix;
+        _formDestination = route.DestinationPostcodePrefix;
+        _formPrice = route.Price;
+        _formAccountPrice = route.AccountPrice;
+        _formDescription = route.Description;
+        _formIsActive = route.IsActive;
+        _showForm = true;
+    }
+
+    private void CancelForm()
+    {
+        _showForm = false;
+        _editingId = null;
+    }
+
+    private async Task SaveRoute()
+    {
+        var payload = new
+        {
+            PickupPostcodePrefix = _formPickup,
+            DestinationPostcodePrefix = _formDestination,
+            Price = _formPrice,
+            AccountPrice = _formAccountPrice,
+            Description = _formDescription,
+            IsActive = _formIsActive,
+        };
+
+        try
+        {
+            if (_editingId.HasValue)
+                await Api.UpdateFixedRouteAsync(_editingId.Value, payload);
+            else
+                await Api.CreateFixedRouteAsync(payload);
+
+            _message = _editingId.HasValue ? "Route updated." : "Route created.";
+            _showForm = false;
+            _editingId = null;
+            await LoadRoutes();
+        }
+        catch { _message = "Failed to save route."; }
+    }
+
+    private async Task DeleteRoute(int id)
+    {
+        try
+        {
+            await Api.DeleteFixedRouteAsync(id);
+            _message = "Route deleted.";
+            await LoadRoutes();
+        }
+        catch { _message = "Failed to delete route."; }
+    }
+}

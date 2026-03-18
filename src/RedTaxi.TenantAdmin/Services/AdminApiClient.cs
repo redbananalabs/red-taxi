@@ -45,6 +45,9 @@ public class AdminApiClient
     public async Task UpdateBookingAsync(BookingUpdateDto dto) =>
         await PutAsync($"api/bookings/{dto.Id}", dto);
 
+    public async Task UpdateBookingPriceAsync(int bookingId, decimal newPrice) =>
+        await PutAsync($"api/bookings/{bookingId}", new { PriceAccount = newPrice });
+
     // Accounts
     public async Task<List<AccountDto>> GetAccountsAsync(string? search = null)
     {
@@ -71,6 +74,20 @@ public class AdminApiClient
 
     public async Task UpdateDriverAsync(int id, DriverDto dto) =>
         await PutAsync($"api/drivers/{id}", dto);
+
+    // Driver Documents
+    public async Task<List<DriverDocumentDto>> GetDriverDocumentsAsync(int driverId) =>
+        await GetAsync<List<DriverDocumentDto>>($"api/drivers/{driverId}/documents") ?? new();
+
+    public async Task UploadDriverDocumentAsync(int driverId, string typeCode) =>
+        await PostAsync($"api/drivers/{driverId}/documents/{typeCode}/upload", new { });
+
+    // Driver Expenses
+    public async Task<List<DriverExpenseDto>> GetDriverExpensesAsync(int driverId) =>
+        await GetAsync<List<DriverExpenseDto>>($"api/drivers/{driverId}/expenses") ?? new();
+
+    public async Task CreateDriverExpenseAsync(int driverId, object expense) =>
+        await PostAsync($"api/drivers/{driverId}/expenses", expense);
 
     // Tariffs
     public async Task<List<TariffDto>> GetTariffsAsync() =>
@@ -106,6 +123,17 @@ public class AdminApiClient
     public async Task PostInvoiceAsync(object request) =>
         await PostAsync("api/invoices", request);
 
+    // Credit Invoice
+    public async Task CreateCreditInvoiceAsync(object request) =>
+        await PostAsync("api/invoices/credit", request);
+
+    // Pricing
+    public async Task BulkRecalculatePricesAsync(List<int> bookingIds) =>
+        await PostAsync("api/pricing/bulk-recalculate", new { BookingIds = bookingIds });
+
+    public async Task PostJobsForBillingAsync(List<int> bookingIds) =>
+        await PostAsync("api/billing/post-jobs", new { BookingIds = bookingIds });
+
     // Driver Availability
     public async Task<List<DriverAvailabilityDto>> GetAvailabilityAsync(DateTime? date = null)
     {
@@ -113,6 +141,34 @@ public class AdminApiClient
         if (date.HasValue) url += $"?date={date.Value:yyyy-MM-dd}";
         return await GetAsync<List<DriverAvailabilityDto>>(url) ?? new();
     }
+
+    public async Task SetDriverAvailabilityAsync(object request) =>
+        await PostAsync("api/availability", request);
+
+    // Availability Logs
+    public async Task<List<AvailabilityLogDto>> GetAvailabilityLogsAsync(DateTime date, int? driverUserId = null)
+    {
+        var url = $"api/availability/logs?date={date:yyyy-MM-dd}";
+        if (driverUserId.HasValue) url += $"&driverUserId={driverUserId.Value}";
+        return await GetAsync<List<AvailabilityLogDto>>(url) ?? new();
+    }
+
+    // Fixed Routes
+    public async Task<List<FixedRouteDto>> GetFixedRoutesAsync() =>
+        await GetAsync<List<FixedRouteDto>>("api/fixed-routes") ?? new();
+
+    public async Task CreateFixedRouteAsync(object route) =>
+        await PostAsync("api/fixed-routes", route);
+
+    public async Task UpdateFixedRouteAsync(int id, object route) =>
+        await PutAsync($"api/fixed-routes/{id}", route);
+
+    public async Task DeleteFixedRouteAsync(int id) =>
+        await DeleteAsync($"api/fixed-routes/{id}");
+
+    // Driver Locations / Tracking
+    public async Task<List<DriverLocationDto>> GetDriverLocationsAsync() =>
+        await GetAsync<List<DriverLocationDto>>("api/drivers/locations") ?? new();
 
     // Company Config
     public async Task<CompanyConfigDto?> GetConfigAsync() =>
@@ -155,5 +211,11 @@ public class AdminApiClient
     {
         await SetAuthHeader();
         await _http.PutAsJsonAsync(url, data);
+    }
+
+    private async Task DeleteAsync(string url)
+    {
+        await SetAuthHeader();
+        await _http.DeleteAsync(url);
     }
 }

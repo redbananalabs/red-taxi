@@ -1,0 +1,41 @@
+@page "/admin/reports/turn-downs"
+@attribute [Authorize]
+
+<PageTitle>Turn Downs Report - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Turn Downs Report</h1>
+</div>
+
+<FormCard Title="Period">
+    <div class="form-row">
+        <div class="form-group">
+            <label>From</label>
+            <InputDate class="form-input" @bind-Value="_dateFrom" />
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <InputDate class="form-input" @bind-Value="_dateTo" />
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="() => _generated = true">Generate</button>
+        </div>
+    </div>
+</FormCard>
+
+@if (_generated)
+{
+    <FormCard Title="Results">
+        <div class="table-empty">Report data will be populated from the reporting API.</div>
+        <table class="data-table">
+            <thead><tr><th>Column 1</th><th>Column 2</th><th>Column 3</th><th>Value</th></tr></thead>
+            <tbody><tr><td colspan="4" style="text-align:center;color:#999;">No data - connect to reporting API</td></tr></tbody>
+        </table>
+    </FormCard>
+}
+
+@code {
+    private DateTime _dateFrom = DateTime.Today.AddMonths(-1);
+    private DateTime _dateTo = DateTime.Today;
+    private bool _generated;
+}

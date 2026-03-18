@@ -26,31 +26,148 @@
 
 @if (_selectedAccountId > 0)
 {
-    <div class="toolbar">
+    <div class="toolbar" style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn @(_activeTab == "list" ? "btn-primary" : "btn-secondary")" @onclick='() => _activeTab = "list"'>Job List</button>
+        <button class="btn @(_activeTab == "singles" ? "btn-primary" : "btn-secondary")" @onclick='() => _activeTab = "singles"'>Singles</button>
+        <button class="btn @(_activeTab == "shared" ? "btn-primary" : "btn-secondary")" @onclick='() => _activeTab = "shared"'>Shared</button>
+    </div>
+
+    <div class="toolbar" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
         <button class="btn btn-primary" @onclick="CreateInvoice" disabled="@(!_selectedJobs.Any() || _processing)">
             @if (_processing) { <span class="spinner-sm"></span> } else { <span>Create Invoice</span> }
+        </button>
+        <button class="btn btn-secondary" @onclick="PriceAll" disabled="@(_pricingAll)">
+            @if (_pricingAll) { <span class="spinner-sm"></span> } else { <span>Price All</span> }
+        </button>
+        <button class="btn btn-secondary" @onclick="PostAllPriced" disabled="@(_postingAll)">
+            @if (_postingAll) { <span class="spinner-sm"></span> } else { <span>Post All Priced</span> }
         </button>
         <span class="text-secondary">@_selectedJobs.Count job(s) selected</span>
     </div>
 
-    <DataTable TItem="BookingDto" Items="_jobs" Loading="_loadingJobs" ShowSearch="false">
-        <HeaderTemplate>
-            <th style="width:40px;"><input type="checkbox" @onchange="ToggleAll" /></th>
-            <th>ID</th>
-            <th>Pickup</th>
-            <th>Destination</th>
-            <th>Date</th>
-            <th>Account Price</th>
-        </HeaderTemplate>
-        <RowTemplate Context="b">
-            <td><input type="checkbox" checked="@_selectedJobs.Contains(b.Id)" @onchange="() => ToggleJob(b.Id)" /></td>
-            <td>@b.Id</td>
-            <td>@b.PickupAddress</td>
-            <td>@b.DestinationAddress</td>
-            <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
-            <td>&pound;@b.PriceAccount.ToString("N2")</td>
-        </RowTemplate>
-    </DataTable>
+    @if (_activeTab == "list")
+    {
+        <DataTable TItem="BookingDto" Items="_jobs" Loading="_loadingJobs" ShowSearch="false">
+            <HeaderTemplate>
+                <th style="width:40px;"><input type="checkbox" @onchange="ToggleAll" /></th>
+                <th>ID</th>
+                <th>Passenger</th>
+                <th>Pickup</th>
+                <th>Destination</th>
+                <th>Date</th>
+                <th>Account Price</th>
+            </HeaderTemplate>
+            <RowTemplate Context="b">
+                <td><input type="checkbox" checked="@_selectedJobs.Contains(b.Id)" @onchange="() => ToggleJob(b.Id)" /></td>
+                <td>@b.Id</td>
+                <td>@(b.PassengerName ?? "-")</td>
+                <td>@b.PickupAddress</td>
+                <td>@b.DestinationAddress</td>
+                <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
+                <td>
+                    @if (_editingPriceId == b.Id)
+                    {
+                        <input type="number" step="0.01" class="form-input" style="width:100px;background:#fff3e0;border-color:orange;"
+                               value="@_editingPriceValue" @onchange="e => OnPriceChanged(e)"
+                               @onfocusout="() => SavePrice(b.Id)" />
+                    }
+                    else
+                    {
+                        <span style="cursor:pointer;" @onclick="() => StartEditPrice(b.Id, b.PriceAccount)">&pound;@b.PriceAccount.ToString("N2")</span>
+                    }
+                </td>
+            </RowTemplate>
+        </DataTable>
+    }
+    else if (_activeTab == "singles")
+    {
+        @foreach (var group in _jobs.GroupBy(j => j.PassengerName ?? "(No Passenger)"))
+        {
+            var groupKey = group.Key;
+            var isOpen = _expandedSingles.Contains(groupKey);
+            <FormCard Title="@groupKey">
+                <HeaderActions>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => ToggleSingleGroup(groupKey)">@(isOpen ? "Collapse" : "Expand")</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => PriceGroup(group.ToList())">Price All</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => PostGroupPriced(group.ToList())">Post All Priced</button>
+                </HeaderActions><ChildContent>
+                @if (isOpen)
+                {
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Pickup</th><th>Destination</th><th>Date</th><th>Account Price</th></tr></thead>
+                        <tbody>
+                            @foreach (var b in group)
+                            {
+                                <tr>
+                                    <td>@b.Id</td>
+                                    <td>@b.PickupAddress</td>
+                                    <td>@b.DestinationAddress</td>
+                                    <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        @if (_editingPriceId == b.Id)
+                                        {
+                                            <input type="number" step="0.01" class="form-input" style="width:100px;background:#fff3e0;border-color:orange;"
+                                                   value="@_editingPriceValue" @onchange="e => OnPriceChanged(e)"
+                                                   @onfocusout="() => SavePrice(b.Id)" />
+                                        }
+                                        else
+                                        {
+                                            <span style="cursor:pointer;" @onclick="() => StartEditPrice(b.Id, b.PriceAccount)">&pound;@b.PriceAccount.ToString("N2")</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                </ChildContent>
+            </FormCard>
+        }
+    }
+    else if (_activeTab == "shared")
+    {
+        @foreach (var group in _jobs.GroupBy(j => $"{j.PickupAddress} -> {j.DestinationAddress}"))
+        {
+            var routeKey = group.Key;
+            var isOpen = _expandedShared.Contains(routeKey);
+            <FormCard Title="@routeKey">
+                <HeaderActions>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => ToggleSharedGroup(routeKey)">@(isOpen ? "Collapse" : "Expand")</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => PriceGroup(group.ToList())">Price All</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="() => PostGroupPriced(group.ToList())">Post All Priced</button>
+                </HeaderActions><ChildContent>
+                @if (isOpen)
+                {
+                    <table class="data-table">
+                        <thead><tr><th>ID</th><th>Passenger</th><th>Date</th><th>Account Price</th></tr></thead>
+                        <tbody>
+                            @foreach (var b in group)
+                            {
+                                <tr>
+                                    <td>@b.Id</td>
+                                    <td>@(b.PassengerName ?? "-")</td>
+                                    <td>@b.PickupDateTime.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        @if (_editingPriceId == b.Id)
+                                        {
+                                            <input type="number" step="0.01" class="form-input" style="width:100px;background:#fff3e0;border-color:orange;"
+                                                   value="@_editingPriceValue" @onchange="e => OnPriceChanged(e)"
+                                                   @onfocusout="() => SavePrice(b.Id)" />
+                                        }
+                                        else
+                                        {
+                                            <span style="cursor:pointer;" @onclick="() => StartEditPrice(b.Id, b.PriceAccount)">&pound;@b.PriceAccount.ToString("N2")</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                </ChildContent>
+            </FormCard>
+        }
+    }
 }
 
 @if (!string.IsNullOrEmpty(_message))
@@ -65,7 +182,18 @@
     private int _selectedAccountId;
     private bool _loadingJobs;
     private bool _processing;
+    private bool _pricingAll;
+    private bool _postingAll;
     private string? _message;
+    private string _activeTab = "list";
+
+    // Inline price editing
+    private int? _editingPriceId;
+    private decimal _editingPriceValue;
+
+    // Expandable groups
+    private HashSet<string> _expandedSingles = new();
+    private HashSet<string> _expandedShared = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -92,6 +220,87 @@
     {
         if ((bool)(e.Value ?? false)) _selectedJobs = _jobs.Select(j => j.Id).ToHashSet();
         else _selectedJobs.Clear();
+    }
+
+    private void ToggleSingleGroup(string key) { if (!_expandedSingles.Remove(key)) _expandedSingles.Add(key); }
+    private void ToggleSharedGroup(string key) { if (!_expandedShared.Remove(key)) _expandedShared.Add(key); }
+
+    private void StartEditPrice(int bookingId, decimal currentPrice)
+    {
+        _editingPriceId = bookingId;
+        _editingPriceValue = currentPrice;
+    }
+
+    private void OnPriceChanged(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var val))
+            _editingPriceValue = val;
+    }
+
+    private async Task SavePrice(int bookingId)
+    {
+        try
+        {
+            await Api.UpdateBookingPriceAsync(bookingId, _editingPriceValue);
+            // Reload jobs to reflect updated price
+            _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId);
+        }
+        catch { }
+        finally { _editingPriceId = null; }
+    }
+
+    private async Task PriceAll()
+    {
+        _pricingAll = true;
+        _message = null;
+        try
+        {
+            var ids = _jobs.Select(j => j.Id).ToList();
+            await Api.BulkRecalculatePricesAsync(ids);
+            _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId);
+            _message = $"Pricing recalculated for {ids.Count} jobs.";
+        }
+        catch { _message = "Failed to recalculate prices."; }
+        finally { _pricingAll = false; }
+    }
+
+    private async Task PostAllPriced()
+    {
+        _postingAll = true;
+        _message = null;
+        try
+        {
+            var pricedIds = _jobs.Where(j => j.PriceAccount > 0).Select(j => j.Id).ToList();
+            await Api.PostJobsForBillingAsync(pricedIds);
+            _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId);
+            _message = $"Posted {pricedIds.Count} priced jobs for billing.";
+        }
+        catch { _message = "Failed to post jobs."; }
+        finally { _postingAll = false; }
+    }
+
+    private async Task PriceGroup(List<BookingDto> groupJobs)
+    {
+        try
+        {
+            var ids = groupJobs.Select(j => j.Id).ToList();
+            await Api.BulkRecalculatePricesAsync(ids);
+            _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId);
+            _message = $"Pricing recalculated for {ids.Count} jobs.";
+        }
+        catch { _message = "Failed to recalculate group prices."; }
+    }
+
+    private async Task PostGroupPriced(List<BookingDto> groupJobs)
+    {
+        try
+        {
+            var pricedIds = groupJobs.Where(j => j.PriceAccount > 0).Select(j => j.Id).ToList();
+            await Api.PostJobsForBillingAsync(pricedIds);
+            _jobs = await Api.GetUninvoicedAccountJobsAsync(_selectedAccountId);
+            _message = $"Posted {pricedIds.Count} priced jobs for billing.";
+        }
+        catch { _message = "Failed to post group jobs."; }
     }
 
     private async Task CreateInvoice()

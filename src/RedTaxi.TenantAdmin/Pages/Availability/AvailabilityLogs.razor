@@ -1,0 +1,75 @@
+@page "/admin/availability-logs"
+@attribute [Authorize]
+@inject AdminApiClient Api
+
+<PageTitle>Availability Logs - Red Taxi Admin</PageTitle>
+
+<div class="page-header">
+    <h1>Availability Logs</h1>
+    <p class="text-secondary">View history of availability changes.</p>
+</div>
+
+<FormCard Title="Filters">
+    <div class="form-row">
+        <div class="form-group">
+            <label>Date</label>
+            <InputDate class="form-input" @bind-Value="_filterDate" />
+        </div>
+        <div class="form-group">
+            <label>Driver</label>
+            <select class="form-input" @bind="_filterDriverId">
+                <option value="0">-- All Drivers --</option>
+                @foreach (var d in _drivers)
+                {
+                    <option value="@d.UserId">@d.FullName</option>
+                }
+            </select>
+        </div>
+        <div class="form-group" style="align-self:flex-end;">
+            <button class="btn btn-primary" @onclick="LoadLogs">Search</button>
+        </div>
+    </div>
+</FormCard>
+
+<DataTable TItem="AvailabilityLogDto" Items="_filteredLogs" Loading="_loading" ShowSearch="false">
+    <HeaderTemplate>
+        <th>Date</th>
+        <th>Change Description</th>
+        <th>Changed On</th>
+        <th>Changed By</th>
+        <th>Driver #</th>
+    </HeaderTemplate>
+    <RowTemplate Context="log">
+        <td>@log.Date.ToString("dd/MM/yyyy")</td>
+        <td>@log.Description</td>
+        <td>@log.ChangedOn.ToString("dd/MM/yyyy HH:mm")</td>
+        <td>@log.ChangedBy</td>
+        <td>@log.DriverUserId</td>
+    </RowTemplate>
+</DataTable>
+
+@code {
+    private List<AvailabilityLogDto> _logs = new();
+    private List<DriverDto> _drivers = new();
+    private DateTime _filterDate = DateTime.Today;
+    private int _filterDriverId;
+    private bool _loading;
+
+    private IEnumerable<AvailabilityLogDto> _filteredLogs => _logs
+        .Where(l => _filterDriverId == 0 || l.DriverUserId == _filterDriverId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _drivers = await Api.GetDriversAsync(); }
+        catch { }
+        await LoadLogs();
+    }
+
+    private async Task LoadLogs()
+    {
+        _loading = true;
+        try { _logs = await Api.GetAvailabilityLogsAsync(_filterDate, _filterDriverId > 0 ? _filterDriverId : null); }
+        catch { _logs = new(); }
+        finally { _loading = false; }
+    }
+}
