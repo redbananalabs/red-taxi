@@ -1,4 +1,6 @@
 @inject ApiService Api
+@inject IJSRuntime JS
+@implements IDisposable
 
 <div class="booking-form">
     <div class="panel-header">
@@ -12,10 +14,10 @@
 
     <div class="panel-body">
         <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="bookingForm">
-            <!-- ASAP / Arrive By toggles -->
+            <!-- ASAP / Arrive By / Return toggles -->
             <div class="form-row form-toggles">
                 <label class="toggle-label">
-                    <input type="checkbox" @bind="_model.IsASAP" class="toggle-input" />
+                    <input type="checkbox" checked="@_model.IsASAP" @onchange="ToggleASAP" class="toggle-input" />
                     <span class="toggle-switch"></span>
                     ASAP
                 </label>
@@ -31,15 +33,24 @@
                 </label>
             </div>
 
-            <!-- Date/Time -->
+            <!-- DC13: Current time display when ASAP is on -->
+            @if (_model.IsASAP)
+            {
+                <div class="form-row asap-time-display">
+                    <span class="asap-clock font-mono">@_currentTime.ToString("HH:mm:ss")</span>
+                    <span class="asap-label">Pickup at @_pickupTime.ToString("HH:mm")</span>
+                </div>
+            }
+
+            <!-- Date/Time (DC14: disabled when ASAP) -->
             <div class="form-row form-row-2col">
                 <div class="form-group">
                     <label class="form-label">Pickup Date</label>
-                    <input type="date" class="form-input" @bind="_pickupDate" />
+                    <input type="date" class="form-input" @bind="_pickupDate" disabled="@_model.IsASAP" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Pickup Time</label>
-                    <input type="time" class="form-input" @bind="_pickupTime" />
+                    <input type="time" class="form-input" @bind="_pickupTime" disabled="@_model.IsASAP" />
                 </div>
             </div>
 
@@ -51,15 +62,49 @@
                 </div>
             }
 
-            <!-- Addresses -->
+            <!-- Addresses with postcode -->
             <div class="form-group">
                 <label class="form-label">Pickup Address</label>
                 <input type="text" class="form-input" @bind="_model.PickupAddress" placeholder="Start typing address..." />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Pickup Postcode</label>
+                <input type="text" class="form-input form-input-sm" @bind="_model.PickupPostCode" placeholder="Postcode" />
             </div>
 
             <div class="form-group">
                 <label class="form-label">Destination</label>
                 <input type="text" class="form-input" @bind="_model.DestinationAddress" placeholder="Where to?" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Destination Postcode</label>
+                <input type="text" class="form-input form-input-sm" @bind="_model.DestinationPostCode" placeholder="Postcode" />
+            </div>
+
+            <!-- Via Stops (DC12) -->
+            <div class="form-group">
+                <label class="form-label">Via Stops</label>
+                @if (_vias.Any())
+                {
+                    @for (var i = 0; i < _vias.Count; i++)
+                    {
+                        var idx = i;
+                        <div class="form-row form-via-row">
+                            <input type="text" class="form-input" value="@_vias[idx].Address"
+                                   @onchange="e => _vias[idx].Address = e.Value?.ToString() ?? string.Empty"
+                                   placeholder="Via address..." />
+                            <input type="text" class="form-input form-input-sm" value="@_vias[idx].PostCode"
+                                   @onchange="e => _vias[idx].PostCode = e.Value?.ToString()"
+                                   placeholder="Postcode" />
+                            <button type="button" class="btn-icon btn-icon-danger" @onclick="() => RemoveVia(idx)" title="Remove via">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                }
+                <button type="button" class="btn-link" @onclick="AddVia">+ Add Via Stop</button>
             </div>
 
             <!-- Passenger info -->
@@ -73,7 +118,8 @@
             <div class="form-row form-row-2col">
                 <div class="form-group">
                     <label class="form-label">Phone</label>
-                    <input type="tel" class="form-input" @bind="_model.PhoneNumber" placeholder="Phone number" />
+                    <input type="tel" class="form-input" @bind="_model.PhoneNumber" @bind:event="oninput"
+                           @onblur="HandlePhoneBlur" placeholder="Phone number" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Email</label>
@@ -92,8 +138,8 @@
                         <option value="0">Saloon</option>
                         <option value="1">Estate</option>
                         <option value="2">MPV</option>
-                        <option value="3">Executive</option>
-                        <option value="4">Minibus</option>
+                        <option value="3">MPV Plus</option>
+                        <option value="4">SUV</option>
                     </select>
                 </div>
             </div>
@@ -126,6 +172,20 @@
                 <textarea class="form-input form-textarea" @bind="_model.Details" placeholder="Special instructions..." rows="2"></textarea>
             </div>
 
+            <!-- ChargeFromBase + IsSchoolRun toggles (DC12) -->
+            <div class="form-row form-toggles">
+                <label class="toggle-label">
+                    <input type="checkbox" @bind="_model.ChargeFromBase" class="toggle-input" />
+                    <span class="toggle-switch"></span>
+                    Charge From Base
+                </label>
+                <label class="toggle-label">
+                    <input type="checkbox" @bind="_model.IsSchoolRun" class="toggle-input" />
+                    <span class="toggle-switch"></span>
+                    School Run
+                </label>
+            </div>
+
             @if (_model.IsReturn)
             {
                 <div class="form-group">
@@ -155,6 +215,7 @@
             <!-- Actions -->
             <div class="form-actions">
                 <button type="button" class="btn-secondary" @onclick="OnClose">Cancel</button>
+                <button type="button" class="btn-outline" @onclick="OpenRepeatModal">Repeat</button>
                 <button type="button" class="btn-outline" @onclick="GetPrice" disabled="@_loadingPrice">
                     @(_loadingPrice ? "Pricing..." : "Get Price")
                 </button>
@@ -166,21 +227,227 @@
     </div>
 </div>
 
+<!-- DC16: Repeat Booking Modal -->
+@if (_showRepeatModal)
+{
+    <div class="modal-overlay" @onclick="CloseRepeatModal">
+        <div class="repeat-modal" @onclick:stopPropagation="true">
+            <div class="panel-header">
+                <h3 class="panel-title">Repeat Booking</h3>
+                <button class="panel-close" @onclick="CloseRepeatModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="form-label">Frequency</label>
+                    <select class="form-select" @bind="_repeatFrequency">
+                        <option value="0">Daily</option>
+                        <option value="1">Weekly</option>
+                        <option value="2">Fortnightly</option>
+                    </select>
+                </div>
+
+                @if (_repeatFrequency >= 1)
+                {
+                    <div class="form-group">
+                        <label class="form-label">Days</label>
+                        <div class="day-selector">
+                            @foreach (var day in _dayNames)
+                            {
+                                var d = day;
+                                <button type="button"
+                                        class="day-btn @(_selectedDays.Contains(d) ? "day-btn-active" : "")"
+                                        @onclick="() => ToggleDay(d)">
+                                    @d[0]
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label class="form-label">End</label>
+                    <div class="form-row form-toggles">
+                        <label class="toggle-label">
+                            <input type="radio" name="repeatEnd" checked="@(!_repeatHasEndDate)" @onchange="() => _repeatHasEndDate = false" />
+                            Never
+                        </label>
+                        <label class="toggle-label">
+                            <input type="radio" name="repeatEnd" checked="@_repeatHasEndDate" @onchange="() => _repeatHasEndDate = true" />
+                            Until
+                        </label>
+                    </div>
+                    @if (_repeatHasEndDate)
+                    {
+                        <input type="date" class="form-input" @bind="_repeatEndDate" />
+                    }
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-secondary" @onclick="CloseRepeatModal">Cancel</button>
+                <button class="btn-primary" @onclick="ConfirmRepeat">Confirm</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- DC18: Caller Popup -->
+@if (_showCallerPopup)
+{
+    <CallerPopup PhoneNumber="@_model.PhoneNumber"
+                 OnClose="() => _showCallerPopup = false"
+                 OnRepeatBooking="HandleRepeatFromCaller" />
+}
+
 @code {
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<BookingDto> OnBookingCreated { get; set; }
 
     private BookingCreateDto _model = new()
     {
-        PickupDateTime = DateTime.Now.AddMinutes(15),
+        PickupDateTime = DateTime.Now.AddMinutes(5),
         Passengers = 1,
         IsASAP = true
     };
     private DateOnly _pickupDate = DateOnly.FromDateTime(DateTime.Today);
-    private TimeOnly _pickupTime = TimeOnly.FromDateTime(DateTime.Now.AddMinutes(15));
+    private TimeOnly _pickupTime = TimeOnly.FromDateTime(DateTime.Now.AddMinutes(5));
     private PriceResultDto? _priceResult;
     private bool _loadingPrice;
     private bool _submitting;
+
+    // Via stops (mutable wrapper for binding since BookingViaDto is a record)
+    private List<ViaEntry> _vias = new();
+
+    private class ViaEntry
+    {
+        public string Address { get; set; } = "";
+        public string? PostCode { get; set; }
+    }
+
+    // DC13: ASAP auto-time-update
+    private DateTime _currentTime = DateTime.Now;
+    private System.Threading.Timer? _asapTimer;
+
+    // DC16: Repeat booking modal
+    private bool _showRepeatModal;
+    private int _repeatFrequency; // 0=Daily, 1=Weekly, 2=Fortnightly
+    private HashSet<string> _selectedDays = new();
+    private bool _repeatHasEndDate;
+    private DateOnly _repeatEndDate = DateOnly.FromDateTime(DateTime.Today.AddMonths(3));
+    private readonly string[] _dayNames = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+
+    // DC18: Caller popup
+    private bool _showCallerPopup;
+
+    protected override void OnInitialized()
+    {
+        // DC13: Start timer if ASAP is on
+        if (_model.IsASAP)
+        {
+            StartAsapTimer();
+        }
+    }
+
+    private void StartAsapTimer()
+    {
+        _asapTimer?.Dispose();
+        _asapTimer = new System.Threading.Timer(_ =>
+        {
+            _currentTime = DateTime.Now;
+            InvokeAsync(StateHasChanged);
+        }, null, 0, 1000);
+    }
+
+    private void StopAsapTimer()
+    {
+        _asapTimer?.Dispose();
+        _asapTimer = null;
+    }
+
+    // DC14: ASAP toggle
+    private void ToggleASAP(ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
+        _model.IsASAP = isChecked;
+        if (isChecked)
+        {
+            _model.PickupDateTime = DateTime.Now.AddMinutes(5);
+            _pickupDate = DateOnly.FromDateTime(DateTime.Today);
+            _pickupTime = TimeOnly.FromDateTime(DateTime.Now.AddMinutes(5));
+            StartAsapTimer();
+        }
+        else
+        {
+            StopAsapTimer();
+        }
+    }
+
+    private void ToggleArriveBy(ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
+        if (isChecked)
+            _model.ArriveBy = _model.PickupDateTime.AddHours(1);
+        else
+            _model.ArriveBy = null;
+    }
+
+    // Via stop management
+    private void AddVia()
+    {
+        _vias.Add(new ViaEntry());
+    }
+
+    private void RemoveVia(int index)
+    {
+        _vias.RemoveAt(index);
+    }
+
+    // DC16: Repeat modal
+    private void OpenRepeatModal() => _showRepeatModal = true;
+    private void CloseRepeatModal() => _showRepeatModal = false;
+
+    private void ToggleDay(string day)
+    {
+        if (!_selectedDays.Remove(day))
+            _selectedDays.Add(day);
+    }
+
+    private void ConfirmRepeat()
+    {
+        _model.RecurrenceFrequency = _repeatFrequency;
+        _model.RecurrenceDays = _selectedDays.Count > 0 ? string.Join(",", _selectedDays) : null;
+        _model.RecurrenceEndDate = _repeatHasEndDate ? _repeatEndDate.ToDateTime(TimeOnly.MinValue) : null;
+        _showRepeatModal = false;
+    }
+
+    // DC18: Phone blur triggers caller popup
+    private void HandlePhoneBlur()
+    {
+        if (!string.IsNullOrWhiteSpace(_model.PhoneNumber) && _model.PhoneNumber.Length >= 7)
+        {
+            _showCallerPopup = true;
+        }
+    }
+
+    private void HandleRepeatFromCaller(BookingDto booking)
+    {
+        _model.PickupAddress = booking.PickupAddress;
+        _model.PickupPostCode = booking.PickupPostCode;
+        _model.DestinationAddress = booking.DestinationAddress;
+        _model.DestinationPostCode = booking.DestinationPostCode;
+        _model.PassengerName = booking.PassengerName;
+        _model.PhoneNumber = booking.PhoneNumber;
+        _model.Email = booking.Email;
+        _model.Passengers = booking.Passengers;
+        _model.VehicleType = booking.VehicleType;
+        _model.Scope = booking.Scope ?? 0;
+        _model.AccountNumber = booking.AccountNumber;
+        _showCallerPopup = false;
+        StateHasChanged();
+    }
 
     private async Task GetPrice()
     {
@@ -203,6 +470,9 @@
         try
         {
             _model.PickupDateTime = _pickupDate.ToDateTime(_pickupTime);
+            _model.Vias = _vias.Count > 0
+                ? _vias.Select((v, i) => new BookingViaDto(0, v.Address, v.PostCode, i + 1)).ToList()
+                : null;
             var result = await Api.CreateBookingAsync(_model);
             if (result != null)
                 await OnBookingCreated.InvokeAsync(result);
@@ -211,12 +481,8 @@
         _submitting = false;
     }
 
-    private void ToggleArriveBy(ChangeEventArgs e)
+    public void Dispose()
     {
-        var isChecked = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
-        if (isChecked)
-            _model.ArriveBy = _model.PickupDateTime.AddHours(1);
-        else
-            _model.ArriveBy = null;
+        _asapTimer?.Dispose();
     }
 }

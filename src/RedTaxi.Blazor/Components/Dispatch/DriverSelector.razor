@@ -12,7 +12,8 @@
         </div>
 
         <div class="driver-selector-search">
-            <input type="text" class="form-input" placeholder="Search drivers..." @bind="_search" @bind:event="oninput" />
+            <input type="text" class="form-input" placeholder="Type driver number or name..."
+                   @bind="_search" @bind:event="oninput" @onkeydown="HandleKeyDown" autofocus />
         </div>
 
         <div class="driver-selector-list">
@@ -20,6 +21,7 @@
             {
                 <button class="driver-selector-item @(_selectedDriverId == driver.UserId ? "selected" : "")"
                         @onclick="() => _selectedDriverId = driver.UserId">
+                    <span class="driver-number font-mono">@driver.Id</span>
                     <span class="driver-dot-lg" style="background-color: @(driver.ColorCodeRGB ?? "#6B7280")"></span>
                     <div class="driver-selector-info">
                         <span class="driver-selector-name">@driver.FullName</span>
@@ -27,7 +29,9 @@
                             @GetVehicleTypeName(driver.VehicleType) | @driver.RegNo
                             @if (!string.IsNullOrEmpty(driver.VehicleColour))
                             {
-                                <text> | @driver.VehicleColour</text>
+                                <text> | </text>
+                                <span class="driver-vehicle-colour-swatch" style="background-color: @GetColourHex(driver.VehicleColour)" title="@driver.VehicleColour"></span>
+                                <text> @driver.VehicleColour</text>
                             }
                         </span>
                     </div>
@@ -64,11 +68,27 @@
     private string _search = "";
     private int? _selectedDriverId;
 
-    private IEnumerable<DriverDto> FilteredDrivers => string.IsNullOrWhiteSpace(_search)
-        ? _drivers.Where(d => d.IsActive)
-        : _drivers.Where(d => d.IsActive && (
-            (d.FullName?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (d.RegNo?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)));
+    private IEnumerable<DriverDto> FilteredDrivers
+    {
+        get
+        {
+            var active = _drivers.Where(d => d.IsActive);
+            if (string.IsNullOrWhiteSpace(_search))
+                return active;
+
+            var s = _search.Trim();
+
+            // If numeric, filter by driver Id number
+            if (int.TryParse(s, out var driverNum))
+            {
+                return active.Where(d => d.Id.ToString().StartsWith(s));
+            }
+
+            return active.Where(d =>
+                (d.FullName?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (d.RegNo?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,6 +99,28 @@
         catch
         {
             _drivers = new();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            // If exactly one match, select and confirm
+            var matches = FilteredDrivers.ToList();
+            if (matches.Count == 1)
+            {
+                _selectedDriverId = matches[0].UserId;
+                await Confirm();
+            }
+            else if (_selectedDriverId.HasValue)
+            {
+                await Confirm();
+            }
+        }
+        else if (e.Key == "Escape")
+        {
+            await OnClose.InvokeAsync();
         }
     }
 
@@ -95,8 +137,26 @@
         0 => "Saloon",
         1 => "Estate",
         2 => "MPV",
-        3 => "Executive",
-        4 => "Minibus",
+        3 => "MPV Plus",
+        4 => "SUV",
         _ => "Unknown"
+    };
+
+    private static string GetColourHex(string? colour) => (colour?.ToLowerInvariant()) switch
+    {
+        "white" => "#FFFFFF",
+        "black" => "#1A1A1A",
+        "silver" => "#C0C0C0",
+        "grey" or "gray" => "#808080",
+        "red" => "#DC2626",
+        "blue" => "#2563EB",
+        "green" => "#16A34A",
+        "yellow" => "#EAB308",
+        "brown" => "#92400E",
+        "orange" => "#EA580C",
+        "gold" => "#CA8A04",
+        "navy" => "#1E3A5F",
+        "beige" => "#D4C5A9",
+        _ => "#6B7280"
     };
 }

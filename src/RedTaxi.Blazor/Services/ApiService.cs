@@ -125,4 +125,44 @@ public class ApiService
     // ── Dashboard KPIs ────────────────────────────────────────────
     public Task<DashboardKpiDto?> GetDashboardKpisAsync()
         => _http.GetFromJsonAsync<DashboardKpiDto>("/api/dashboard/kpis");
+
+    // ── Phone Lookup (DC18) ────────────────────────────────────────
+    public Task<List<BookingDto>?> GetBookingsByPhoneAsync(string phone)
+        => _http.GetFromJsonAsync<List<BookingDto>>($"/api/bookings/phone-lookup?phone={Uri.EscapeDataString(phone)}");
+
+    // ── Messaging (DC27/DC28) ──────────────────────────────────────
+    public async Task SendMessageAsync(List<int> driverUserIds, string message)
+    {
+        var response = await _http.PostAsJsonAsync("/api/messaging/send",
+            new { DriverUserIds = driverUserIds, Message = message, IsBroadcast = false });
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task SendGlobalMessageAsync(string message)
+    {
+        var response = await _http.PostAsJsonAsync("/api/messaging/send",
+            new { DriverUserIds = (List<int>?)null, Message = message, IsBroadcast = true });
+        response.EnsureSuccessStatusCode();
+    }
+
+    // ── SMS Heartbeat (DC26) ───────────────────────────────────────
+    public async Task<bool> GetSmsHeartbeatAsync()
+    {
+        try
+        {
+            var response = await _http.GetFromJsonAsync<SmsHeartbeatResponse>("/api/messaging/heartbeat");
+            if (response == null) return false;
+            return response.IsHealthy;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ── Payment Link (DC34) ────────────────────────────────────────
+    public Task SendPaymentLinkAsync(int bookingId)
+        => _http.PostAsync($"/api/bookings/{bookingId}/payment-link", null);
 }
+
+public record SmsHeartbeatResponse(bool IsHealthy, DateTime? LastHeartbeat);

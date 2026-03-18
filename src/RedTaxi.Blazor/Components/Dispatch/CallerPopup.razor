@@ -1,0 +1,103 @@
+@inject ApiService Api
+
+<div class="modal-overlay" @onclick="() => OnClose.InvokeAsync()">
+    <div class="caller-popup" @onclick:stopPropagation="true">
+        <div class="panel-header">
+            <h3 class="panel-title">Caller: @PhoneNumber</h3>
+            <button class="panel-close" @onclick="() => OnClose.InvokeAsync()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="caller-tabs">
+            <button class="caller-tab @(_activeTab == 0 ? "active" : "")" @onclick="() => _activeTab = 0">
+                Current Bookings
+            </button>
+            <button class="caller-tab @(_activeTab == 1 ? "active" : "")" @onclick="() => _activeTab = 1">
+                Previous Bookings
+            </button>
+        </div>
+
+        <div class="caller-body">
+            @if (_loading)
+            {
+                <div class="caller-loading">Loading...</div>
+            }
+            else if (_activeTab == 0)
+            {
+                @if (_currentBookings.Any())
+                {
+                    @foreach (var b in _currentBookings)
+                    {
+                        <button class="caller-booking-row" @onclick="() => OnRepeatBooking.InvokeAsync(b)">
+                            <span class="caller-booking-time font-mono">@b.PickupDateTime.ToString("dd/MM HH:mm")</span>
+                            <span class="caller-booking-route">@b.PickupAddress &rarr; @b.DestinationAddress</span>
+                        </button>
+                    }
+                }
+                else
+                {
+                    <div class="caller-empty">No current bookings for this number</div>
+                }
+            }
+            else
+            {
+                @if (_previousBookings.Any())
+                {
+                    @foreach (var b in _previousBookings)
+                    {
+                        <button class="caller-booking-row" @onclick="() => OnRepeatBooking.InvokeAsync(b)">
+                            <span class="caller-booking-time font-mono">@b.PickupDateTime.ToString("dd/MM HH:mm")</span>
+                            <span class="caller-booking-route">@b.PickupAddress &rarr; @b.DestinationAddress</span>
+                        </button>
+                    }
+                }
+                else
+                {
+                    <div class="caller-empty">No previous bookings for this number</div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? PhoneNumber { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<BookingDto> OnRepeatBooking { get; set; }
+
+    private int _activeTab;
+    private bool _loading = true;
+    private List<BookingDto> _currentBookings = new();
+    private List<BookingDto> _previousBookings = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(PhoneNumber)) return;
+
+        try
+        {
+            var all = await Api.GetBookingsByPhoneAsync(PhoneNumber) ?? new();
+            var now = DateTime.Now;
+            _currentBookings = all
+                .Where(b => b.PickupDateTime >= now.Date && !b.Cancelled)
+                .OrderBy(b => b.PickupDateTime)
+                .ToList();
+
+            _previousBookings = all
+                .Where(b => b.PickupDateTime < now.Date || b.Cancelled)
+                .GroupBy(b => $"{b.PickupAddress}|{b.DestinationAddress}")
+                .Select(g => g.OrderByDescending(b => b.PickupDateTime).First())
+                .Take(10)
+                .ToList();
+        }
+        catch
+        {
+            // API not available
+        }
+        _loading = false;
+    }
+}

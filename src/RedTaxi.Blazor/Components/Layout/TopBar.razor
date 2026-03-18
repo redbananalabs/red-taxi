@@ -1,9 +1,33 @@
 @inject DispatchState State
 @inject ApiService Api
+@inject IJSRuntime JS
 
 <header class="topbar">
     <div class="topbar-left">
         <h1 class="topbar-title">Dispatch Console</h1>
+
+        <!-- DC30: View mode toggle -->
+        <div class="view-mode-toggle">
+            <button class="view-mode-btn @(_viewMode == ViewMode.Map ? "active" : "")"
+                    @onclick="() => SetViewMode(ViewMode.Map)" title="Map view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                </svg>
+            </button>
+            <button class="view-mode-btn @(_viewMode == ViewMode.Diary ? "active" : "")"
+                    @onclick="() => SetViewMode(ViewMode.Diary)" title="Diary view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                    <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+            </button>
+            <button class="view-mode-btn @(_viewMode == ViewMode.Split ? "active" : "")"
+                    @onclick="() => SetViewMode(ViewMode.Split)" title="Split view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                    <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="12" y1="3" x2="12" y2="21" />
+                </svg>
+            </button>
+        </div>
     </div>
 
     <div class="topbar-center">
@@ -17,6 +41,29 @@
     </div>
 
     <div class="topbar-right">
+        <!-- DC26: SMS Heartbeat indicator -->
+        <div class="sms-heartbeat" title="SMS Gateway: @(_smsHealthy ? "Healthy" : "Stale / Unreachable")">
+            <span class="heartbeat-dot @(_smsHealthy ? "heartbeat-green" : "heartbeat-red")"></span>
+            <span class="heartbeat-label">SMS</span>
+        </div>
+
+        <!-- DC27: Direct Message button -->
+        <button class="topbar-icon-btn" @onclick="OpenDirectMessage" title="Send Direct Message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="topbar-icon">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span class="topbar-btn-text">DM</span>
+        </button>
+
+        <!-- DC28: Global Message button -->
+        <button class="topbar-icon-btn" @onclick="OpenGlobalMessage" title="Broadcast to All Drivers">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="topbar-icon">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            </svg>
+            <span class="topbar-btn-text">GM</span>
+        </button>
+
         <!-- Unallocated count badge -->
         <button class="topbar-badge-btn" title="Unallocated bookings">
             <svg class="topbar-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -29,13 +76,48 @@
             }
         </button>
 
-        <!-- Notifications bell -->
-        <button class="topbar-icon-btn" title="Notifications">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="topbar-icon">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-        </button>
+        <!-- DC29: Notifications bell with badge -->
+        <div class="notification-wrapper">
+            <button class="topbar-icon-btn" title="Notifications" @onclick="ToggleNotifications">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="topbar-icon">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                @if (_unreadNotifications > 0)
+                {
+                    <span class="topbar-badge notification-badge">@_unreadNotifications</span>
+                }
+            </button>
+
+            @if (_showNotifications)
+            {
+                <div class="notification-dropdown">
+                    <div class="notification-dropdown-header">
+                        <span>Notifications</span>
+                        @if (_notifications.Any())
+                        {
+                            <button class="btn-link" @onclick="MarkAllRead">Mark all read</button>
+                        }
+                    </div>
+                    <div class="notification-dropdown-body">
+                        @if (_notifications.Any())
+                        {
+                            @foreach (var n in _notifications.Take(10))
+                            {
+                                <div class="notification-item @(n.IsRead ? "" : "unread")">
+                                    <span class="notification-text">@n.Message</span>
+                                    <span class="notification-time font-mono">@n.Time.ToString("HH:mm")</span>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="notification-empty">No notifications</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
 
         <!-- New booking button -->
         <button class="topbar-new-btn" @onclick="() => State.OpenBookingForm()" title="New Booking (Ctrl+N)">
@@ -52,20 +134,209 @@
     </div>
 </header>
 
+<!-- DC27: Direct Message Modal -->
+@if (_showDirectMessage)
+{
+    <div class="modal-overlay" @onclick="() => _showDirectMessage = false">
+        <div class="message-modal" @onclick:stopPropagation="true">
+            <div class="panel-header">
+                <h3 class="panel-title">Send Direct Message</h3>
+                <button class="panel-close" @onclick="() => _showDirectMessage = false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="form-label">Select Drivers</label>
+                    <div class="driver-checkbox-list">
+                        @foreach (var d in _allDrivers.Where(d => d.IsActive))
+                        {
+                            var driver = d;
+                            <label class="driver-checkbox">
+                                <input type="checkbox" checked="@_selectedDriverIds.Contains(driver.UserId)"
+                                       @onchange="e => ToggleDriverSelection(driver.UserId, e)" />
+                                <span class="driver-dot" style="background-color: @(driver.ColorCodeRGB ?? "#6B7280")"></span>
+                                @driver.FullName
+                            </label>
+                        }
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-input form-textarea" @bind="_messageText" rows="3" placeholder="Type your message..."></textarea>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-secondary" @onclick="() => _showDirectMessage = false">Cancel</button>
+                <button class="btn-primary" @onclick="SendDirectMessage" disabled="@(_sendingMessage || !_selectedDriverIds.Any() || string.IsNullOrWhiteSpace(_messageText))">
+                    @(_sendingMessage ? "Sending..." : "Send")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- DC28: Global Message Modal -->
+@if (_showGlobalMessage)
+{
+    <div class="modal-overlay" @onclick="() => _showGlobalMessage = false">
+        <div class="message-modal" @onclick:stopPropagation="true">
+            <div class="panel-header">
+                <h3 class="panel-title">Broadcast to All Drivers</h3>
+                <button class="panel-close" @onclick="() => _showGlobalMessage = false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="form-label">Message to all drivers</label>
+                    <textarea class="form-input form-textarea" @bind="_globalMessageText" rows="3" placeholder="Type broadcast message..."></textarea>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="btn-secondary" @onclick="() => _showGlobalMessage = false">Cancel</button>
+                <button class="btn-primary" @onclick="SendGlobalMessage" disabled="@(_sendingMessage || string.IsNullOrWhiteSpace(_globalMessageText))">
+                    @(_sendingMessage ? "Sending..." : "Broadcast")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
+    // DC30: View modes
+    public enum ViewMode { Map, Diary, Split }
+
+    [Parameter] public EventCallback<ViewMode> OnViewModeChanged { get; set; }
+
+    private ViewMode _viewMode = ViewMode.Map;
     private int _unallocatedCount;
+
+    // DC26: SMS heartbeat
+    private bool _smsHealthy = true;
+
+    // DC29: Notifications
+    private bool _showNotifications;
+    private int _unreadNotifications;
+    private List<NotificationItem> _notifications = new();
+
+    // DC27/DC28: Messaging
+    private bool _showDirectMessage;
+    private bool _showGlobalMessage;
+    private List<DriverDto> _allDrivers = new();
+    private HashSet<int> _selectedDriverIds = new();
+    private string _messageText = "";
+    private string _globalMessageText = "";
+    private bool _sendingMessage;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            var kpis = await Api.GetDashboardKpisAsync();
+            var kpiTask = Api.GetDashboardKpisAsync();
+            var driversTask = Api.GetDriversAsync();
+            var smsTask = Api.GetSmsHeartbeatAsync();
+
+            await Task.WhenAll(kpiTask, driversTask, smsTask);
+
+            var kpis = await kpiTask;
             if (kpis != null)
                 _unallocatedCount = kpis.UnallocatedBookings;
+
+            _allDrivers = await driversTask ?? new();
+            _smsHealthy = await smsTask;
         }
         catch
         {
             // API might not be available yet
         }
+
+        // Seed with some empty notifications
+        _notifications = new();
+        _unreadNotifications = 0;
+    }
+
+    // DC30: View mode
+    private async Task SetViewMode(ViewMode mode)
+    {
+        _viewMode = mode;
+        await OnViewModeChanged.InvokeAsync(mode);
+    }
+
+    // DC29: Notifications
+    private void ToggleNotifications()
+    {
+        _showNotifications = !_showNotifications;
+    }
+
+    private void MarkAllRead()
+    {
+        foreach (var n in _notifications) n.IsRead = true;
+        _unreadNotifications = 0;
+    }
+
+    public void AddNotification(string message)
+    {
+        _notifications.Insert(0, new NotificationItem { Message = message, Time = DateTime.Now });
+        _unreadNotifications++;
+        InvokeAsync(StateHasChanged);
+    }
+
+    // DC27: Direct message
+    private void OpenDirectMessage()
+    {
+        _showDirectMessage = true;
+        _selectedDriverIds.Clear();
+        _messageText = "";
+    }
+
+    private void ToggleDriverSelection(int userId, ChangeEventArgs e)
+    {
+        var isChecked = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var parsed) && parsed;
+        if (isChecked) _selectedDriverIds.Add(userId);
+        else _selectedDriverIds.Remove(userId);
+    }
+
+    private async Task SendDirectMessage()
+    {
+        _sendingMessage = true;
+        try
+        {
+            await Api.SendMessageAsync(_selectedDriverIds.ToList(), _messageText);
+            _showDirectMessage = false;
+        }
+        catch { }
+        _sendingMessage = false;
+    }
+
+    // DC28: Global message
+    private void OpenGlobalMessage()
+    {
+        _showGlobalMessage = true;
+        _globalMessageText = "";
+    }
+
+    private async Task SendGlobalMessage()
+    {
+        _sendingMessage = true;
+        try
+        {
+            await Api.SendGlobalMessageAsync(_globalMessageText);
+            _showGlobalMessage = false;
+        }
+        catch { }
+        _sendingMessage = false;
+    }
+
+    // Notification model
+    private class NotificationItem
+    {
+        public string Message { get; set; } = "";
+        public DateTime Time { get; set; }
+        public bool IsRead { get; set; }
     }
 }

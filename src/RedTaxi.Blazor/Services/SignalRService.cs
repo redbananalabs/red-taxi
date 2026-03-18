@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 using RedTaxi.Shared.DTOs;
 
 namespace RedTaxi.Blazor.Services;
@@ -9,15 +10,18 @@ public class SignalRService : IAsyncDisposable
     private readonly HubConnection _hub;
     private readonly DispatchState _state;
     private readonly ILogger<SignalRService> _logger;
+    private readonly IJSRuntime _js;
     private bool _started;
 
     public SignalRService(
         IConfiguration configuration,
         DispatchState state,
-        ILogger<SignalRService> logger)
+        ILogger<SignalRService> logger,
+        IJSRuntime js)
     {
         _state = state;
         _logger = logger;
+        _js = js;
 
         var apiBase = configuration.GetValue<string>("ApiBaseUrl") ?? "https://localhost:5001";
         var hubUrl = $"{apiBase.TrimEnd('/')}/hubs/dispatch";
@@ -69,6 +73,9 @@ public class SignalRService : IAsyncDisposable
 
     /// <summary>Raised when connection status changes.</summary>
     public event Action? OnConnectionChanged;
+
+    /// <summary>DC02: Raised when a driver location update is received with payload.</summary>
+    public event Action<int, decimal, decimal>? OnDriverLocationReceived;
 
     public async Task StartAsync(CancellationToken ct = default)
     {
@@ -131,6 +138,7 @@ public class SignalRService : IAsyncDisposable
         _hub.On<DriverLocationPayload>("DriverLocationUpdate", payload =>
         {
             // GPS updates are high-frequency — no debug log
+            OnDriverLocationReceived?.Invoke(payload.UserId, payload.Lat, payload.Lng);
             OnStateUpdated?.Invoke();
         });
 
@@ -140,9 +148,18 @@ public class SignalRService : IAsyncDisposable
             OnStateUpdated?.Invoke();
         });
 
-        _hub.On<WebBookingDto>("WebBookingSubmitted", dto =>
+        _hub.On<WebBookingDto>("WebBookingSubmitted", async dto =>
         {
             _logger.LogDebug("Received WebBookingSubmitted for web booking {WebBookingId}.", dto.Id);
+            // DC33: Play new web booking sound
+            try
+            {
+                await _js.InvokeVoidAsync("dispatchInterop.playSound", "new_web_booking.mp3");
+            }
+            catch
+            {
+                // JS interop may not be available
+            }
             OnStateUpdated?.Invoke();
         });
     }

@@ -1,8 +1,11 @@
 @inject IJSRuntime JS
+@inject ApiService Api
+@inject SignalRService SignalR
+@implements IAsyncDisposable
 
 <div class="map-container">
     <div id="dispatch-map" class="map-element"></div>
-    <div class="map-placeholder">
+    <div class="map-placeholder" style="@(_mapInitialized ? "display:none" : "")">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="map-placeholder-icon">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
             <circle cx="12" cy="10" r="3" />
@@ -13,6 +16,17 @@
 </div>
 
 @code {
+    private bool _mapInitialized;
+    private List<DriverLocationDto> _driverLocations = new();
+    private List<DriverDto> _drivers = new();
+    private List<BookingDto> _unallocatedBookings = new();
+
+    protected override void OnInitialized()
+    {
+        SignalR.OnStateUpdated += HandleSignalRUpdate;
+        SignalR.OnDriverLocationReceived += HandleDriverLocationUpdate;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -20,11 +34,113 @@
             try
             {
                 await JS.InvokeVoidAsync("dispatchInterop.initMap", "dispatch-map");
+                _mapInitialized = true;
             }
             catch
             {
                 // Map JS not loaded yet or API key not configured
             }
+
+            await LoadDriverLocations();
+            await LoadUnallocatedBookings();
+            await RenderAllPins();
         }
+    }
+
+    private async Task LoadDriverLocations()
+    {
+        try
+        {
+            var driversTask = Api.GetDriversAsync();
+            var locationsTask = Api.GetDriverLocationsAsync();
+            await Task.WhenAll(driversTask, locationsTask);
+            _drivers = await driversTask ?? new();
+            _driverLocations = await locationsTask ?? new();
+        }
+        catch
+        {
+            // API not available
+        }
+    }
+
+    private async Task LoadUnallocatedBookings()
+    {
+        try
+        {
+            // Status 0 = Unallocated
+            _unallocatedBookings = await Api.GetBookingsAsync(DateTime.Today, status: 0) ?? new();
+        }
+        catch
+        {
+            _unallocatedBookings = new();
+        }
+    }
+
+    private async Task RenderAllPins()
+    {
+        // Render driver pins
+        foreach (var loc in _driverLocations)
+        {
+            var driver = _drivers.FirstOrDefault(d => d.UserId == loc.UserId);
+            var color = GetDriverStatusColor(driver);
+            try
+            {
+                await JS.InvokeVoidAsync("dispatchInterop.updateDriverMarker",
+                    loc.UserId, (double)loc.Latitude, (double)loc.Longitude,
+                    (double)(loc.Heading ?? 0m), color);
+            }
+            catch { }
+        }
+
+        // Render unallocated booking pins
+        foreach (var booking in _unallocatedBookings)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("dispatchInterop.addUnallocatedBookingMarker",
+                    booking.Id, booking.PickupAddress, booking.PassengerName ?? "Unallocated");
+            }
+            catch { }
+        }
+    }
+
+    private static string GetDriverStatusColor(DriverDto? driver)
+    {
+        if (driver == null || !driver.IsActive) return "#FF6B6B"; // Offline
+        // Active drivers default to Available; OnJob color handled by map JS
+        return "#34D399"; // Available
+    }
+
+    private async void HandleSignalRUpdate()
+    {
+        await InvokeAsync(async () =>
+        {
+            await LoadDriverLocations();
+            await LoadUnallocatedBookings();
+            await RenderAllPins();
+            StateHasChanged();
+        });
+    }
+
+    private async void HandleDriverLocationUpdate(int userId, decimal lat, decimal lng)
+    {
+        var driver = _drivers.FirstOrDefault(d => d.UserId == userId);
+        var color = GetDriverStatusColor(driver);
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await JS.InvokeVoidAsync("dispatchInterop.updateDriverMarker",
+                    userId, (double)lat, (double)lng, 0.0, color);
+            });
+        }
+        catch { }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        SignalR.OnStateUpdated -= HandleSignalRUpdate;
+        SignalR.OnDriverLocationReceived -= HandleDriverLocationUpdate;
+        return ValueTask.CompletedTask;
     }
 }

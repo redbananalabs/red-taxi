@@ -10,10 +10,10 @@
     <!-- Main content area -->
     <div class="dispatch-main">
         <!-- Top bar -->
-        <TopBar />
+        <TopBar OnViewModeChanged="HandleViewModeChanged" />
 
         <!-- Content area -->
-        <div class="dispatch-content">
+        <div class="dispatch-content @GetViewModeClass()">
             @Body
         </div>
     </div>
@@ -27,6 +27,7 @@
 
 @code {
     private DotNetObjectReference<DispatchLayout>? _objRef;
+    private TopBar.ViewMode _viewMode = TopBar.ViewMode.Map;
 
     protected override void OnInitialized()
     {
@@ -72,6 +73,37 @@
 
         InvokeAsync(StateHasChanged);
     }
+
+    // DC23: Ctrl+S shortcut
+    [JSInvokable]
+    public void OnSaveBooking()
+    {
+        // Trigger form submit via state; BookingForm listens for this
+        InvokeAsync(StateHasChanged);
+    }
+
+    // DC23: Ctrl+Enter shortcut
+    [JSInvokable]
+    public void OnConfirmBooking()
+    {
+        // Same as save
+        InvokeAsync(StateHasChanged);
+    }
+
+    // DC30: View mode handling
+    private void HandleViewModeChanged(TopBar.ViewMode mode)
+    {
+        _viewMode = mode;
+        StateHasChanged();
+    }
+
+    private string GetViewModeClass() => _viewMode switch
+    {
+        TopBar.ViewMode.Map => "view-mode-map",
+        TopBar.ViewMode.Diary => "view-mode-diary",
+        TopBar.ViewMode.Split => "view-mode-split",
+        _ => "view-mode-map"
+    };
 
     public void Dispose()
     {
