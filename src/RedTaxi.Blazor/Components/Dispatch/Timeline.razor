@@ -5,33 +5,64 @@
 
 @using Syncfusion.Blazor.Schedule
 
-<div class="timeline @(State.IsTimelineExpanded ? "timeline-expanded" : "") @(_isMergeMode ? "merge-mode-active" : "")">
+<div class="timeline @(FullHeight ? "timeline-fullheight" : "") @(State.IsTimelineExpanded ? "timeline-expanded" : "") @(_isMergeMode ? "merge-mode-active" : "")">
     <div class="timeline-header">
         <div class="timeline-header-left">
-            <h3 class="timeline-title">Timeline</h3>
-            <span class="timeline-date font-mono">@CurrentDate.ToString("ddd dd MMM yyyy")</span>
-        </div>
-        <div class="timeline-header-right">
-            <button class="merge-mode-btn @(_isMergeMode ? "active" : "")" @onclick="ToggleMergeMode" title="Toggle merge mode — drop booking onto another to merge school runs">
-                @(_isMergeMode ? "MERGE MODE ON" : "MERGE MODE")
-            </button>
             <button class="timeline-nav-btn" @onclick="PrevDay" title="Previous day">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
-            <button class="timeline-nav-btn" @onclick="GoToToday" title="Today">Today</button>
             <button class="timeline-nav-btn" @onclick="NextDay" title="Next day">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
-            <button class="timeline-expand-btn" @onclick="() => State.ToggleTimeline()">
-                @if (State.IsTimelineExpanded)
-                {
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="17 13 12 18 7 13" /></svg>
-                }
-                else
-                {
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="17 11 12 6 7 11" /></svg>
-                }
-            </button>
+            <span class="timeline-date font-mono">@CurrentDate.ToString("ddd dd MMM yyyy")</span>
+        </div>
+        <div class="timeline-header-right">
+            <!-- CONFIRM SA -->
+            <button class="confirm-sa-btn" title="Confirm all soft allocations">CONFIRM SA</button>
+
+            <!-- Filter toggles -->
+            <label class="sched-toggle" title="Show/hide allocated bookings">
+                <span class="sched-toggle-label">SHOW ALLOCATED</span>
+                <input type="checkbox" checked="@_showAllocated" @onchange="ToggleShowAllocated" class="sched-toggle-input" />
+                <span class="sched-toggle-track"><span class="sched-toggle-thumb"></span></span>
+            </label>
+            <label class="sched-toggle" title="Show/hide completed bookings">
+                <span class="sched-toggle-label">SHOW COMPLETED</span>
+                <input type="checkbox" checked="@_showCompleted" @onchange="ToggleShowCompleted" class="sched-toggle-input" />
+                <span class="sched-toggle-track"><span class="sched-toggle-thumb"></span></span>
+            </label>
+
+            <!-- Today -->
+            <button class="timeline-nav-btn" @onclick="GoToToday" title="Today">TODAY</button>
+
+            <!-- View mode toggle: DAY (legacy vertical) / TIMELINE (horizontal) -->
+            <div class="view-toggle">
+                <button class="view-toggle-btn @(_viewMode == ScheduleViewMode.Day ? "view-toggle-active" : "")"
+                        @onclick="() => SetViewMode(ScheduleViewMode.Day)">DAY</button>
+                <button class="view-toggle-btn @(_viewMode == ScheduleViewMode.Timeline ? "view-toggle-active" : "")"
+                        @onclick="() => SetViewMode(ScheduleViewMode.Timeline)">TIMELINE</button>
+            </div>
+
+            <!-- Merge mode -->
+            <label class="sched-toggle" title="Merge mode — drop booking onto another to merge school runs">
+                <span class="sched-toggle-label">MERGE MODE</span>
+                <input type="checkbox" checked="@_isMergeMode" @onchange="ToggleMergeMode" class="sched-toggle-input" />
+                <span class="sched-toggle-track"><span class="sched-toggle-thumb"></span></span>
+            </label>
+
+            @if (!FullHeight)
+            {
+                <button class="timeline-expand-btn" @onclick="() => State.ToggleTimeline()">
+                    @if (State.IsTimelineExpanded)
+                    {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="17 13 12 18 7 13" /></svg>
+                    }
+                    else
+                    {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="17 11 12 6 7 11" /></svg>
+                    }
+                </button>
+            }
         </div>
     </div>
 
@@ -39,14 +70,15 @@
         @if (DriverResources.Count > 0)
         {
         <SfSchedule TValue="ScheduleBooking"
+                    @ref="_scheduleRef"
                     @bind-SelectedDate="CurrentDate"
                     Height="100%"
                     Width="100%"
-                    CurrentView="View.TimelineDay"
+                    CurrentView="@_currentView"
                     StartHour="06:00"
                     EndHour="23:00"
                     AllowDragAndDrop="true"
-                    CssClass="dark-schedule">
+                    CssClass="dark-schedule @(_viewMode == ScheduleViewMode.Day ? "day-view-mode" : "")">
             <ScheduleGroup Resources="@GroupResources"></ScheduleGroup>
             <ScheduleResources>
                 <ScheduleResource TItem="DriverResource" TValue="int"
@@ -59,21 +91,41 @@
                                   ColorField="Color">
                 </ScheduleResource>
             </ScheduleResources>
-            <ScheduleEventSettings DataSource="@ScheduleBookings"
+            <ScheduleEventSettings DataSource="@FilteredBookings"
                                    EnableTooltip="true">
                 <Template>
                     @{
                         var booking = context as ScheduleBooking;
                     }
-                    <div class="booking-event"
-                         style="background: @(booking?.Color ?? "#F59E0B"); padding: 2px 6px; border-radius: 3px; font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 100%; display: flex; align-items: center;"
-                         @oncontextmenu="(e) => ShowContextMenu(e, booking)"
-                         @oncontextmenu:preventDefault="true">
-                        <span>@booking?.Subject</span>
-                    </div>
+                    @if (_viewMode == ScheduleViewMode.Day)
+                    {
+                        <!-- Day view: vertical tiles with more detail (legacy style) -->
+                        <div class="day-event-tile"
+                             style="background: @(booking?.Color ?? "#F59E0B");"
+                             @oncontextmenu="(e) => ShowContextMenu(e, booking)"
+                             @oncontextmenu:preventDefault="true">
+                            <div class="day-event-subject">@booking?.Subject</div>
+                            <div class="day-event-time">@booking?.StartTime.ToString("h:mm tt") - @booking?.EndTime.ToString("h:mm tt")</div>
+                            @if (!string.IsNullOrEmpty(booking?.Location))
+                            {
+                                <div class="day-event-location">@booking?.Location</div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Timeline view: horizontal compact -->
+                        <div class="booking-event"
+                             style="background: @(booking?.Color ?? "#F59E0B"); padding: 2px 6px; border-radius: 3px; font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 100%; display: flex; align-items: center;"
+                             @oncontextmenu="(e) => ShowContextMenu(e, booking)"
+                             @oncontextmenu:preventDefault="true">
+                            <span>@booking?.Subject</span>
+                        </div>
+                    }
                 </Template>
             </ScheduleEventSettings>
             <ScheduleViews>
+                <ScheduleView Option="View.Day"></ScheduleView>
                 <ScheduleView Option="View.TimelineDay"></ScheduleView>
             </ScheduleViews>
         </SfSchedule>
@@ -165,11 +217,13 @@
     {
         public int Id { get; set; }
         public string Subject { get; set; } = "";
+        public string Location { get; set; } = "";
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
         public string Color { get; set; } = "#F59E0B";
         public int DriverId { get; set; }
         public bool IsAllDay { get; set; }
+        public int BookingStatus { get; set; }
     }
 
     public class DriverResource
@@ -179,12 +233,26 @@
         public string Color { get; set; } = "#6B7280";
     }
 
+    public enum ScheduleViewMode { Day, Timeline }
+
+    // ── Parameters ────────────────────────────────────────────────
+    [Parameter] public bool FullHeight { get; set; }
+
     // ── State ──────────────────────────────────────────────────────────
+    private SfSchedule<ScheduleBooking>? _scheduleRef;
     private List<DriverDto> _drivers = new();
     private List<BookingDto> _bookings = new();
     private List<ScheduleBooking> ScheduleBookings { get; set; } = new();
     private List<DriverResource> DriverResources { get; set; } = new();
     private string[] GroupResources = new[] { "Drivers" };
+
+    // View mode
+    private ScheduleViewMode _viewMode = ScheduleViewMode.Day;
+    private View _currentView = View.Day;
+
+    // Filters
+    private bool _showAllocated = true;
+    private bool _showCompleted = true;
 
     private DateTime CurrentDate
     {
@@ -203,6 +271,16 @@
     private double _contextX;
     private double _contextY;
     private ScheduleBooking? _contextBooking;
+
+    // ── Filtered data source ────────────────────────────────────────
+    private List<ScheduleBooking> FilteredBookings => ScheduleBookings.Where(b =>
+    {
+        // Status: 0=Unallocated, 1=Allocated, 2=Accepted, 3=OnRoute, 4=OnBoard, 5=Completed, 6=Cancelled
+        if (!_showAllocated && b.BookingStatus >= 1 && b.BookingStatus <= 4) return false;
+        if (!_showCompleted && b.BookingStatus == 5) return false;
+        if (b.BookingStatus == 6) return false; // never show cancelled
+        return true;
+    }).ToList();
 
     protected override void OnInitialized()
     {
@@ -260,7 +338,7 @@
 
     private void MapToScheduleData()
     {
-        // Build driver resources — always include an "Unallocated" row
+        // Build driver resources — always include an "Unallocated" row/column
         DriverResources = new List<DriverResource>
         {
             new DriverResource { Id = 0, Name = "Unallocated", Color = "#F59E0B" }
@@ -283,11 +361,14 @@
             var driver = _drivers.FirstOrDefault(d => d.UserId == driverUserId);
             var color = driver?.ColorCodeRGB ?? "#F59E0B";
 
-            // Build subject label
+            // Build subject label — match legacy: [C] prefix for account bookings
             string subject;
-            if (b.AccountNumber.HasValue && !string.IsNullOrWhiteSpace(b.PassengerName))
+            if (b.AccountNumber.HasValue)
             {
-                subject = $"{b.AccountName} - {b.PassengerName}";
+                var accLabel = !string.IsNullOrWhiteSpace(b.AccountName) ? b.AccountName : b.AccountNumber.Value.ToString();
+                subject = !string.IsNullOrWhiteSpace(b.PassengerName)
+                    ? $"[C] {accLabel} - {b.PassengerName}"
+                    : $"[C] {accLabel}";
             }
             else if (!string.IsNullOrWhiteSpace(b.PassengerName))
             {
@@ -297,6 +378,11 @@
             {
                 subject = $"{b.PickupAddress} → {b.DestinationAddress}";
             }
+
+            // Location for Day view tiles
+            var location = !string.IsNullOrWhiteSpace(b.PickupAddress)
+                ? (b.PickupAddress.Length > 40 ? b.PickupAddress[..40] + "..." : b.PickupAddress)
+                : "";
 
             // Duration: use DurationText parsing or default 30 minutes
             var duration = TimeSpan.FromMinutes(30);
@@ -312,13 +398,36 @@
             {
                 Id = b.Id,
                 Subject = subject,
+                Location = location,
                 StartTime = b.PickupDateTime,
                 EndTime = b.PickupDateTime.Add(duration),
                 Color = color,
                 DriverId = driverUserId,
-                IsAllDay = false
+                IsAllDay = false,
+                BookingStatus = b.Status ?? 0
             };
         }).ToList();
+    }
+
+    // ── View mode switching ─────────────────────────────────────────
+    private void SetViewMode(ScheduleViewMode mode)
+    {
+        _viewMode = mode;
+        _currentView = mode == ScheduleViewMode.Day ? View.Day : View.TimelineDay;
+        StateHasChanged();
+    }
+
+    // ── Filter toggles ──────────────────────────────────────────────
+    private void ToggleShowAllocated(ChangeEventArgs e)
+    {
+        _showAllocated = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var p) && p;
+        StateHasChanged();
+    }
+
+    private void ToggleShowCompleted(ChangeEventArgs e)
+    {
+        _showCompleted = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var p) && p;
+        StateHasChanged();
     }
 
     // ── Navigation ─────────────────────────────────────────────────────
@@ -326,9 +435,9 @@
     private void GoToToday() => State.SetDate(DateTime.Today);
     private void NextDay() => State.SetDate(State.SelectedDate.AddDays(1));
 
-    private void ToggleMergeMode()
+    private void ToggleMergeMode(ChangeEventArgs e)
     {
-        _isMergeMode = !_isMergeMode;
+        _isMergeMode = e.Value is bool b ? b : bool.TryParse(e.Value?.ToString(), out var p) && p;
     }
 
     // ── Drag-and-drop callbacks invoked from JS ─────────────────────
@@ -341,10 +450,7 @@
             await LoadData();
             StateHasChanged();
         }
-        catch
-        {
-            // Allocation failed
-        }
+        catch { }
     }
 
     [JSInvokable]
@@ -356,10 +462,7 @@
             await LoadData();
             StateHasChanged();
         }
-        catch
-        {
-            // Unallocation failed
-        }
+        catch { }
     }
 
     [JSInvokable]
@@ -386,10 +489,7 @@
             await Api.MergeSchoolRunsAsync(_mergeSource.Id, _mergeTarget.Id);
             await LoadData();
         }
-        catch
-        {
-            // Merge failed
-        }
+        catch { }
         finally
         {
             _showMergeDialog = false;
@@ -520,10 +620,7 @@
             {
                 await JS.InvokeVoidAsync("timelineDragDrop.dispose");
             }
-            catch
-            {
-                // JSRuntime may be unavailable during disposal
-            }
+            catch { }
             _dotNetRef.Dispose();
         }
     }

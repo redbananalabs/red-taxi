@@ -2,99 +2,105 @@
 @inject DispatchState State
 @inject ApiService Api
 @inject SignalRService SignalR
+@inject IJSRuntime JS
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Dispatch Console - Red Taxi</PageTitle>
 
-<div class="dispatch-view-v2">
-    <!-- KPI strip at top -->
-    <div class="kpi-strip">
-        <div class="kpi-item">
-            <span class="kpi-value font-mono">@_kpis.TodayBookings</span>
-            <span class="kpi-label">Today</span>
-        </div>
-        <div class="kpi-item kpi-warning">
-            <span class="kpi-value font-mono">@_kpis.UnallocatedBookings</span>
-            <span class="kpi-label">Unallocated</span>
-        </div>
-        <div class="kpi-item kpi-success">
-            <span class="kpi-value font-mono">@_kpis.DriversOnline</span>
-            <span class="kpi-label">Online</span>
-        </div>
-        <div class="kpi-item">
-            <span class="kpi-value font-mono">@_kpis.ActiveJobs</span>
-            <span class="kpi-label">Active</span>
-        </div>
-        <div class="kpi-item kpi-info">
-            <span class="kpi-value font-mono">@_kpis.CompletedToday</span>
-            <span class="kpi-label">Completed</span>
-        </div>
-        <div class="kpi-item">
-            <span class="kpi-value font-mono">£@_kpis.TodayRevenue.ToString("N0")</span>
-            <span class="kpi-label">Revenue</span>
-        </div>
+<div class="dispatch-split" id="dispatch-split">
+    <!-- LEFT PANEL: Booking Form (always visible) -->
+    <div class="split-left" id="split-left">
+        <BookingForm OnClose="HandleFormClear"
+                     OnBookingCreated="HandleBookingCreated"
+                     AlwaysVisible="true" />
     </div>
 
-    <!-- Split panel: left = booking form, right = tabbed (scheduler/map) -->
-    <div class="split-panel">
-        <!-- LEFT: Booking form (always visible) -->
-        <div class="split-left" style="width: @(_leftWidthPercent)%; min-width: 320px;">
-            <div class="form-panel-scroll">
-                <BookingForm OnClose="@(() => {})"
-                             OnBookingCreated="HandleBookingCreated" />
-            </div>
-        </div>
-
-        <!-- Draggable splitter handle -->
-        <div class="splitter-handle" @onmousedown="StartResize">
-            <div class="splitter-grip"></div>
-        </div>
-
-        <!-- RIGHT: Tabbed (Scheduler / Map) -->
-        <div class="split-right" style="flex: 1;">
-            <!-- Tab bar -->
-            <div class="tab-bar">
-                <button class="tab-btn @(_activeTab == "scheduler" ? "tab-active" : "")"
-                        @onclick='() => _activeTab = "scheduler"'>
-                    <span>📋</span> Scheduler
-                </button>
-                <button class="tab-btn @(_activeTab == "map" ? "tab-active" : "")"
-                        @onclick='() => _activeTab = "map"'>
-                    <span>📍</span> Map
-                </button>
-            </div>
-
-            <!-- Tab content -->
-            <div class="tab-content">
-                @if (_activeTab == "scheduler")
-                {
-                    <Timeline />
-                }
-                else
-                {
-                    <div class="map-tab-wrapper">
-                        <MapView />
-                    </div>
-                }
-            </div>
-        </div>
+    <!-- SPLITTER HANDLE -->
+    <div class="split-handle" id="split-handle">
+        <div class="split-handle-grip"></div>
     </div>
 
-    <!-- Driver selector modal -->
-    @if (State.IsDriverSelectorOpen && State.SelectedBooking != null)
-    {
-        <DriverSelector BookingId="State.SelectedBooking.Id"
-                        OnClose="() => State.CloseDriverSelector()"
-                        OnDriverSelected="HandleDriverAllocated" />
-    }
+    <!-- RIGHT PANEL: Tabs (Scheduler / Map) -->
+    <div class="split-right" id="split-right">
+        <!-- Tab bar -->
+        <div class="tab-bar">
+            <div class="tab-bar-left">
+                <button class="tab-btn @(_activeTab == Tab.Scheduler ? "tab-active" : "")"
+                        @onclick="() => SetTab(Tab.Scheduler)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    Scheduler
+                </button>
+                <button class="tab-btn @(_activeTab == Tab.Map ? "tab-active" : "")"
+                        @onclick="() => SetTab(Tab.Map)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="tab-icon">
+                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                        <line x1="8" y1="2" x2="8" y2="18" />
+                        <line x1="16" y1="6" x2="16" y2="22" />
+                    </svg>
+                    Map
+                </button>
+            </div>
+            <div class="tab-bar-right">
+                <span class="tab-kpi" title="Today's bookings">
+                    <span class="tab-kpi-val font-mono">@_kpis.TodayBookings</span> today
+                </span>
+                <span class="tab-kpi tab-kpi-warn" title="Unallocated">
+                    <span class="tab-kpi-val font-mono">@_kpis.UnallocatedBookings</span> unalloc
+                </span>
+                <span class="tab-kpi tab-kpi-ok" title="Completed">
+                    <span class="tab-kpi-val font-mono">@_kpis.CompletedToday</span> done
+                </span>
+            </div>
+        </div>
+
+        <!-- Tab content -->
+        <div class="tab-content">
+            @if (_activeTab == Tab.Scheduler)
+            {
+                <Timeline FullHeight="true" />
+            }
+            else
+            {
+                <MapView />
+            }
+        </div>
+
+        <!-- Context panel (right slide) -->
+        <div class="panel-right @(State.IsBookingDetailOpen || State.IsDriverDetailOpen ? "panel-open" : "")">
+            @if (State.IsBookingDetailOpen && State.SelectedBooking != null)
+            {
+                <BookingDetailPanel Booking="State.SelectedBooking"
+                                    OnClose="() => State.CloseBookingDetail()"
+                                    OnAllocate="HandleAllocateRequest" />
+            }
+            else if (State.IsDriverDetailOpen && State.SelectedDriver != null)
+            {
+                <DriverDetailPanel Driver="State.SelectedDriver"
+                                   OnClose="() => State.CloseDriverDetail()" />
+            }
+        </div>
+
+        <!-- Driver selector modal -->
+        @if (State.IsDriverSelectorOpen && State.SelectedBooking != null)
+        {
+            <DriverSelector BookingId="State.SelectedBooking.Id"
+                            OnClose="() => State.CloseDriverSelector()"
+                            OnDriverSelected="HandleDriverAllocated" />
+        }
+    </div>
 </div>
 
 @code {
+    private enum Tab { Scheduler, Map }
+
+    private Tab _activeTab = Tab.Scheduler;
     private DashboardKpiDto _kpis = new(0, 0, 0, 0m, 0, 0);
-    private List<BookingDto> _bookings = new();
-    private string _activeTab = "scheduler"; // default to scheduler per §142
-    private int _leftWidthPercent = 35;
 
     protected override void OnInitialized()
     {
@@ -105,41 +111,44 @@
 
     protected override async Task OnInitializedAsync()
     {
-        try
-        {
-            _ = SignalR.StartAsync(); // fire-and-forget, don't crash circuit
-        }
-        catch { }
-        await LoadData();
+        await SignalR.StartAsync();
+        await LoadKpis();
     }
 
-    private async Task LoadData()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        try
+        if (firstRender)
         {
-            var kpiTask = Api.GetDashboardKpisAsync();
-            var bookingsTask = Api.GetBookingsAsync(DateTime.Today);
-            await Task.WhenAll(kpiTask, bookingsTask);
+            try { await JS.InvokeVoidAsync("splitterInterop.init"); }
+            catch { }
+        }
+    }
 
-            _kpis = await kpiTask ?? _kpis;
-            _bookings = await bookingsTask ?? _bookings;
-        }
-        catch
-        {
-            // API not available - use defaults
-        }
+    private async Task LoadKpis()
+    {
+        try { _kpis = await Api.GetDashboardKpisAsync() ?? _kpis; }
+        catch { }
+    }
+
+    private void SetTab(Tab tab)
+    {
+        _activeTab = tab;
+        StateHasChanged();
+    }
+
+    private void HandleFormClear()
+    {
+        // No-op — form stays visible in always-visible mode, just resets internally
     }
 
     private async Task HandleBookingCreated(BookingDto booking)
     {
         State.SelectBooking(booking);
-        await LoadData();
+        await LoadKpis();
+        StateHasChanged();
     }
 
-    private void HandleAllocateRequest()
-    {
-        State.OpenDriverSelector();
-    }
+    private void HandleAllocateRequest() => State.OpenDriverSelector();
 
     private async Task HandleDriverAllocated(int driverUserId)
     {
@@ -149,7 +158,7 @@
             {
                 await Api.AllocateDriverAsync(State.SelectedBooking.Id, driverUserId);
                 State.CloseDriverSelector();
-                await LoadData();
+                await LoadKpis();
             }
             catch { }
         }
@@ -159,16 +168,9 @@
     {
         await InvokeAsync(async () =>
         {
-            await LoadData();
+            await LoadKpis();
             StateHasChanged();
         });
-    }
-
-    // Splitter drag
-    private void StartResize(MouseEventArgs e)
-    {
-        // JS interop would handle actual drag — for now, toggle between presets
-        _leftWidthPercent = _leftWidthPercent == 35 ? 25 : _leftWidthPercent == 25 ? 45 : 35;
     }
 
     public ValueTask DisposeAsync()

@@ -5,7 +5,7 @@
 <div class="booking-form">
     <div class="panel-header">
         <h3 class="panel-title">New Booking</h3>
-        @if (OnClose.HasDelegate)
+        @if (!AlwaysVisible)
         {
             <button class="panel-close" @onclick="OnClose">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
@@ -308,6 +308,7 @@
 @code {
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<BookingDto> OnBookingCreated { get; set; }
+    [Parameter] public bool AlwaysVisible { get; set; }
 
     private BookingCreateDto _model = new()
     {
@@ -478,10 +479,30 @@
                 : null;
             var result = await Api.CreateBookingAsync(_model);
             if (result != null)
+            {
                 await OnBookingCreated.InvokeAsync(result);
+                if (AlwaysVisible)
+                    ResetForm();
+            }
         }
         catch { }
         _submitting = false;
+    }
+
+    private void ResetForm()
+    {
+        _model = new()
+        {
+            IsASAP = true,
+            Passengers = 1,
+            VehicleType = 0,
+            Scope = 0
+        };
+        _pickupDate = DateOnly.FromDateTime(DateTime.Today);
+        _pickupTime = TimeOnly.FromDateTime(DateTime.Now.AddMinutes(10));
+        _vias.Clear();
+        _priceResult = null;
+        StateHasChanged();
     }
 
     public void Dispose()
