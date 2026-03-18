@@ -91,7 +91,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await SignalR.StartAsync();
+        try
+        {
+            _ = SignalR.StartAsync(); // fire-and-forget, don't crash circuit
+        }
+        catch { }
         await LoadData();
     }
 
