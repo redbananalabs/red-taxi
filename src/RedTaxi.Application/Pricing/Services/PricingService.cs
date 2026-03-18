@@ -24,7 +24,7 @@ public class PricingService : IPricingService
         if (booking.ManuallyPriced)
             return (booking.Price, booking.PriceAccount, booking.Mileage ?? 0m, booking.MileageText ?? "", booking.DurationText ?? "");
 
-        // Get distance/duration from external service
+        // Get origin/destination strings
         var origin = !string.IsNullOrWhiteSpace(booking.PickupPostCode) ? booking.PickupPostCode : booking.PickupAddress;
         var dest = !string.IsNullOrWhiteSpace(booking.DestinationPostCode) ? booking.DestinationPostCode : booking.DestinationAddress;
 
@@ -33,33 +33,95 @@ public class PricingService : IPricingService
 
         if (!string.IsNullOrWhiteSpace(dest))
         {
-            (journeyMiles, durationMinutes) = await _distance.GetDistanceAsync(origin, dest, ct);
+            // Load vias if not already loaded
+            if (booking.Vias == null || !booking.Vias.Any())
+            {
+                var vias = await _db.BookingVias
+                    .AsNoTracking()
+                    .Where(v => v.BookingId == booking.Id)
+                    .OrderBy(v => v.ViaSequence)
+                    .ToListAsync(ct);
+
+                if (vias.Count > 0)
+                    booking.Vias = vias;
+            }
+
+            // Calculate journey miles: via segments if vias exist, else single leg
+            if (booking.Vias != null && booking.Vias.Any())
+            {
+                var sortedVias = booking.Vias.OrderBy(v => v.ViaSequence).ToList();
+                var waypoints = new List<string> { origin };
+
+                foreach (var via in sortedVias)
+                {
+                    var viaLocation = !string.IsNullOrWhiteSpace(via.PostCode) ? via.PostCode : via.Address;
+                    waypoints.Add(viaLocation);
+                }
+
+                waypoints.Add(dest);
+
+                decimal totalSegmentMiles = 0m;
+                int totalSegmentMinutes = 0;
+
+                for (int i = 0; i < waypoints.Count - 1; i++)
+                {
+                    var (segMiles, segMin) = await _distance.GetDistanceAsync(waypoints[i], waypoints[i + 1], ct);
+                    totalSegmentMiles += segMiles;
+                    totalSegmentMinutes += segMin;
+                }
+
+                journeyMiles = totalSegmentMiles;
+                durationMinutes = totalSegmentMinutes;
+            }
+            else
+            {
+                (journeyMiles, durationMinutes) = await _distance.GetDistanceAsync(origin, dest, ct);
+            }
         }
 
-        string mileageText = $"{journeyMiles:F1} miles";
+        // Dead mileage calculation
+        decimal deadMiles = 0m;
+        if (booking.ChargeFromBase)
+        {
+            var config = await _db.CompanyConfigs.AsNoTracking().FirstOrDefaultAsync(ct);
+            var basePostcode = config?.BasePostcode;
+
+            if (!string.IsNullOrWhiteSpace(basePostcode))
+            {
+                // Leg A: base → pickup
+                var legA = await _distance.GetDistanceAsync(basePostcode, origin, ct);
+                // Leg C: destination → base
+                var legC = await _distance.GetDistanceAsync(dest ?? origin, basePostcode, ct);
+                deadMiles = legA.distanceMiles + legC.distanceMiles;
+            }
+        }
+
+        // Build display text
+        decimal totalMiles = CalculateTotalMiles(booking.ChargeFromBase, journeyMiles, deadMiles);
+        string mileageText = $"{totalMiles:F1} Miles - (Dead Miles: {deadMiles:F1}) + (Trip Miles: {journeyMiles:F1})";
         string durationText = durationMinutes > 0 ? $"{durationMinutes} min" : "";
 
         // Priority 2: Zone-to-Zone pricing
         var zoneResult = await TryZoneToZonePriceAsync(booking, ct);
         if (zoneResult.HasValue)
-            return (zoneResult.Value.driverPrice, zoneResult.Value.accountPrice, journeyMiles, mileageText, durationText);
+            return (zoneResult.Value.driverPrice, zoneResult.Value.accountPrice, totalMiles, mileageText, durationText);
 
         // Priority 3: Fixed route pricing
         var fixedResult = await TryFixedPriceAsync(booking, ct);
         if (fixedResult.HasValue)
-            return (fixedResult.Value.driverPrice, fixedResult.Value.accountPrice, journeyMiles, mileageText, durationText);
+            return (fixedResult.Value.driverPrice, fixedResult.Value.accountPrice, totalMiles, mileageText, durationText);
 
         // Priority 4: Account tariff (dual pricing)
         if (booking.AccountNumber.HasValue)
         {
-            var accountResult = await TryAccountTariffPriceAsync(booking, journeyMiles, ct);
+            var accountResult = await TryAccountTariffPriceAsync(booking, totalMiles, ct);
             if (accountResult.HasValue)
-                return (accountResult.Value.driverPrice, accountResult.Value.accountPrice, journeyMiles, mileageText, durationText);
+                return (accountResult.Value.driverPrice, accountResult.Value.accountPrice, totalMiles, mileageText, durationText);
         }
 
         // Priority 5: Standard tariff
-        var standardResult = await CalculateStandardTariffAsync(booking, journeyMiles, ct);
-        return (standardResult.driverPrice, standardResult.accountPrice, journeyMiles, mileageText, durationText);
+        var standardResult = await CalculateStandardTariffAsync(booking, totalMiles, ct);
+        return (standardResult.driverPrice, standardResult.accountPrice, totalMiles, mileageText, durationText);
     }
 
     private async Task<(decimal driverPrice, decimal accountPrice)?> TryZoneToZonePriceAsync(Booking booking, CancellationToken ct)
@@ -130,7 +192,7 @@ public class PricingService : IPricingService
     }
 
     private async Task<(decimal driverPrice, decimal accountPrice)?> TryAccountTariffPriceAsync(
-        Booking booking, decimal journeyMiles, CancellationToken ct)
+        Booking booking, decimal totalMiles, CancellationToken ct)
     {
         var account = await _db.Accounts
             .AsNoTracking()
@@ -141,7 +203,6 @@ public class PricingService : IPricingService
             return null;
 
         var at = account.AccountTariff;
-        decimal totalMiles = CalculateTotalMiles(booking.ChargeFromBase, journeyMiles, deadMiles: 0m);
 
         decimal driverPrice = at.DriverInitialCharge + at.DriverFirstMileCharge
             + Math.Max(0m, totalMiles - 1m) * at.DriverAdditionalMileCharge;
@@ -153,7 +214,7 @@ public class PricingService : IPricingService
     }
 
     private async Task<(decimal driverPrice, decimal accountPrice)> CalculateStandardTariffAsync(
-        Booking booking, decimal journeyMiles, CancellationToken ct)
+        Booking booking, decimal totalMiles, CancellationToken ct)
     {
         var tariffType = await DetermineTariffTypeAsync(booking.PickupDateTime, ct);
 
@@ -169,8 +230,6 @@ public class PricingService : IPricingService
 
         if (tariff == null)
             return (0m, 0m);
-
-        decimal totalMiles = CalculateTotalMiles(booking.ChargeFromBase, journeyMiles, deadMiles: 0m);
 
         decimal price = tariff.InitialCharge + tariff.FirstMileCharge;
         if (totalMiles > 1m)
@@ -228,10 +287,25 @@ public class PricingService : IPricingService
 
     private static bool IsBankHoliday(DateTime date, CompanyConfig config)
     {
-        // Bank holidays could be stored in a JSON field or related table.
-        // For now, CompanyConfig doesn't have a bank holiday list, so this is a placeholder.
-        // In production, you'd parse config.BankHolidays or query a BankHoliday table.
-        return false;
+        if (string.IsNullOrWhiteSpace(config.BankHolidays))
+            return false;
+
+        try
+        {
+            var dates = System.Text.Json.JsonSerializer.Deserialize<List<string>>(config.BankHolidays);
+            if (dates is null)
+                return false;
+
+            var dateOnly = date.Date;
+            return dates.Any(d =>
+                DateTime.TryParse(d, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var parsed)
+                && parsed.Date == dateOnly);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static decimal CalculateTotalMiles(bool chargeFromBase, decimal journeyMiles, decimal deadMiles)

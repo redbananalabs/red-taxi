@@ -211,7 +211,7 @@ try
     builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
     builder.Services.AddScoped<IStripeService, StripeSeedService>();
     builder.Services.AddScoped<IPricingService, RedTaxi.Application.Pricing.Services.PricingService>();
-    builder.Services.AddScoped<IDistanceMatrixService, RedTaxi.Infrastructure.ExternalServices.StubDistanceMatrixService>();
+    builder.Services.AddScoped<IDistanceMatrixService, RedTaxi.Infrastructure.ExternalServices.GoogleDistanceMatrixService>();
     builder.Services.AddScoped<RedTaxi.Application.Identity.Services.JwtTokenService>();
 
     // Payment service (Stripe / Revolut)
@@ -225,6 +225,9 @@ try
 
     // Email (SendGrid)
     builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+
+    // Google Places
+    builder.Services.AddScoped<GooglePlacesService>();
 
     // Template rendering and message dispatching
     builder.Services.AddScoped<RedTaxi.Application.Messaging.Services.TemplateRenderer>();

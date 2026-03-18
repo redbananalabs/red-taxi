@@ -61,4 +61,7 @@ public class CompanyConfig
 
     /// <summary>Comma-separated WhatsApp SIDs / configuration identifiers.</summary>
     public string? WhatsAppSids { get; set; }
+
+    /// <summary>JSON array of bank-holiday dates, e.g. ["2026-04-03","2026-04-06",...]</summary>
+    public string? BankHolidays { get; set; }
 }

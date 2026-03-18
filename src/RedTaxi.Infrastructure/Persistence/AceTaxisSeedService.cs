@@ -97,6 +97,11 @@ public class AceTaxisSeedService
             TimeZoneId                   = "Europe/London",
             CurrencyCode                 = "GBP",
             PaymentProcessor             = "Revolut",
+            BankHolidays                 = System.Text.Json.JsonSerializer.Serialize(new[] {
+                "2025-04-18","2025-04-21","2025-05-05","2025-05-26","2025-08-25",
+                "2026-04-03","2026-04-06","2026-05-04","2026-05-25","2026-08-31",
+                "2027-03-26","2027-03-29","2027-05-03","2027-05-31","2027-08-30"
+            }),
         });
 
         await db.SaveChangesAsync(ct);

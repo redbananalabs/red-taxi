@@ -3,20 +3,22 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
+@using Syncfusion.Blazor.Schedule
+
 <div class="timeline @(State.IsTimelineExpanded ? "timeline-expanded" : "") @(_isMergeMode ? "merge-mode-active" : "")">
     <div class="timeline-header">
         <div class="timeline-header-left">
             <h3 class="timeline-title">Timeline</h3>
-            <span class="timeline-date font-mono">@State.SelectedDate.ToString("ddd dd MMM yyyy")</span>
+            <span class="timeline-date font-mono">@CurrentDate.ToString("ddd dd MMM yyyy")</span>
         </div>
         <div class="timeline-header-right">
             <button class="merge-mode-btn @(_isMergeMode ? "active" : "")" @onclick="ToggleMergeMode" title="Toggle merge mode — drop booking onto another to merge school runs">
-                MERGE MODE
+                @(_isMergeMode ? "MERGE MODE ON" : "MERGE MODE")
             </button>
             <button class="timeline-nav-btn" @onclick="PrevDay" title="Previous day">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
-            <button class="timeline-nav-btn" @onclick="Today" title="Today">Today</button>
+            <button class="timeline-nav-btn" @onclick="GoToToday" title="Today">Today</button>
             <button class="timeline-nav-btn" @onclick="NextDay" title="Next day">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
@@ -34,98 +36,42 @@
     </div>
 
     <div class="timeline-body">
-        <!-- Unallocated drop zone -->
-        <div class="unallocated-drop-zone"
-             ondragover="window.timelineDragDrop.onDragOver(event)"
-             ondragleave="window.timelineDragDrop.onDragLeave(event)"
-             ondrop="window.timelineDragDrop.onDropUnallocated(event)">
-            Drop here to unallocate
-        </div>
-
-        <!-- Time columns header -->
-        <div class="timeline-grid">
-            <div class="timeline-driver-col timeline-header-cell">Driver</div>
-            @for (int h = 0; h < 24; h++)
-            {
-                var hour = h;
-                <div class="timeline-hour-col timeline-header-cell @(hour == DateTime.Now.Hour && State.SelectedDate == DateTime.Today ? "timeline-current-hour" : "")">
-                    <span class="font-mono">@hour.ToString("00"):00</span>
-                </div>
-            }
-        </div>
-
-        <!-- Driver rows -->
-        @if (_drivers.Any())
-        {
-            @foreach (var driver in _drivers)
-            {
-                var driverUserId = driver.UserId;
-                <div class="timeline-row"
-                     @onclick="() => State.SelectDriver(driver)"
-                     ondragover="window.timelineDragDrop.onDragOver(event)"
-                     ondragleave="window.timelineDragDrop.onDragLeave(event)"
-                     ondrop="window.timelineDragDrop.onDrop(event, @driverUserId)">
-                    <div class="timeline-driver-col">
-                        <span class="timeline-driver-dot" style="background-color: @(driver.ColorCodeRGB ?? "#6B7280")"></span>
-                        <span class="timeline-driver-name">@driver.FullName</span>
-                    </div>
-                    @for (int h = 0; h < 24; h++)
-                    {
-                        var hour = h;
-                        var bookingsInHour = _bookings.Where(b =>
-                            b.UserId == driver.UserId &&
-                            b.PickupDateTime.Hour <= hour &&
-                            b.PickupDateTime.AddHours(1).Hour > hour).ToList();
-
-                        <div class="timeline-hour-col timeline-cell @(hour == DateTime.Now.Hour && State.SelectedDate == DateTime.Today ? "timeline-current-hour" : "")">
-                            @foreach (var booking in bookingsInHour)
-                            {
-                                var bid = booking.Id;
-                                if (_isMergeMode)
-                                {
-                                    <div class="timeline-block @GetStatusClass(booking.Status)"
-                                         draggable="true"
-                                         title="@booking.PickupAddress → @booking.DestinationAddress"
-                                         ondragstart="window.timelineDragDrop.onDragStart(event, @bid)"
-                                         ondragend="window.timelineDragDrop.onDragEnd(event)"
-                                         ondragover="window.timelineDragDrop.onDragOverBooking(event)"
-                                         ondragleave="window.timelineDragDrop.onDragLeave(event)"
-                                         ondrop="window.timelineDragDrop.onDropOnBooking(event, @bid)"
-                                         @onclick:stopPropagation="true"
-                                         @onclick="() => State.SelectBooking(booking)">
-                                        <span class="font-mono">@booking.PickupDateTime.ToString("HH:mm")</span>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="timeline-block @GetStatusClass(booking.Status)"
-                                         draggable="true"
-                                         title="@booking.PickupAddress → @booking.DestinationAddress"
-                                         ondragstart="window.timelineDragDrop.onDragStart(event, @bid)"
-                                         ondragend="window.timelineDragDrop.onDragEnd(event)"
-                                         @onclick:stopPropagation="true"
-                                         @onclick="() => State.SelectBooking(booking)">
-                                        <span class="font-mono">@booking.PickupDateTime.ToString("HH:mm")</span>
-                                    </div>
-                                }
-                            }
-                        </div>
+        <SfSchedule TValue="ScheduleBooking"
+                    @bind-SelectedDate="CurrentDate"
+                    Height="100%"
+                    Width="100%"
+                    CurrentView="View.TimelineDay"
+                    StartHour="06:00"
+                    EndHour="23:00"
+                    AllowDragAndDrop="true"
+                    CssClass="dark-schedule">
+            <ScheduleGroup Resources="@GroupResources"></ScheduleGroup>
+            <ScheduleResources>
+                <ScheduleResource TItem="DriverResource" TValue="int"
+                                  DataSource="@DriverResources"
+                                  Field="DriverId"
+                                  Title="Driver"
+                                  Name="Drivers"
+                                  TextField="Name"
+                                  IdField="Id"
+                                  ColorField="Color">
+                </ScheduleResource>
+            </ScheduleResources>
+            <ScheduleEventSettings DataSource="@ScheduleBookings"
+                                   EnableTooltip="true">
+                <Template>
+                    @{
+                        var booking = context as ScheduleBooking;
                     }
-                </div>
-            }
-        }
-        else
-        {
-            <div class="timeline-empty">
-                <p>No drivers loaded. Connect to API to see the timeline.</p>
-            </div>
-        }
-
-        <!-- Now indicator -->
-        @if (State.SelectedDate == DateTime.Today)
-        {
-            <div class="timeline-now-line" style="left: calc(120px + (@DateTime.Now.Hour * 60 + @DateTime.Now.Minute) / 1440.0 * (100% - 120px))"></div>
-        }
+                    <div class="booking-event" style="background: @(booking?.Color ?? "#F59E0B"); padding: 2px 6px; border-radius: 3px; font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; height: 100%; display: flex; align-items: center;">
+                        <span>@booking?.Subject</span>
+                    </div>
+                </Template>
+            </ScheduleEventSettings>
+            <ScheduleViews>
+                <ScheduleView Option="View.TimelineDay"></ScheduleView>
+            </ScheduleViews>
+        </SfSchedule>
     </div>
 </div>
 
@@ -168,8 +114,38 @@
 }
 
 @code {
+    // ── Models for Syncfusion Schedule ─────────────────────────────────
+    public class ScheduleBooking
+    {
+        public int Id { get; set; }
+        public string Subject { get; set; } = "";
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public string Color { get; set; } = "#F59E0B";
+        public int DriverId { get; set; }
+        public bool IsAllDay { get; set; }
+    }
+
+    public class DriverResource
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string Color { get; set; } = "#6B7280";
+    }
+
+    // ── State ──────────────────────────────────────────────────────────
     private List<DriverDto> _drivers = new();
     private List<BookingDto> _bookings = new();
+    private List<ScheduleBooking> ScheduleBookings { get; set; } = new();
+    private List<DriverResource> DriverResources { get; set; } = new();
+    private string[] GroupResources = new[] { "Drivers" };
+
+    private DateTime CurrentDate
+    {
+        get => State.SelectedDate;
+        set => State.SetDate(value);
+    }
+
     private bool _isMergeMode;
     private bool _showMergeDialog;
     private BookingDto? _mergeSource;
@@ -191,7 +167,14 @@
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("timelineDragDrop.init", _dotNetRef);
+            try
+            {
+                await JS.InvokeVoidAsync("timelineDragDrop.init", _dotNetRef);
+            }
+            catch
+            {
+                // JS interop may not be ready
+            }
         }
     }
 
@@ -218,10 +201,76 @@
         {
             // API not available
         }
+
+        MapToScheduleData();
     }
 
+    private void MapToScheduleData()
+    {
+        // Build driver resources — always include an "Unallocated" row
+        DriverResources = new List<DriverResource>
+        {
+            new DriverResource { Id = 0, Name = "Unallocated", Color = "#F59E0B" }
+        };
+
+        foreach (var d in _drivers)
+        {
+            DriverResources.Add(new DriverResource
+            {
+                Id = d.UserId,
+                Name = d.FullName ?? $"Driver {d.UserId}",
+                Color = d.ColorCodeRGB ?? "#6B7280"
+            });
+        }
+
+        // Map bookings to schedule events
+        ScheduleBookings = _bookings.Select(b =>
+        {
+            var driverUserId = b.UserId ?? 0;
+            var driver = _drivers.FirstOrDefault(d => d.UserId == driverUserId);
+            var color = driver?.ColorCodeRGB ?? "#F59E0B";
+
+            // Build subject label
+            string subject;
+            if (b.AccountNumber.HasValue && !string.IsNullOrWhiteSpace(b.PassengerName))
+            {
+                subject = $"{b.AccountName} - {b.PassengerName}";
+            }
+            else if (!string.IsNullOrWhiteSpace(b.PassengerName))
+            {
+                subject = b.PassengerName;
+            }
+            else
+            {
+                subject = $"{b.PickupAddress} → {b.DestinationAddress}";
+            }
+
+            // Duration: use DurationText parsing or default 30 minutes
+            var duration = TimeSpan.FromMinutes(30);
+            if (!string.IsNullOrWhiteSpace(b.DurationText))
+            {
+                if (int.TryParse(b.DurationText.Replace(" mins", "").Replace(" min", "").Trim(), out var mins) && mins > 0)
+                {
+                    duration = TimeSpan.FromMinutes(mins);
+                }
+            }
+
+            return new ScheduleBooking
+            {
+                Id = b.Id,
+                Subject = subject,
+                StartTime = b.PickupDateTime,
+                EndTime = b.PickupDateTime.Add(duration),
+                Color = color,
+                DriverId = driverUserId,
+                IsAllDay = false
+            };
+        }).ToList();
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────────
     private void PrevDay() => State.SetDate(State.SelectedDate.AddDays(-1));
-    private void Today() => State.SetDate(DateTime.Today);
+    private void GoToToday() => State.SetDate(DateTime.Today);
     private void NextDay() => State.SetDate(State.SelectedDate.AddDays(1));
 
     private void ToggleMergeMode()
@@ -230,7 +279,6 @@
     }
 
     // ── Drag-and-drop callbacks invoked from JS ─────────────────────
-
     [JSInvokable]
     public async Task OnBookingDroppedOnDriver(int bookingId, int targetDriverUserId)
     {
@@ -242,7 +290,7 @@
         }
         catch
         {
-            // Allocation failed — swallow silently for now
+            // Allocation failed
         }
     }
 
@@ -304,18 +352,6 @@
         _mergeSource = null;
         _mergeTarget = null;
     }
-
-    private static string GetStatusClass(int? status) => status switch
-    {
-        0 => "block-unallocated",
-        1 => "block-allocated",
-        2 => "block-accepted",
-        3 => "block-onroute",
-        4 => "block-onboard",
-        5 => "block-completed",
-        6 => "block-cancelled",
-        _ => "block-unallocated"
-    };
 
     public async ValueTask DisposeAsync()
     {

@@ -7,6 +7,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.*" />
+    <PackageReference Include="Syncfusion.Blazor.Core" Version="33.1.44" />
+    <PackageReference Include="Syncfusion.Blazor.Schedule" Version="33.1.44" />
+    <PackageReference Include="Syncfusion.Blazor.Themes" Version="33.1.44" />
   </ItemGroup>
 
   <PropertyGroup>
