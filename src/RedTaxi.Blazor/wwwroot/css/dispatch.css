@@ -1152,6 +1152,217 @@ body {
     font-size: 12px;
 }
 
+/* ── Scheduler Header Controls ────────────────────────────── */
+
+/* View toggle: DAY / TIMELINE */
+.view-toggle {
+    display: flex;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-btn);
+    overflow: hidden;
+}
+
+.view-toggle-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.view-toggle-btn:not(:last-child) {
+    border-right: 1px solid var(--border-color);
+}
+
+.view-toggle-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.view-toggle-btn.view-toggle-active {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+/* CONFIRM SA button */
+.confirm-sa-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    background: var(--brand-500);
+    border: 1px solid var(--brand-500);
+    border-radius: var(--radius-btn);
+    color: white;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+}
+
+.confirm-sa-btn:hover {
+    background: var(--brand-600);
+}
+
+/* Scheduler toggle switch */
+.sched-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.sched-toggle-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.sched-toggle-input {
+    display: none;
+}
+
+.sched-toggle-track {
+    width: 32px;
+    height: 18px;
+    background: var(--bg-elevated);
+    border-radius: 9px;
+    position: relative;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.sched-toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.sched-toggle-input:checked + .sched-toggle-track {
+    background: var(--brand-500);
+}
+
+.sched-toggle-input:checked + .sched-toggle-track .sched-toggle-thumb {
+    left: 16px;
+    background: white;
+}
+
+/* ── Day View Event Tile ──────────────────────────────────── */
+.day-event-tile {
+    height: 100%;
+    padding: 4px 6px;
+    border-radius: 3px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.3;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.day-event-subject {
+    font-weight: 600;
+    white-space: normal;
+    word-break: break-word;
+    color: inherit;
+}
+
+.day-event-time {
+    font-size: 10px;
+    opacity: 0.85;
+}
+
+.day-event-location {
+    font-size: 10px;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Syncfusion Day View Overrides ────────────────────────── */
+.day-view-mode .e-schedule .e-vertical-view .e-resource-cells {
+    background: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.day-view-mode .e-schedule .e-header-cells {
+    background: var(--bg-surface) !important;
+    border-color: var(--border-subtle) !important;
+}
+
+.day-view-mode .e-schedule .e-work-cells {
+    border-color: var(--border-subtle) !important;
+}
+
+/* ── Context Menu ─────────────────────────────────────────── */
+.context-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+}
+
+.context-menu {
+    position: fixed;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-modal);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 4px;
+    min-width: 180px;
+    z-index: 91;
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-card);
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-align: left;
+}
+
+.context-menu-item:hover {
+    background: var(--bg-hover);
+}
+
+.context-menu-danger {
+    color: var(--booking-cancelled);
+}
+
+.context-menu-danger:hover {
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 4px 0;
+}
+
 /* ── Command Palette ───────────────────────────────────────── */
 .cmd-overlay {
     position: fixed;
