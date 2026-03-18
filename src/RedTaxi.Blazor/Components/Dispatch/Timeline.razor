@@ -78,7 +78,7 @@
                     StartHour="06:00"
                     EndHour="23:00"
                     AllowDragAndDrop="true"
-                    CssClass="dark-schedule @(_viewMode == ScheduleViewMode.Day ? "day-view-mode" : "")">
+                    CssClass="@GetScheduleCssClass()">
             <ScheduleGroup Resources="@GroupResources"></ScheduleGroup>
             <ScheduleResources>
                 <ScheduleResource TItem="DriverResource" TValue="int"
@@ -410,6 +410,9 @@
     }
 
     // ── View mode switching ─────────────────────────────────────────
+    private string GetScheduleCssClass() =>
+        _viewMode == ScheduleViewMode.Day ? "dark-schedule day-view-mode" : "dark-schedule";
+
     private void SetViewMode(ScheduleViewMode mode)
     {
         _viewMode = mode;
