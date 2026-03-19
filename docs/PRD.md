@@ -4814,3 +4814,59 @@ The v1 "rewrite from scratch" approach produced 47K lines of scaffolded code tha
 - Design tokens
 
 ### Estimated Timeline: ~15 working days (vs weeks for v1)
+
+---
+
+## 144. V2 Feature Review Decisions (2026-03-19)
+
+Based on operator review of all 140+ features across 5 categories.
+
+### Features REMOVED from Scope
+| Ref | Feature | Reason |
+|-----|---------|--------|
+| KB01 | Ctrl+K → command palette | Not needed — operators don't use keyboard shortcuts beyond allocation |
+| KB02 | Ctrl+N → new booking shortcut | Removed — +New button is sufficient |
+| KB03 | Ctrl+S → save booking shortcut | Removed — Save button is sufficient |
+| KB05 | Escape → close panel/dialog | Removed — not needed |
+
+### Features DEFERRED (⏳ Later)
+| Ref | Feature | Deferred To |
+|-----|---------|------------|
+| DC09 | Multi-monitor pop-out support | Post-launch |
+| DC10 | Material Dark theme (strict spec) | Post-launch — current dark theme is acceptable |
+| MP05 | Click map marker → booking detail popup | Post-launch |
+| NT08 | Replace Pusher with SignalR | Post-launch — Pusher works, no urgency to replace |
+
+### Features CONFIRMED DONE (from recent refactoring)
+| Ref | Feature | Notes |
+|-----|---------|-------|
+| DC01 | Split layout: form LEFT, scheduler/map RIGHT | Implemented in recent Claude Code session |
+| DC02 | Draggable splitter (35%/65%) | Implemented in recent Claude Code session |
+| DC04 | Booking form always visible | Implemented in recent Claude Code session |
+| BF12 | Auto time update (ASAP ticks every second) | Confirmed working in legacy |
+| CA04 | Caller queue stacking (multiple callers) | Confirmed working in legacy |
+
+### Features NEEDING FIX
+| Ref | Feature | Issue |
+|-----|---------|-------|
+| NT01 | Notification bell with badge count | Exists but needs improvement |
+
+### Features NEEDING REVIEW (check existing app)
+| Ref | Feature | What to Check |
+|-----|---------|--------------|
+| DC03 | Tabbed right panel: Scheduler / Map | Verify current tab implementation |
+| DC11 | Responsive tablet view (768-1280px) | Assess feasibility vs operator mobile app |
+
+### Keyboard Shortcuts — FINAL Scope
+Only these remain:
+- Tab → cycle focus between form fields (standard browser)
+- Number keys → type driver number to allocate (legacy feature, keep)
+- All others removed
+
+### UI Strategy — CONFIRMED
+- Desktop (>1280px): React dispatch console (existing, improved)
+- Tablet (768-1280px): Under review — may use responsive CSS or redirect to operator app
+- Mobile (<768px): Operator Mobile App (Flutter, new build)
+- No command palette, no complex keyboard shortcuts
+- Keep current dark theme, no Material Design spec enforcement
+- Pusher stays for now, SignalR migration is post-launch

@@ -1,94 +1,172 @@
-# Red Taxi — Feature Tracker (v2 — Wrap & Extend)
+# Red Taxi V2 — Feature Tracker
 
-> **125 legacy features already working. 40 new features to build. 18 configs to extract.**
-> Strategy: docs/build-strategy-v2.md
+> **V2 = Wrap & extend the proven AceTaxis codebase (now RedTaxi).**
+> Updated: 2026-03-19 from operator feature review spreadsheet.
+> Google Sheet: https://docs.google.com/spreadsheets/d/14BuzERAQg5RrkEYiIxhuM3SvZvFXF7-7
 
-Last Updated: 2026-03-18
+## Status Key
+- ✅ Done (working, verified)
+- 🔧 Needs Fix (exists but needs improvement)
+- 🆕 Build New (doesn't exist yet)
+- ❌ Removed (cut from scope)
+- ⏳ Later (deferred post-launch)
+- 🔍 Review (needs checking in existing app)
 
-## LEGACY = ✅ Already Working (125 features)
-BookingService (L01-L21), TariffService (L22-L31), DispatchService (L32-L41),
-AccountsService (L42-L55), Messaging (L56-L65), Payments (L66-L71),
-Other Services (L72-L85), Dispatch UI (L86-L97), Admin Panel (L98-L110),
-Driver App (L111-L121), Web Booker (L122-L125).
-See full list: docs/feature-tracker-full.md
+---
 
-## CONFIG EXTRACTION = 🔧 (18 items, Phase 3)
-C01 Base postcode | C02 Bank holidays | C03-C05 HVS accounts+rates |
-C06 Rank commission | C07 Waiting rates | C08 Revolut key |
-C09 SendGrid templates | C10 WhatsApp SIDs | C11 Airport strings |
-C12 Webhook URL | C13 Map centre | C14-C16 Other constants
+## DISPATCH CONSOLE
 
-## NEW FEATURES = 🆕 (40 features)
+### Layout & Structure
+| Ref | Feature | Status | Priority |
+|-----|---------|--------|----------|
+| DC01 | Split layout: form LEFT, scheduler/map RIGHT | ✅ Done | — |
+| DC02 | Draggable splitter (35%/65%) | ✅ Done | — |
+| DC03 | Tabbed right panel: Scheduler / Map | 🔍 Review | — |
+| DC04 | Booking form always visible | ✅ Done | — |
+| DC05 | Day view as default | ✅ Done | — |
+| DC06 | Sidebar navigation | ✅ Done | — |
+| DC07 | Top bar (search, SMS, DM, GM, bell, +New) | ✅ Done | — |
+| DC08 | 3 view modes: Map, Diary, Split | ✅ Done | — |
+| DC09 | Multi-monitor pop-out | ⏳ Later | P5 |
+| DC10 | Material Dark theme | ⏳ Later | P5 |
+| DC11 | Responsive tablet (768-1280px) | 🔍 Review | — |
 
-### Phase 1: Multi-Tenancy (N01-N05)
-| # | Feature | Status |
-|---|---------|--------|
-| N01 | Tenant middleware (slug → DB) | 🆕 |
-| N02 | Master DB (RedTaxi_Platform) | 🆕 |
-| N03 | Tenant provisioning (create DB, migrate, seed) | 🆕 |
-| N04 | Per-tenant connection resolver | 🆕 Reuse from archive |
-| N05 | Tenant subdomain routing | 🆕 |
+### Booking Form
+| Ref | Feature | Status |
+|-----|---------|--------|
+| BF01-BF16 | All 16 booking form features | ✅ Done |
 
-### Phase 2: SaaS Billing (N06-N13)
-| # | Feature | Status |
-|---|---------|--------|
-| N06 | Stripe product/price seeding | 🆕 Reuse from archive |
-| N07 | Stripe checkout for signup | 🆕 |
-| N08 | Stripe webhook processing | 🆕 Reuse from archive |
-| N09 | Stripe Customer Portal | 🆕 |
-| N10 | Trial lifecycle | 🆕 |
-| N11 | Usage tracking | 🆕 |
-| N12 | Bolt-on management | 🆕 |
-| N13 | Tenant payment choice (Stripe/Revolut) | 🆕 Reuse from archive |
+### Scheduler / Timeline
+| Ref | Feature | Status |
+|-----|---------|--------|
+| SC01-SC14 | All 14 scheduler features | ✅ Done |
 
-### Phase 4: Customer App (N14-N25)
-| # | Feature | Status |
-|---|---------|--------|
-| N14 | Tenant selection by GPS | 🆕 Scaffold exists |
-| N15 | Phone + OTP login | 🆕 |
-| N16 | Home map + search | 🆕 |
-| N17 | Booking + upfront price | 🆕 |
-| N18 | Live tracking + ETA | 🆕 |
-| N19 | Rating + review | 🆕 |
-| N20 | Payment methods | 🆕 |
-| N21 | Booking history | 🆕 |
-| N22 | Saved places | 🆕 |
-| N23 | In-app chat | 🆕 |
-| N24 | Share trip | 🆕 |
-| N25 | Profile + GDPR | 🆕 |
+### Map
+| Ref | Feature | Status |
+|-----|---------|--------|
+| MP01 | Google Maps (dark theme) | ✅ Done |
+| MP02 | Centred from CompanyConfig | 🆕 Build |
+| MP03 | Driver position pins (live GPS) | ✅ Done |
+| MP04 | Booking pickup markers | ✅ Done |
+| MP05 | Click marker → detail popup | ⏳ Later |
+| MP06 | Driver info on hover | 🔍 Review |
 
-### Phase 4: Operator Mobile (N26-N30)
-| # | Feature | Status |
-|---|---------|--------|
-| N26 | Bookings tab | 🆕 Scaffold exists |
-| N27 | Alerts tab | 🆕 |
-| N28 | Live Map tab | 🆕 |
-| N29 | More tab | 🆕 |
-| N30 | Push notifications | 🆕 |
+### Caller Popup & Allocation
+| Ref | Feature | Status |
+|-----|---------|--------|
+| CA01-CA07 | All 7 caller/allocation features | ✅ Done |
 
-### Phase 4: Marketing Website (N31-N33)
-| # | Feature | Status |
-|---|---------|--------|
-| N31 | Landing page | 🆕 |
-| N32 | Pricing page | 🆕 |
-| N33 | Signup flow | 🆕 |
+### Notifications & Alerts
+| Ref | Feature | Status |
+|-----|---------|--------|
+| NT01 | Notification bell with badge | 🔧 Needs Fix |
+| NT02-NT07 | All other notification features | ✅ Done |
+| NT08 | Replace Pusher → SignalR | ⏳ Later |
 
-### Phase 5+: Improvements (N34-N40)
-| # | Feature | Status |
-|---|---------|--------|
-| N34 | Zone pricing polygon UI | 🆕 Replit prototype exists |
-| N35 | Configurable map centre | 🆕 Reuse from archive |
-| N36 | Review request system | 🆕 |
-| N37 | Google Places (secondary) | 🆕 Uncomment + configure |
-| N38 | Replace Pusher → SignalR | ⏳ Future |
-| N39 | Separate booker logins | ⏳ Future |
-| N40 | Auto-dispatch | ⏳ Future |
+### Keyboard Shortcuts
+| Ref | Feature | Status |
+|-----|---------|--------|
+| KB01 | Ctrl+K → command palette | ❌ Removed |
+| KB02 | Ctrl+N → new booking | ❌ Removed |
+| KB03 | Ctrl+S → save booking | ❌ Removed |
+| KB04 | Tab → cycle focus | ✅ Done |
+| KB05 | Escape → close dialog | ❌ Removed |
+| KB06 | Number keys → allocate driver | ✅ Done |
+
+### CSS & Responsive
+| Ref | Feature | Status |
+|-----|---------|--------|
+| CSS01 | Desktop full split layout | 🔧 Needs Fix |
+| CSS02 | Tablet responsive | 🆕 Build |
+| CSS03 | Mobile → redirect to operator app | 🆕 Build |
+| CSS04-CSS07 | Spacing, loading, errors, print | 🔍 Review |
+
+---
+
+## ADMIN PANEL
+
+### Invoice Processing (AP01-AP09) | ✅ All Done
+### Statement Processing (AP10-AP16) | ✅ All Done
+### Driver Management (AP17-AP20) | ✅ All Done
+
+### Zone Pricing
+| Ref | Feature | Status |
+|-----|---------|--------|
+| AP21 | Polygon editor | 🆕 Build |
+| AP22 | Zone pricing matrix | 🆕 Build |
+| AP23 | Point-in-polygon matching | 🆕 Build |
+
+### Availability (AP24-AP26) | ✅ All Done
+
+### Reports & Settings
+| Ref | Feature | Status |
+|-----|---------|--------|
+| AP27 | All 18 reports | ✅ Done |
+| AP28 | Export CSV/PDF | 🔍 Review |
+| AP29 | Company Settings (current) | ✅ Done |
+| AP30 | Map centre config | 🆕 Build |
+| AP31 | Payment processor choice | 🆕 Build |
+| AP32 | Bank holiday management | 🆕 Build |
+| AP33 | Configurable rates | 🆕 Build |
+| AP34-AP35 | Message + Tariff settings | ✅ Done |
+| AP36 | Fixed Route Pricing | 🔍 Review |
+| AP37 | Local POI management | ✅ Done |
+| AP38 | Tracking page | 🔍 Review |
+
+---
+
+## BACKEND API
+
+### Config Extraction (C01-C16) | 🔧 All 16 Need Fixing
+### Controller → Service (EX01-EX04) | 🔧 4 Remaining
+### Controller → Service (EX05-EX06) | ✅ Done
+
+### Multi-Tenancy (MT01-MT06) | 🆕 All 6 Build New
+### SaaS Billing (SB01-SB09) | 🆕 All 9 Build New
+
+### Infrastructure
+| Ref | Feature | Status |
+|-----|---------|--------|
+| IN01 | .NET 7 → .NET 8 | 🔧 Needs Fix |
+| IN02 | Structured logging (Serilog) | ✅ Done |
+| IN03 | Sentry error monitoring | ✅ Done |
+| IN04-IN08 | Health check, rate limit, CORS, Docker, CI/CD | 🆕 Build |
+| IN09 | RBAC enforcement | 🔍 Review |
+| IN10 | Replace Pusher → SignalR | ⏳ Later |
+
+---
+
+## MOBILE APPS
+
+### Customer App (CU01-CU13) | 🆕 All 13 Build New
+### Operator Mobile (OP01-OP05) | 🆕 All 5 Build New
+
+### Driver App (Existing)
+| Ref | Feature | Status |
+|-----|---------|--------|
+| DR01 | All 25 screens | ✅ Done |
+| DR02-DR04 | Timer UX, hackney, offline | 🔍 Review |
+| DR05 | Multi-tenant API URL | 🔧 Needs Fix |
+
+### Local SMS (SM01-SM03) | ✅ Done (move to mobile/local-sms/)
+
+---
+
+## MARKETING & SAAS
+
+### Marketing Website (MK01-MK06) | 🆕 All 6 Build New
+### Tenant Onboarding (ON01-ON06) | 🆕 All 6 Build New
+
+---
 
 ## SUMMARY
-| Category | Count |
-|----------|-------|
-| ✅ Legacy (working) | 125 |
-| 🔧 Config extraction | 18 |
-| 🆕 New to build | 40 |
-| ⏳ Future | 3 |
-| **Total** | **186** |
+
+| Status | Count |
+|--------|-------|
+| ✅ Done | ~115 |
+| 🔧 Needs Fix | ~22 |
+| 🆕 Build New | ~45 |
+| ❌ Removed | 4 |
+| ⏳ Later | 4 |
+| 🔍 Review | ~10 |
+| **Total** | **~200** |

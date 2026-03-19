@@ -1,8 +1,7 @@
-# Claude Code Handoff — Red Taxi Platform (v2 Strategy)
+# Claude Code Handoff — Red Taxi V2
 
-> **APPROACH: Wrap the working legacy system. Don't rewrite it.**
-> The legacy codebase is 142K lines of battle-tested code used in production daily.
-> We add multi-tenancy + SaaS billing on top. Only build what's genuinely new.
+> **V2 = Wrap & extend the proven RedTaxi codebase. Don't rewrite.**
+> Updated: 2026-03-19
 
 ## Repository
 ```
@@ -10,58 +9,68 @@ git clone https://github.com/onesoftuk/red-taxi.git
 ```
 
 ## Read These First
-1. **docs/build-strategy-v2.md** — THE strategy (wrap & extend)
-2. **docs/PRD.md** — 143 sections, complete product spec
-3. **docs/feature-tracker.md** — 125 legacy features ✅, 40 new to build 🆕
+1. **docs/codebase-analysis.md** — current codebase state (services, controllers, what works)
+2. **docs/feature-tracker.md** — 200 features with status from operator review
+3. **docs/v2-implementation-plan.md** — 8 phases with bullet lists
+4. **docs/smoke-tests.md** — regression test suite (run after every change)
+5. **docs/PRD.md** — 144 sections, full product spec (§144 = feature review decisions)
+6. **docs/changelog.md** — what's been done, what was removed/deferred
 
-## Repo Structure
+## Current Repo Structure
 ```
-red-taxi/
-├── docs/                          70+ docs (PRD, strategy, tracker — all valid)
-├── legacy/                        THE MAIN CODEBASE (production code)
-│   ├── AceTaxis.API/              .NET 8 backend API (or TaxiDispatch.API)
-│   ├── AceTaxis.Lib/              Services, entities, business logic
-│   ├── ace-dispatcher/            React dispatch console (14K lines)
-│   ├── ace-admin-panel/           React admin panel (89K lines)
-│   ├── ace-driver-app/            Flutter driver app (18K lines)
-│   ├── ace-account-web-booker/    React account web booker
-│   └── ace-local-sms/             .NET MAUI Android SMS gateway
-├── src/
-│   └── reusable/                  Pieces from new build to integrate
-│       ├── tenancy/               TenantConnectionResolver, DbContextFactory
-│       ├── external-services/     StripeSeedService, PaymentService, Google*
-│       └── flutter/               red_taxi_shared, red_taxi_customer, red_taxi_operator
-├── archive/
-│   └── new-build-v1/              Full v1 rewrite (reference only)
-└── design-tokens.json
+src/
+├── RedTaxi.API/           16 controllers, 237 endpoints
+├── RedTaxi.Lib/           17 services, 36 entities, ~147K lines
+└── RedTaxi.sln            .NET 7 (upgrade to 8 planned)
+
+frontend/
+├── ace-dispatcher/        React dispatch console (localhost:5173)
+├── ace-admin-panel/       React admin panel
+├── ace-account-web-booker/ React web booker
+└── ace-local-sms/         MAUI SMS gateway (Android only → move to mobile/)
+
+mobile/
+├── driver/                Flutter driver app (production)
+├── customer/              Flutter customer app (scaffold from V1)
+├── operator/              Flutter operator app (scaffold from V1)
+└── shared/                Shared Flutter package
+
+archive/                   V1 new build (reference only)
+docs/                      70+ docs, PRD, strategy, tracker
 ```
 
-## What's Working (Don't Touch Unless Extracting Config)
-- All booking CRUD, pricing, dispatch, allocation, completion
-- All invoicing, statements, commission, VAT
-- All messaging (WhatsApp, SMS, Push, Email)
-- All reporting (18 reports)
-- React dispatch console, admin panel, web booker
-- Flutter driver app
-- Address lookup (IdealPostcodes primary, Google commented out)
-- Revolut payments
+## Running Locally
+| Service | Command | URL |
+|---------|---------|-----|
+| API | `cd src/RedTaxi.API && dotnet run` | http://localhost:5092/swagger |
+| Dispatcher | `cd frontend/ace-dispatcher && npm run dev` | http://localhost:5173 |
+| Admin | `cd frontend/ace-admin-panel && npm install && npm run dev` | Check Vite output |
 
-## What Needs Building (40 features)
-See docs/feature-tracker.md for full list.
+## Database
+- Local: `Server=localhost\SQLEXPRESS;Database=AceTaxis_Dev;Trusted_Connection=True;TrustServerCertificate=True;`
+- 127,321 bookings, 29 drivers, 51 accounts (copied from production, PII sanitised)
 
-Phase 1: Multi-tenancy wrapper on legacy API
-Phase 2: Stripe SaaS billing + tenant lifecycle
-Phase 3: Config extraction (18 hardcoded items → CompanyConfig)
-Phase 4: Customer app + Operator mobile app + Marketing site
-Phase 5: Test with Ace Taxis as first tenant
+## Login
+- Username: Peter, Password: Test1234 (Admin role)
+- Endpoint: POST /api/UserProfile/Login (NOT /api/Auth/login)
+- Token field: `token` (NOT `accessToken`)
+
+## Key Decisions (from §144)
+- ❌ REMOVED: Command palette, Ctrl+N/S/Escape shortcuts
+- ⏳ DEFERRED: Multi-monitor, Material theme, map marker popups, Pusher→SignalR
+- ✅ KEEP: Pusher (for now), current dark theme, existing keyboard (Tab + number keys only)
+- Mobile dispatch = Operator Mobile App (Flutter), NOT responsive CSS on desktop console
 
 ## API Keys
+- Google Maps/Places/Distance Matrix: AIzaSyDtmccRciM2vDtBik-cH9tyFMBCjhjqukI
 - Stripe PK: pk_test_2Bev2SetXUmgnJMqgIOXDLPm
 - Stripe SK: sk_test_yXkGfVZbzDtHTA8W9lKwXYzR
-- Google Maps: AIzaSyDtmccRciM2vDtBik-cH9tyFMBCjhjqukI
 
 ## Rules
-- DO NOT rewrite working code. Wrap and extend.
-- Build ONE feature → verify → commit → next
-- Always merge to main after features
+- DO NOT rewrite working code — wrap and extend
+- Build ONE feature → run smoke tests → commit → next
+- DO NOT change any API routes, method signatures, or JSON properties
+- DO NOT add [AllowAnonymous] to bypass auth — fix auth properly
+- Merge to main after each feature
 - Update docs/feature-tracker.md after each feature
+- Reference PRD section numbers in commits

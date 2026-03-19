@@ -149,13 +149,13 @@
 - [ ] 4 notification sounds (configurable)
 - [ ] SMS heartbeat indicator
 
-### 4.7 Dispatch Console — Keyboard Shortcuts (PRD §23)
-- [ ] Ctrl+K → command palette
-- [ ] Ctrl+N → new booking
-- [ ] Ctrl+S → save booking
-- [ ] Tab → cycle focus
-- [ ] Escape → close panel/dialog
-- [ ] Number keys → allocate to driver
+### 4.7 Dispatch Console — Keyboard Shortcuts (PRD §23, §144)
+- [x] Tab → cycle focus (standard browser — already works)
+- [x] Number keys → allocate to driver (legacy feature — already works)
+- ~~Ctrl+K → command palette~~ ❌ REMOVED (§144)
+- ~~Ctrl+N → new booking~~ ❌ REMOVED (§144)
+- ~~Ctrl+S → save booking~~ ❌ REMOVED (§144)
+- ~~Escape → close panel/dialog~~ ❌ REMOVED (§144)
 
 ### 4.8 Dispatch Console — Responsive / Mobile
 - [ ] Breakpoints: desktop (>1280px), tablet (768-1280px), mobile (<768px)

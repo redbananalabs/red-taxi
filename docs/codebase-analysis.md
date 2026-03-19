@@ -1,120 +1,83 @@
-# AceTaxis Codebase Analysis
+# RedTaxi V2 Codebase Analysis
 
-> Analysed: 2026-03-18
-> Source: legacy/AceTaxis.Lib, legacy/AceTaxisAPI, legacy/OSS
-> Status: COMPILES (0 errors, 1099 nullable warnings)
+> Updated: 2026-03-19
+> Source: src/RedTaxi.API, src/RedTaxi.Lib (formerly AceTaxis, renamed + OSS merged)
+> Status: COMPILES (0 errors), running on localhost:5092
 
-## Runtime: .NET 7 (upgrade to .NET 8 needed for LTS support)
+## Runtime: .NET 7 (upgrade to .NET 8 planned — IN01)
 
-## Project Dependency Graph
+## Project Structure
 ```
-OSS (.NET 7)
-├── IdentityDbContext base (AppUser, AppRole, AppRefreshToken)
-├── Shared extensions, membership module
-├── Controllers: Auth, Messaging, Users
-└── Modules: Messaging (Push), Storage (AWS)
-    ↑
-AceTaxis.Lib (.NET 7, 288 files, 147,157 lines)
-├── 17 services, 36 entities, EF Core 7
-├── References: OSS, AutoMapper, Dropbox, QuestPDF, RabbitMQ, RestSharp, Google Calendar
-└── Key services: BookingService (2,149), AccountsService (2,243), TariffService (702)
-    ↑
-AceTaxisAPI (.NET 7, 20 files, 6,845 lines)
-├── 16 controllers, 237 endpoints
-└── References: AceTaxis.Lib, OSS
+src/
+├── RedTaxi.API/        16 controllers, 237 endpoints, 20 files
+├── RedTaxi.Lib/        17 services + 4 cache services, 36 entities, 308 files, ~147K lines
+│   ├── Services/       Business logic (17 services)
+│   ├── Modules/        Merged from OSS:
+│   │   ├── Membership/ Auth, JWT, Identity (AppUser, AppRole, AppRefreshToken)
+│   │   └── Messaging/  SMS, Push, config
+│   ├── Integrations/   AWS (Dropbox storage)
+│   ├── Data/           EF Core DbContext (RedTaxiDbContext), 36 entities
+│   ├── DTOs/           Request/response objects
+│   ├── PDF/            QuestPDF invoice/statement generation
+│   └── Shared/         Extensions, base classes
+└── RedTaxi.sln
 ```
 
 ## Controller Inventory (237 endpoints)
 
 | Controller | Endpoints | Purpose |
 |-----------|-----------|---------|
-| AdminUIController | 56 | Admin panel backend |
+| AdminUIController | 56 | Admin panel backend (biggest — needs service extraction) |
 | BookingsController | 40 | Booking CRUD + search |
 | AccountsController | 38 | Account mgmt + invoicing + statements |
-| DriverAppController | 30 | Driver mobile app API |
-| WeBookingController | 19 | Web booker portal |
+| DriverAppController | 30 | Driver mobile app API (needs service extraction) |
+| WeBookingController | 19 | Web booker portal (needs service extraction) |
 | UserProfileController | 14 | Driver/user profiles |
 | ReportingController | 13 | All reports |
-| AddressController | 6 | Address autocomplete (IdealPostcodes + Google) |
-| CallEventsController | 6 | Caller ID / phone lookup |
+| AddressController | 6 | IdealPostcodes (primary) + Google Places (secondary) |
+| CallEventsController | 6 | Caller ID / phone lookup (needs service extraction) |
 | LocalPOIController | 6 | Points of interest |
 | AvailabilityController | 2 | Driver availability |
 | SmsQueController | 2 | SMS gateway queue |
 | WhatsAppController | 2 | WhatsApp webhook |
 | ATestController | 1 | Test endpoint |
-| QRCodeClickCounter | 1 | QR tracking |
-| RedirectController | 1 | URL shortener |
+| QRCodeClickCounter | 1 | QR tracking (extracted to UrlTrackingService ✅) |
+| RedirectController | 1 | URL shortener (extracted to UrlTrackingService ✅) |
 
-## Service Inventory (11,846 lines)
+## Service Inventory (17 services + 4 cache)
 
-| Service | Lines | Purpose |
-|---------|-------|---------|
-| AccountsService | 2,243 | Invoicing, statements, settlement |
-| BookingService | 2,149 | Booking CRUD, pricing triggers |
-| ReportingService | 1,257 | All 13 reports |
-| UserProfileService | 1,058 | Driver/user management |
-| DispatchService | 1,008 | Allocation, job offers |
-| AceMessagingService | 877 | SMS/WhatsApp/Push dispatch |
-| TariffService | 702 | Pricing engine (5-level priority) |
-| AvailabilityService | 489 | Shift management |
-| AddressLookupService | 417 | Dual: IdealPostcodes + Google Places |
-| UserActionsService | 379 | Audit logging |
-| RevoluttService | 276 | Payment links |
-| AdminUIService | 249 | Admin UI helpers |
-| DocumentService | 246 | Dropbox uploads |
-| UINotificationService | 184 | In-app notifications |
-| LocalPOIService | 169 | POI management |
-| GoogleCalendarService | 104 | Calendar sync |
-| GeoZoneService | 39 | Zone pricing |
+| Service | Lines | Status |
+|---------|-------|--------|
+| AccountsService | 2,243 | ✅ Working |
+| BookingService | 2,149 | ✅ Working |
+| ReportingService | 1,257 | ✅ Working |
+| UserProfileService | 1,058 | ✅ Working |
+| DispatchService | 1,008 | ✅ Working |
+| AceMessagingService | 877 | ✅ Working |
+| TariffService | 702 | ✅ Working (hardcoded Distance Matrix key at line 466) |
+| AvailabilityService | 489 | ✅ Working |
+| AddressLookupService | 417 | ✅ Working (IdealPostcodes + Google Places) |
+| UserActionsService | 379 | ✅ Working |
+| RevoluttService | 276 | ✅ Working |
+| AdminUIService | 249 | ✅ Working |
+| DocumentService | 246 | ✅ Working (Dropbox) |
+| UINotificationService | 184 | ✅ Working |
+| LocalPOIService | 169 | ✅ Working |
+| UrlTrackingService | NEW | ✅ Extracted from controllers |
+| GoogleCalendarService | 104 | ✅ Working |
+| GeoZoneService | 39 | ✅ Working |
 
-## Entities (36)
-Booking (60 fields), WebBooking (29), UserProfile (22), CompanyConfig (16),
-Account (17), AccountInvoice, AccountPassenger, AccountTariff, AccountUserLink,
-AppRefreshToken, BookingChangeAudit, BookingVia, COARecord, CreditNote,
-DocumentExpiry, DriverAllocation, DriverAvailability, DriverAvailabilityAudit,
-DriverExpense, DriverInvoiceStatement, DriverLocationHistory, DriverMessage,
-DriverOnShift, DriverShiftLog, GeoFence, LocalPOI, MessagingNotifyConfig,
-QRCodeClick, ReviewRequest, Tariff, TurnDown, UINotification, UrlMapping,
-UserActionLog, UserDeviceRegistration, WebAmendmentRequest, ZoneToZonePrice.
+## Recent Changes (2026-03-18)
+1. OSS project merged into RedTaxi.Lib (Modules/Membership + Modules/Messaging)
+2. Renamed AceTaxis → RedTaxi (namespaces, projects, DbContext)
+3. Extracted UrlTrackingService from RedirectController + QRCodeClickCounter
+4. Added structured logging (Serilog)
+5. All regression tests passing (89 bookings, 29 drivers, £50 pricing)
 
-## Secrets/Config (all in appsettings.json)
-
-| Key | Status |
-|-----|--------|
-| SQL connection | ✅ Production string present |
-| JWT secret | ✅ Present |
-| Google Places API key | ✅ Present |
-| IdealPostcodes API key | ✅ Present |
-| TextLocal SMS | ✅ Present |
-| SendGrid | ✅ Present |
-| FCM push | ✅ Present |
-| Twilio WhatsApp | ✅ Present |
-| Sentry DSN | ✅ Present |
-| Dropbox | ✅ Present |
-| Distance Matrix | ⚠️ HARDCODED in TariffService line 466 |
-| Redis | ✅ localhost |
-
-## Key Findings
-
-### Address Integration
-- **IdealPostcodes**: Primary. Custom `IdealPostcodesClient` (73 fields in response)
-- **Google Places**: Secondary. New API v1 (`places.googleapis.com/v1/places:autocomplete`)
-- Both live in `AddressLookupService.cs` (417 lines)
-
-### vs TaxiDispatch.Lib (older version)
-AceTaxis.Lib is a refactored version — 6 services consolidated:
-- CallEventsService → merged into controllers
-- DriverAppService → merged into controllers
-- SmsQueueService → replaced by AceMessagingService
-- UrlTrackingService → removed
-- WebBookingService → merged into controllers
-- WhatsAppService → merged into AceMessagingService
-
-Same 36 entities. Fewer services, consolidated messaging.
-
-## Refactoring Notes
-1. **Controllers contain business logic** — need to extract back to services
-2. **OSS project** — contains shared code AceTaxis.Lib depends on. Merge eventually.
-3. **.NET 7 → .NET 8** upgrade needed (7 is EOL)
-4. **Distance Matrix key hardcoded** — extract to config
-5. **Don't change controller paths or parameters** — frontends depend on them
+## Verified Working (localhost:5092)
+- Login: POST /api/UserProfile/Login → JWT token ✅
+- Bookings: GET /api/Bookings/Today → 89 bookings ✅
+- Pricing: POST /api/Bookings/GetPrice → £50 (SP8→DT9) ✅
+- Drivers: GET /api/AdminUI/DriversList → 29 drivers ✅
+- Address: GET /api/Address/DispatchSearch → 16 results ✅
+- Swagger: 237 endpoints visible ✅
